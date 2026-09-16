@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  example-contract:
+    name: Example contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate example document
+        run: python3 scripts/validate_example.py
+
+  delayed-integration:
+    name: Delayed integration (4 minutes)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Simulate a longer integration check
+        run: sleep 240
+      - name: Validate example document after the delay
+        run: python3 scripts/validate_example.py
+

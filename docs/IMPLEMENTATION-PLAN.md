@@ -1,0 +1,122 @@
+# Auto-Merge lab implementation plan
+
+Status: in progress
+
+This is the living execution record for `ascerra/auto-merge`. Update the status,
+evidence links, and discovered constraints after every material phase.
+
+## Success criteria
+
+The exercise is complete only when all of these statements are proven:
+
+- The repository is private and the only project modified by the exercise.
+- Fullsend is installed in per-repository mode from a pinned current Fullsend
+  main commit.
+- Repo-scoped inference trusts only `ascerra/auto-merge`.
+- Required Fullsend role apps are installed only for this repository.
+- `/fs-triage` on an example issue launches the normal triage path.
+- The code agent creates a signed-off pull request implementing the issue.
+- Review and fix execute, and the final approval applies to the final head SHA.
+- Fast and deliberately delayed four-minute CI checks pass on that head.
+- The custom Auto-Merge agent performs deterministic preflight, bounded model
+  assessment, write-ahead receipt, and authoritative postflight.
+- The post-script either rejects with an auditable reason or merges using an
+  expected-head compare-and-swap.
+- No credential appears in git history, logs captured in the repository, issue
+  text, pull request text, comments, or agent evidence.
+
+## Phase 0 - security and capability gate
+
+- [x] Create `ascerra/auto-merge` as a private repository.
+- [x] Confirm CLI GitHub access without printing credentials.
+- [x] Build the latest Fullsend main locally for features newer than v0.43.0.
+- [x] Preview a repo-scoped Vertex WIF provider whose condition is exactly
+  `assertion.repository == 'ascerra/auto-merge'`.
+- [ ] Provision and verify that provider.
+- [ ] Record a secret-name-only inventory after setup.
+- [ ] Install only the required GitHub role apps for this repository.
+
+Current blocker: the available GCP service account lacks
+`iam.workloadIdentityPools.create` and
+`iam.workloadIdentityPoolProviders.get`. Fullsend documents
+`roles/iam.workloadIdentityPoolAdmin` and
+`roles/resourcemanager.projectIamAdmin` as required for provisioning.
+
+## Phase 1 - repository fixture
+
+- [x] Add the normative security contract.
+- [x] Add a deterministic documentation validator.
+- [x] Add a fast required CI job.
+- [x] Add a second CI job with a deliberate 240-second delay.
+- [x] Protect workflow, Fullsend, ownership, scripts, and security-contract
+  paths through CODEOWNERS.
+- [ ] Commit with DCO sign-off and push the initial `main` branch.
+- [ ] Configure required checks and conservative merge settings.
+
+## Phase 2 - Fullsend per-repo installation
+
+- [ ] Run `fullsend github setup ascerra/auto-merge` with the exact inference
+  project/provider, runtime, current Fullsend ref, and DCO sign-off.
+- [ ] Review every generated file and GitHub-side variable/secret name.
+- [ ] Verify the shim reads trusted configuration from the base branch.
+- [ ] Verify `fullsend github status` reports the GitHub installation healthy.
+- [ ] Trigger a harmless command and retain the Actions URL as runtime proof.
+
+## Phase 3 - custom Auto-Merge agent
+
+- [ ] Generate `auto-merge` with `fullsend agent new` using the hosted `coder`
+  role and `/fs-auto-merge` trigger.
+- [ ] Replace the generated prompt with the bounded semantic policy.
+- [ ] Implement a pre-script that fetches fresh PR state and fails closed.
+- [ ] Define a strict APPROVE/REJECT/ESCALATE result schema.
+- [ ] Implement write-ahead decision receipts.
+- [ ] Implement postflight revalidation and exact-head merge mutation.
+- [ ] Add fixture-based unit tests covering stale SHA, stale approval, pending or
+  failed checks, hold labels, disallowed paths, invalid model output, unknown
+  mergeability, receipt mismatch, and successful exact-head merge.
+- [ ] Run local static validation and a no-mutation dry run.
+- [ ] Scan tracked content and history for secret-like material.
+
+Lab limitation: the hosted mint exposes existing roles rather than a distinct
+`auto-merge` role, so this experiment uses `coder`. The production design must
+give the post-script a purpose-built least-privilege identity and keep that
+credential unavailable to the model sandbox.
+
+## Phase 4 - end-to-end exercise
+
+- [ ] Create an issue requesting a small update to `docs/example-feature.md`
+  with the contract in `AGENTS.md` as acceptance criteria.
+- [ ] Comment `/fs-triage` and capture the triage run URL/result.
+- [ ] Confirm the code agent creates a PR and all commits pass DCO.
+- [ ] Confirm the review agent runs; create a concrete requested change if a
+  deterministic fix-loop stimulus is needed.
+- [ ] Confirm the fix agent updates the PR and capture the final head SHA.
+- [ ] Wait for both CI jobs, including the four-minute job, to pass.
+- [ ] Confirm an approval applies to the final head SHA and no blocker remains.
+- [ ] Comment `/fs-auto-merge`.
+- [ ] Confirm preflight evidence, model decision, receipt, and postflight all
+  bind the same head/base tuple.
+- [ ] Confirm the PR is either merged at that exact head or rejected with a
+  specific, correct reason.
+
+## Phase 5 - final review and evidence
+
+- [ ] Re-review the final diff independently against the security contract.
+- [ ] Run YAML, Python, shell, schema, Fullsend config, and secret scans.
+- [ ] Confirm branch freshness, repository visibility, DCO, checks, reviews,
+  merge state, and absence of native standing auto-merge.
+- [ ] Add an evidence section with issue, PR, workflow, and decision-receipt
+  links.
+- [ ] Record remaining production gaps separately from lab success.
+
+## Evidence log
+
+- Repository: https://github.com/ascerra/auto-merge (private)
+- Fullsend source under test: `fullsend-ai/fullsend` main commit
+  `6aa078bc7dc2a5f0dcf2aea8e78e604e380cb2ff`
+- GCP project number resolved: `855403973659`
+- Planned provider: `projects/855403973659/locations/global/workloadIdentityPools/fullsend-inference/providers/gh-ascerra-auto-merge`
+- Issue: pending
+- Exercise PR: pending
+- Fullsend proof run: pending
+- Auto-Merge decision receipt: pending
