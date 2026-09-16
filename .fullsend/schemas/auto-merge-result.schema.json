@@ -1,0 +1,52 @@
+{
+  "$id": "https://fullsend.sh/schemas/auto-merge-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Structured output from the auto-merge agent, consumed by scripts/post-auto-merge.sh.",
+  "properties": {
+    "binding": {
+      "additionalProperties": false,
+      "properties": {
+        "base_ref": {"const": "main"},
+        "base_sha": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+        "evidence_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "head_sha": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+        "policy_version": {"const": "lab-v1"},
+        "pull_request_number": {"minimum": 1, "type": "integer"},
+        "repository": {"const": "ascerra/auto-merge"}
+      },
+      "required": ["repository", "pull_request_number", "head_sha", "base_ref", "base_sha", "policy_version", "evidence_sha256"],
+      "type": "object"
+    },
+    "decision": {
+      "enum": ["APPROVE", "REJECT", "ESCALATE"],
+      "type": "string"
+    },
+    "reasons": {
+      "items": {"maxLength": 500, "minLength": 1, "type": "string"},
+      "maxItems": 5,
+      "minItems": 1,
+      "type": "array"
+    },
+    "risk_signals": {
+      "items": {"maxLength": 500, "minLength": 1, "type": "string"},
+      "maxItems": 10,
+      "type": "array"
+    },
+    "summary": {
+      "maxLength": 200,
+      "minLength": 1,
+      "pattern": "^[^\\r\\n]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "decision",
+    "binding",
+    "summary",
+    "reasons",
+    "risk_signals"
+  ],
+  "title": "auto-merge Agent Result",
+  "type": "object"
+}

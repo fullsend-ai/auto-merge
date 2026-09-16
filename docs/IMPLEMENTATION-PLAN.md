@@ -33,7 +33,7 @@ The exercise is complete only when all of these statements are proven:
 - [x] Preview a repo-scoped Vertex WIF provider whose condition is exactly
   `assertion.repository == 'ascerra/auto-merge'`.
 - [ ] Provision and verify that provider.
-- [ ] Record a secret-name-only inventory after setup.
+- [x] Record a secret-name-only inventory after setup.
 - [ ] Install only the required GitHub role apps for this repository.
 
 Current blocker: the available GCP service account lacks
@@ -41,6 +41,11 @@ Current blocker: the available GCP service account lacks
 `iam.workloadIdentityPoolProviders.get`. Fullsend documents
 `roles/iam.workloadIdentityPoolAdmin` and
 `roles/resourcemanager.projectIamAdmin` as required for provisioning.
+
+GitHub constraint: private repositories owned by this personal account cannot
+enable branch protection without GitHub Pro. GitHub native auto-merge is
+disabled and the agent enforces required checks, review freshness, unresolved
+threads, and exact-head mutation itself.
 
 ## Phase 1 - repository fixture
 
@@ -50,32 +55,38 @@ Current blocker: the available GCP service account lacks
 - [x] Add a second CI job with a deliberate 240-second delay.
 - [x] Protect workflow, Fullsend, ownership, scripts, and security-contract
   paths through CODEOWNERS.
-- [ ] Commit with DCO sign-off and push the initial `main` branch.
-- [ ] Configure required checks and conservative merge settings.
+- [x] Commit with DCO sign-off and push the initial `main` branch.
+- [x] Configure conservative merge settings (squash only, delete merged branch,
+  native auto-merge disabled).
+- [ ] Configure required checks through branch protection (unavailable on this
+  private personal-account repository; enforced by the agent instead).
 
 ## Phase 2 - Fullsend per-repo installation
 
-- [ ] Run `fullsend github setup ascerra/auto-merge` with the exact inference
+- [x] Run `fullsend github setup ascerra/auto-merge` with the exact inference
   project/provider, runtime, current Fullsend ref, and DCO sign-off.
-- [ ] Review every generated file and GitHub-side variable/secret name.
-- [ ] Verify the shim reads trusted configuration from the base branch.
-- [ ] Verify `fullsend github status` reports the GitHub installation healthy.
+- [x] Review every generated file and GitHub-side variable/secret name.
+- [x] Verify the shim reads trusted configuration from the base branch.
+- [x] Verify the GitHub-side scaffold, variables, secrets, Actions enablement,
+  and custom dispatch independently (`fullsend github status` currently accepts
+  organizations only, not per-repo targets).
 - [ ] Trigger a harmless command and retain the Actions URL as runtime proof.
 
 ## Phase 3 - custom Auto-Merge agent
 
-- [ ] Generate `auto-merge` with `fullsend agent new` using the hosted `coder`
+- [x] Generate `auto-merge` with `fullsend agent new` using the hosted `coder`
   role and `/fs-auto-merge` trigger.
-- [ ] Replace the generated prompt with the bounded semantic policy.
-- [ ] Implement a pre-script that fetches fresh PR state and fails closed.
-- [ ] Define a strict APPROVE/REJECT/ESCALATE result schema.
-- [ ] Implement write-ahead decision receipts.
-- [ ] Implement postflight revalidation and exact-head merge mutation.
-- [ ] Add fixture-based unit tests covering stale SHA, stale approval, pending or
+- [x] Replace the generated prompt with the bounded semantic policy.
+- [x] Implement a pre-script that fetches fresh PR state and fails closed.
+- [x] Define a strict APPROVE/REJECT/ESCALATE result schema.
+- [x] Implement write-ahead decision receipts.
+- [x] Implement postflight revalidation and exact-head merge mutation.
+- [x] Add fixture-based unit tests covering stale SHA, stale approval, pending or
   failed checks, hold labels, disallowed paths, invalid model output, unknown
   mergeability, receipt mismatch, and successful exact-head merge.
-- [ ] Run local static validation and a no-mutation dry run.
-- [ ] Scan tracked content and history for secret-like material.
+- [x] Run local static validation and custom-command dispatch validation.
+- [ ] Run a no-mutation dry run against the exercise PR.
+- [x] Scan tracked content for secret-like material before commit.
 
 Lab limitation: the hosted mint exposes existing roles rather than a distinct
 `auto-merge` role, so this experiment uses `coder`. The production design must
@@ -114,6 +125,8 @@ credential unavailable to the model sandbox.
 - Repository: https://github.com/ascerra/auto-merge (private)
 - Fullsend source under test: `fullsend-ai/fullsend` main commit
   `6aa078bc7dc2a5f0dcf2aea8e78e604e380cb2ff`
+- Agents source observed at implementation time: `fullsend-ai/agents` main
+  commit `6ffe9c7729cf71f3b6f50f8d894cd8e94df83e4d`
 - GCP project number resolved: `855403973659`
 - Planned provider: `projects/855403973659/locations/global/workloadIdentityPools/fullsend-inference/providers/gh-ascerra-auto-merge`
 - Issue: pending

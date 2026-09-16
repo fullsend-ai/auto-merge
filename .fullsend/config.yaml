@@ -9,6 +9,10 @@ roles:
     - triage
     - coder
     - review
+agents:
+    - name: auto-merge
+      source: harness/auto-merge.yaml
+      runtime: claude
 allowed_remote_resources:
     - https://raw.githubusercontent.com/fullsend-ai/fullsend/
     - https://raw.githubusercontent.com/fullsend-ai/agents/
