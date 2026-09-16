@@ -34,13 +34,15 @@ The exercise is complete only when all of these statements are proven:
   `assertion.repository == 'ascerra/auto-merge'`.
 - [ ] Provision and verify that provider.
 - [x] Record a secret-name-only inventory after setup.
-- [ ] Install only the required GitHub role apps for this repository.
+- [x] Install only the required GitHub role apps for this repository.
 
 Current blocker: the available GCP service account lacks
 `iam.workloadIdentityPools.create` and
 `iam.workloadIdentityPoolProviders.get`. Fullsend documents
 `roles/iam.workloadIdentityPoolAdmin` and
 `roles/resourcemanager.projectIamAdmin` as required for provisioning.
+Provisioning also requires explicit approval to create persistent workload
+identity trust in GCP project `it-gcp-konflux-dev-fullsend` before retrying.
 
 GitHub constraint: private repositories owned by this personal account cannot
 enable branch protection without GitHub Pro. GitHub native auto-merge is
@@ -129,6 +131,9 @@ credential unavailable to the model sandbox.
   commit `6ffe9c7729cf71f3b6f50f8d894cd8e94df83e4d`
 - GCP project number resolved: `855403973659`
 - Planned provider: `projects/855403973659/locations/global/workloadIdentityPools/fullsend-inference/providers/gh-ascerra-auto-merge`
+- GitHub Apps: triage, coder, and review installed for only
+  `ascerra/auto-merge` (installation IDs `162307332`, `162307487`, and
+  `162307526`)
 - Issue: pending
 - Exercise PR: pending
 - Fullsend proof run: pending
