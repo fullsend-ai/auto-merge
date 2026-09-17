@@ -1,6 +1,6 @@
 # Auto-Merge lab implementation plan
 
-Status: in progress
+Status: complete for the private lab
 
 This is the living execution record for `ascerra/auto-merge`. Update the status,
 evidence links, and discovered constraints after every material phase.
@@ -78,8 +78,9 @@ threads, and exact-head mutation itself.
 - [x] Commit with DCO sign-off and push the initial `main` branch.
 - [x] Configure conservative merge settings (squash only, delete merged branch,
   native auto-merge disabled).
-- [ ] Configure required checks through branch protection (unavailable on this
-  private personal-account repository; enforced by the agent instead).
+- [x] Record that branch protection is unavailable on this private
+  personal-account repository and enforce the named checks in trusted
+  preflight/postflight instead.
 
 ## Phase 2 - Fullsend per-repo installation
 
@@ -124,38 +125,39 @@ credential unavailable to the model sandbox.
 - [x] Create an issue requesting a small update to `docs/example-feature.md`
   with the contract in `AGENTS.md` as acceptance criteria.
 - [x] Comment `/fs-triage` and capture the triage run URL/result.
-- [ ] Confirm the code agent creates a PR and all commits pass DCO. The PR was
-  created, but its first head `96187af97e0c22e35e0873f77e61911b3dbae7ef`
-  omitted the required `Signed-off-by` trailer and is intentionally blocked.
+- [x] Confirm the code agent creates a PR and the final PR commit passes DCO.
+  The first head `96187af97e0c22e35e0873f77e61911b3dbae7ef`
+  omitted the trailer and was blocked; the final one-commit head
+  `3b1a3ac102b9c4f2d40f9efb8ee6341a73ea6781` is signed off.
 - [x] Confirm the review agent runs; create a concrete requested change if a
   deterministic fix-loop stimulus is needed.
 - [x] Confirm the fix agent updates the PR and capture the final head SHA. Fix
   corrected the semantic wording at `f7aa5b1` but declined DCO by policy; the
-  equivalent final tree was rewritten as one signed-off commit `fa8d3d1`.
+  equivalent final tree was rewritten and finally rebased as signed-off commit
+  `3b1a3ac` on live base `b76f1bb`.
 - [x] Wait for both CI jobs, including the four-minute job, to pass on the
-  final head. The delayed job completed successfully in 4m06s.
+  final head. The delayed job completed successfully in 4m05s.
 - [x] Confirm approvals from Adam and Fullsend Review apply to final head
-  `fa8d3d1` and no review blocker remains.
+  `3b1a3ac` and no review blocker remains.
 - [x] Comment `/fs-auto-merge`.
 - [x] Confirm the first preflight evidence, model decision, receipt, and
   postflight all bind the same head/base tuple. The model safely escalated
   because the base checkout did not contain the PR patch, and postflight did
   not merge.
-- [ ] Confirm the remediated preflight evidence, model decision, receipt, and
-  postflight all
-  bind the same head/base tuple.
-- [ ] Confirm the PR is either merged at that exact head or rejected with a
-  specific, correct reason.
+- [x] Confirm the remediated preflight evidence, model decision, receipt, and
+  postflight all bind exact tuple `main@b76f1bb` <- `3b1a3ac`.
+- [x] Confirm the PR was squash-merged at exact expected head `3b1a3ac` as
+  merge commit `bfad1a0`.
 
 ## Phase 5 - final review and evidence
 
-- [ ] Re-review the final diff independently against the security contract.
-- [ ] Run YAML, Python, shell, schema, Fullsend config, and secret scans.
-- [ ] Confirm branch freshness, repository visibility, DCO, checks, reviews,
+- [x] Re-review the final diff independently against the security contract.
+- [x] Run YAML, Python, shell, schema, Fullsend config, and secret scans.
+- [x] Confirm branch freshness, repository visibility, DCO, checks, reviews,
   merge state, and absence of native standing auto-merge.
-- [ ] Add an evidence section with issue, PR, workflow, and decision-receipt
+- [x] Add an evidence section with issue, PR, workflow, and decision-receipt
   links.
-- [ ] Record remaining production gaps separately from lab success.
+- [x] Record remaining production gaps separately from lab success.
 
 ## Evidence log
 
@@ -180,8 +182,8 @@ credential unavailable to the model sandbox.
   https://github.com/ascerra/auto-merge/actions/runs/35170672367. The role is
   now explicitly enabled; it reuses the already installed coder identity.
 - Successful Fix run: https://github.com/ascerra/auto-merge/actions/runs/35171095208
-- Final-head CI run: https://github.com/ascerra/auto-merge/actions/runs/35171785925
-- Final-head Review run: https://github.com/ascerra/auto-merge/actions/runs/35171784869
+- Intermediate signed-head CI run: https://github.com/ascerra/auto-merge/actions/runs/35171785925
+- Intermediate signed-head Review run: https://github.com/ascerra/auto-merge/actions/runs/35171784869
 - First Auto-Merge run: https://github.com/ascerra/auto-merge/actions/runs/35172951894
   safely returned `ESCALATE` for exact tuple
   `main@ce2eb9547b9742315240827dda746acafa3b4292` <-
@@ -193,5 +195,35 @@ credential unavailable to the model sandbox.
   payload and synthetic merge preview still used `ce2eb95` even though the PR
   showed clean. The strengthened preflight binds `base_sha` from the live
   branch and rejects unless the reported base and merge-preview parent tuple
-  match it. PR #2 must be rebased before another semantic run.
-- Auto-Merge decision receipt: pending
+  match it. PR #2 was then rebased onto final base `b76f1bb`.
+- Final-head CI run: https://github.com/ascerra/auto-merge/actions/runs/35214655514
+- Final-head Review run: https://github.com/ascerra/auto-merge/actions/runs/35214653637
+- Successful Auto-Merge run: https://github.com/ascerra/auto-merge/actions/runs/35216234955
+- Pending decision receipt: https://github.com/ascerra/auto-merge/pull/2#issuecomment-5713721773
+- Merged outcome receipt: https://github.com/ascerra/auto-merge/pull/2#issuecomment-5713723194
+- Exact merged head: `3b1a3ac102b9c4f2d40f9efb8ee6341a73ea6781`
+- Squash merge commit: `bfad1a03b207449dd0a139a22d37ddb6ead7b4f1`
+- Final validation: 27 unit tests, Ruff, Python compilation, Bash syntax,
+  ShellCheck, YAML/JSON schema parsing, Fullsend agent resolution, whitespace,
+  tracked secret-pattern scan, local/remote freshness, and hosted settings all
+  passed.
+
+## Remaining production gaps
+
+- The hosted mint provides this custom stage through the coder identity. A
+  production deployment needs a purpose-built least-privilege merge identity.
+- Fullsend's generated per-repo role list omitted `fix`; this lab enabled it
+  explicitly. The scaffold default should include or intentionally configure
+  Fix when the review/fix loop is requested.
+- The hosted code/fix policy strips DCO trailers from autonomous commits, while
+  this policy requires them. Production must align those policies so manual
+  history repair is unnecessary.
+- This private personal repository cannot enable branch protection. Production
+  must combine trusted gates with rulesets/branch protection rather than treat
+  the lab's compensating control as sufficient.
+- GitHub's merge API provides a head-SHA compare-and-swap but no atomic base-SHA
+  compare-and-swap. Production should add the ADR's per-PR lease or merge-queue
+  authority so the final live-base check and merge request are serialized.
+- GitHub comments are adequate durable receipts for the lab but production
+  should use an idempotent receipt store with reconciliation after ambiguous
+  forge timeouts.
