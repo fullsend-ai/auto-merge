@@ -22,6 +22,8 @@ ISSUE_URL_RE = re.compile(
 )
 SIGNOFF_RE = re.compile(r"(?im)^Signed-off-by:\s+[^<\n]+<[^>\n]+>\s*$")
 DENY_LABELS = {"do-not-merge", "hold", "fullsend-no-merge", "security-review-required"}
+MAX_PATCH_CHARS = 12_000
+MAX_TOTAL_PATCH_CHARS = 24_000
 
 
 class GateError(RuntimeError):
@@ -179,6 +181,16 @@ def evaluate_snapshot(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[
     disallowed = [path for path in changed_paths if path not in policy["allowed_paths"]]
     require(not disallowed, "disallowed changed path: " + ", ".join(disallowed))
     require(len(files) < 100, "changed-file result may be truncated")
+    total_patch_chars = 0
+    for item in files:
+        path = str(item.get("filename", ""))
+        patch = item.get("patch")
+        has_patch = isinstance(patch, str) and bool(patch.strip())
+        require(has_patch, f"patch evidence is missing for: {path}")
+        if has_patch:
+            total_patch_chars += len(patch)
+            require(len(patch) <= MAX_PATCH_CHARS, f"patch evidence exceeds per-file bound for: {path}")
+    require(total_patch_chars <= MAX_TOTAL_PATCH_CHARS, "patch evidence exceeds total bound")
 
     latest_checks = _latest_checks(snapshot["check_runs"])
     check_evidence: list[dict[str, Any]] = []
@@ -271,6 +283,19 @@ def build_evidence(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[str
             "mergeable": pr.get("mergeable"),
             "mergeable_state": pr.get("mergeable_state"),
             "native_auto_merge_enabled": pr.get("auto_merge") is not None,
+        },
+        "semantic": {
+            "changed_files": [
+                {
+                    "path": str(item.get("filename", "")),
+                    "status": str(item.get("status", "")),
+                    "additions": int(item.get("additions", 0)),
+                    "deletions": int(item.get("deletions", 0)),
+                    "changes": int(item.get("changes", 0)),
+                    "patch": str(item.get("patch", ""))[:MAX_PATCH_CHARS],
+                }
+                for item in snapshot["files"]
+            ]
         },
         "policy": policy,
         "deterministic": evaluation,

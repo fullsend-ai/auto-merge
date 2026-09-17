@@ -58,7 +58,16 @@ def eligible_snapshot() -> dict:
             "deletions": 1,
             "changed_files": 1,
         },
-        "files": [{"filename": "docs/example-feature.md"}],
+        "files": [
+            {
+                "filename": "docs/example-feature.md",
+                "status": "modified",
+                "additions": 2,
+                "deletions": 0,
+                "changes": 2,
+                "patch": "@@ -10,0 +11,2 @@\n+Exact-head approval is required.\n+Required CI must pass.",
+            }
+        ],
         "reviews": [
             {
                 "id": 1,
@@ -113,8 +122,18 @@ class GateTests(unittest.TestCase):
 
     def test_disallowed_path_is_rejected(self) -> None:
         snapshot = eligible_snapshot()
-        snapshot["files"] = [{"filename": ".github/workflows/ci.yml"}]
+        snapshot["files"][0]["filename"] = ".github/workflows/ci.yml"
         self.assert_ineligible(snapshot, "disallowed changed path")
+
+    def test_missing_patch_is_rejected(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["files"][0].pop("patch")
+        self.assert_ineligible(snapshot, "patch evidence is missing")
+
+    def test_oversized_patch_is_rejected(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["files"][0]["patch"] = "x" * 12_001
+        self.assert_ineligible(snapshot, "per-file bound")
 
     def test_unknown_mergeability_is_rejected(self) -> None:
         snapshot = eligible_snapshot()
@@ -169,6 +188,11 @@ class BindingTests(unittest.TestCase):
 
     def test_evidence_hash_round_trip(self) -> None:
         self.assertEqual(self.evidence["evidence_sha256"], canonical_hash(self.evidence))
+
+    def test_evidence_contains_bounded_semantic_patch(self) -> None:
+        changed_file = self.evidence["semantic"]["changed_files"][0]
+        self.assertEqual(changed_file["path"], "docs/example-feature.md")
+        self.assertIn("Exact-head approval", changed_file["patch"])
 
     def test_valid_result(self) -> None:
         validate_result(self.result, self.evidence)

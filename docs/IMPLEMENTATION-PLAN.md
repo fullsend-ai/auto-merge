@@ -108,7 +108,7 @@ threads, and exact-head mutation itself.
   failed checks, hold labels, disallowed paths, invalid model output, unknown
   mergeability, receipt mismatch, and successful exact-head merge.
 - [x] Run local static validation and custom-command dispatch validation.
-- [ ] Run a no-mutation dry run against the exercise PR.
+- [x] Run a no-mutation dry run against the exercise PR.
 - [x] Scan tracked content for secret-like material before commit.
 
 Lab limitation: the hosted mint exposes existing roles rather than a distinct
@@ -126,12 +126,20 @@ credential unavailable to the model sandbox.
   omitted the required `Signed-off-by` trailer and is intentionally blocked.
 - [x] Confirm the review agent runs; create a concrete requested change if a
   deterministic fix-loop stimulus is needed.
-- [ ] Confirm the fix agent updates the PR and capture the final head SHA.
+- [x] Confirm the fix agent updates the PR and capture the final head SHA. Fix
+  corrected the semantic wording at `f7aa5b1` but declined DCO by policy; the
+  equivalent final tree was rewritten as one signed-off commit `fa8d3d1`.
 - [x] Wait for both CI jobs, including the four-minute job, to pass on the
-  initial head. The delayed job completed successfully in 4m04s.
-- [ ] Confirm an approval applies to the final head SHA and no blocker remains.
-- [ ] Comment `/fs-auto-merge`.
-- [ ] Confirm preflight evidence, model decision, receipt, and postflight all
+  final head. The delayed job completed successfully in 4m06s.
+- [x] Confirm approvals from Adam and Fullsend Review apply to final head
+  `fa8d3d1` and no review blocker remains.
+- [x] Comment `/fs-auto-merge`.
+- [x] Confirm the first preflight evidence, model decision, receipt, and
+  postflight all bind the same head/base tuple. The model safely escalated
+  because the base checkout did not contain the PR patch, and postflight did
+  not merge.
+- [ ] Confirm the remediated preflight evidence, model decision, receipt, and
+  postflight all
   bind the same head/base tuple.
 - [ ] Confirm the PR is either merged at that exact head or rejected with a
   specific, correct reason.
@@ -168,4 +176,14 @@ credential unavailable to the model sandbox.
   so a real `CHANGES_REQUESTED` event was routed but skipped Fix in run
   https://github.com/ascerra/auto-merge/actions/runs/35170672367. The role is
   now explicitly enabled; it reuses the already installed coder identity.
+- Successful Fix run: https://github.com/ascerra/auto-merge/actions/runs/35171095208
+- Final-head CI run: https://github.com/ascerra/auto-merge/actions/runs/35171785925
+- Final-head Review run: https://github.com/ascerra/auto-merge/actions/runs/35171784869
+- First Auto-Merge run: https://github.com/ascerra/auto-merge/actions/runs/35172951894
+  safely returned `ESCALATE` for exact tuple
+  `main@ce2eb9547b9742315240827dda746acafa3b4292` <-
+  `fa8d3d1dfa1fa0d4a6fc36d6578745c80f3e0d73`. The model could not inspect the
+  PR patch because the trusted checkout intentionally remained at the base.
+  The evidence contract now includes bounded, API-sourced per-file patches;
+  missing or oversized patches fail deterministic preflight.
 - Auto-Merge decision receipt: pending
