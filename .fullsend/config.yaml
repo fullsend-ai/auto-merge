@@ -9,6 +9,7 @@ roles:
     - triage
     - coder
     - review
+    - fix
 agents:
     - name: auto-merge
       source: harness/auto-merge.yaml

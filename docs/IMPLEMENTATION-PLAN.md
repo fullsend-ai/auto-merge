@@ -33,17 +33,20 @@ The exercise is complete only when all of these statements are proven:
 - [x] Preview a repo-scoped Vertex WIF provider in a dedicated
   `ascerra-auto-merge` pool whose condition is exactly
   `assertion.repository == 'ascerra/auto-merge'`.
-- [ ] Provision and verify that provider.
+- [x] Provision and verify that provider.
 - [x] Record a secret-name-only inventory after setup.
 - [x] Install only the required GitHub role apps for this repository.
 
-Current blocker: the available GCP service account lacks
+The available GCP service account lacks
 `iam.workloadIdentityPools.create` and
 `iam.workloadIdentityPoolProviders.get`. Fullsend documents
 `roles/iam.workloadIdentityPoolAdmin` and
-`roles/resourcemanager.projectIamAdmin` as required for provisioning.
-Provisioning also requires explicit approval to create persistent workload
-identity trust in GCP project `it-gcp-konflux-dev-fullsend` before retrying.
+`roles/resourcemanager.projectIamAdmin` as required for provisioning. Two
+attempts failed on the first create-pool request with HTTP 403; neither reached
+provider creation nor project IAM mutation. The dedicated pool/provider and
+repository-scoped IAM member were subsequently created through Adam's
+authenticated console session without granting that service account broader
+administrative roles.
 
 Isolation decision: use `--pool ascerra-auto-merge`, not Fullsend's shared
 `fullsend-inference` default. The public mint uses the separate `fullsend-pool`.
@@ -51,6 +54,13 @@ Provisioning may add only the dedicated pool/provider and one additive
 `roles/aiplatform.user` project IAM member whose principal is scoped to
 `attribute.repository/ascerra/auto-merge`. No mint deploy, enroll, update,
 deprovision, disable, or delete command is permitted in this exercise.
+
+Billing decision: Adam explicitly approved `it-gcp-konflux-dev-fullsend` for
+the lab's inference usage. Isolation is provided by the dedicated pool/provider
+and exact repository condition. The only shared-project IAM mutation is an
+additive `roles/aiplatform.user` member scoped to that repository principal;
+the public mint's pool, providers, service, secrets, and IAM principals remain
+unchanged.
 
 GitHub constraint: private repositories owned by this personal account cannot
 enable branch protection without GitHub Pro. GitHub native auto-merge is
@@ -80,7 +90,8 @@ threads, and exact-head mutation itself.
 - [x] Verify the GitHub-side scaffold, variables, secrets, Actions enablement,
   and custom dispatch independently (`fullsend github status` currently accepts
   organizations only, not per-repo targets).
-- [ ] Trigger a harmless command and retain the Actions URL as runtime proof.
+- [x] Trigger harmless triage and code commands and retain the Actions URLs as
+  runtime proof.
 
 ## Phase 3 - custom Auto-Merge agent
 
@@ -107,14 +118,17 @@ credential unavailable to the model sandbox.
 
 ## Phase 4 - end-to-end exercise
 
-- [ ] Create an issue requesting a small update to `docs/example-feature.md`
+- [x] Create an issue requesting a small update to `docs/example-feature.md`
   with the contract in `AGENTS.md` as acceptance criteria.
-- [ ] Comment `/fs-triage` and capture the triage run URL/result.
-- [ ] Confirm the code agent creates a PR and all commits pass DCO.
-- [ ] Confirm the review agent runs; create a concrete requested change if a
+- [x] Comment `/fs-triage` and capture the triage run URL/result.
+- [ ] Confirm the code agent creates a PR and all commits pass DCO. The PR was
+  created, but its first head `96187af97e0c22e35e0873f77e61911b3dbae7ef`
+  omitted the required `Signed-off-by` trailer and is intentionally blocked.
+- [x] Confirm the review agent runs; create a concrete requested change if a
   deterministic fix-loop stimulus is needed.
 - [ ] Confirm the fix agent updates the PR and capture the final head SHA.
-- [ ] Wait for both CI jobs, including the four-minute job, to pass.
+- [x] Wait for both CI jobs, including the four-minute job, to pass on the
+  initial head. The delayed job completed successfully in 4m04s.
 - [ ] Confirm an approval applies to the final head SHA and no blocker remains.
 - [ ] Comment `/fs-auto-merge`.
 - [ ] Confirm preflight evidence, model decision, receipt, and postflight all
@@ -144,7 +158,14 @@ credential unavailable to the model sandbox.
 - GitHub Apps: triage, coder, and review installed for only
   `ascerra/auto-merge` (installation IDs `162307332`, `162307487`, and
   `162307526`)
-- Issue: pending
-- Exercise PR: pending
-- Fullsend proof run: pending
+- Issue: https://github.com/ascerra/auto-merge/issues/1
+- Exercise PR: https://github.com/ascerra/auto-merge/pull/2
+- Triage proof run: https://github.com/ascerra/auto-merge/actions/runs/35169161822
+- Code proof run: https://github.com/ascerra/auto-merge/actions/runs/35169615563
+- Review proof run: https://github.com/ascerra/auto-merge/actions/runs/35170123039
+- Initial-head CI run: https://github.com/ascerra/auto-merge/actions/runs/35170121938
+- Fix-routing discovery: the generated per-repo config omitted the `fix` role,
+  so a real `CHANGES_REQUESTED` event was routed but skipped Fix in run
+  https://github.com/ascerra/auto-merge/actions/runs/35170672367. The role is
+  now explicitly enabled; it reuses the already installed coder identity.
 - Auto-Merge decision receipt: pending
