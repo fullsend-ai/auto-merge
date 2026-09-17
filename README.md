@@ -34,5 +34,7 @@ python3 scripts/validate_example.py
 
 - Never commit credentials or local environment files.
 - Do not enable GitHub's standing auto-merge facility for the exercise.
-- Use `/fs-auto-merge` only after the review/fix loop and required CI checks
-  have reached a terminal state.
+- The Auto-Merge agent can be requested immediately with `/fs-auto-merge`, or
+  it can wake automatically after an approved review and after the trusted CI
+  readiness workflow adds `fullsend-auto-merge-ready`. These are only
+  evaluation signals; deterministic preflight remains authoritative.

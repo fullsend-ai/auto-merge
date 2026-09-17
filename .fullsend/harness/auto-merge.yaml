@@ -56,8 +56,28 @@ env:
     ISSUE_URL: ${GITHUB_ISSUE_URL}
 timeout_minutes: 15
 trigger: |
-  event.transition.kind == "comment_added"
-    && event.entity.kind == "work_item"
-    && has(event.transition.comment.command)
-    && event.transition.comment.command == "/fs-auto-merge"
-    && (!has(event.state.change_proposal) || !event.state.change_proposal.is_fork)
+  (
+    event.transition.kind == "comment_added"
+      && event.entity.kind == "work_item"
+      && has(event.transition.comment.command)
+      && event.transition.comment.command == "/fs-auto-merge"
+      && (!has(event.state.change_proposal) || !event.state.change_proposal.is_fork)
+  )
+  || (
+    event.transition.kind == "review_submitted"
+      && event.entity.kind == "change_proposal"
+      && has(event.transition.review.state)
+      && event.transition.review.state == "approved"
+      && has(event.state.change_proposal)
+      && !event.state.change_proposal.is_fork
+  )
+  || (
+    event.transition.kind == "label_changed"
+      && event.entity.kind == "change_proposal"
+      && has(event.transition.label.name)
+      && event.transition.label.name == "fullsend-auto-merge-ready"
+      && has(event.transition.label.action)
+      && event.transition.label.action == "added"
+      && has(event.state.change_proposal)
+      && !event.state.change_proposal.is_fork
+  )

@@ -1,14 +1,16 @@
 # Auto-Merge agent implementation
 
-Status: implemented for the private integration lab; hosted execution pending
-inference and GitHub App enrollment
+Status: implemented and exercised in the private integration lab; production
+hardening and GitHub App/DCO alignment remain
 
 ## What this agent is
 
-Auto-Merge is a reconciliation agent for one low-risk pull-request cohort. A
-human requests an evaluation with `/fs-auto-merge`. The command does not grant
-approval and does not enable GitHub's native auto-merge feature. It starts a
-single evaluation of the pull request's current head and base revisions.
+Auto-Merge is a reconciliation agent for one low-risk pull-request cohort. An
+evaluation can begin with an immediate human `/fs-auto-merge` command, an
+approved-review event, or a trusted CI-readiness label. None of these signals
+grants approval or enables GitHub's native auto-merge feature. Each signal
+starts reconciliation of the pull request's current head and base revisions;
+deterministic preflight may stop before model invocation.
 
 The implementation splits responsibility across three trust zones:
 
@@ -24,9 +26,17 @@ The normative invariants are in
 ## Fullsend registration
 
 The agent is registered in `.fullsend/config.yaml` under the name
-`auto-merge`. Its harness is `.fullsend/harness/auto-merge.yaml` and its CEL
-trigger matches a non-fork pull-request comment whose parsed command is exactly
-`/fs-auto-merge`.
+`auto-merge`. Its harness is `.fullsend/harness/auto-merge.yaml`. Its CEL
+trigger matches three wake-up signals: a non-fork pull-request comment whose
+parsed command is exactly `/fs-auto-merge`, an approved review submission, or
+the trusted `fullsend-auto-merge-ready` label being added to a non-fork pull
+request. The label is only a wake-up signal; it is never treated as evidence
+that the PR is mergeable.
+
+`.github/workflows/auto-merge-ready.yml` listens for successful completion of
+the named `CI` workflow, finds pull requests whose current head exactly matches
+the completed run, and adds the readiness label. It removes that label when a
+PR receives new commits or closes. The workflow has no merge step.
 
 The lab uses Fullsend's hosted `coder` role because the hosted mint does not yet
 offer a dedicated auto-merge role. That token exists only in runner environment
@@ -167,8 +177,10 @@ mergeability, native auto-merge, unsigned commits, unresolved threads,
 changes-requested reviews, stale model bindings, invalid decisions, and
 APPROVE results with risk signals.
 
-`fullsend dispatch` is also exercised with a normalized `/fs-auto-merge` event
-to prove the custom harness is registered and selected.
+`fullsend dispatch` is exercised with normalized manual-command,
+approved-review, readiness-label, unrelated-label, and changes-requested review
+events. The first three must select the custom harness; the last two must not.
+The dispatch test is `tests/test_auto_merge_dispatch.py`.
 
 ## Known lab constraints
 

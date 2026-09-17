@@ -1,0 +1,76 @@
+name: Auto-Merge readiness
+
+# This workflow does not merge anything. It emits a label as a wake-up signal
+# after the exact CI workflow succeeds. The Auto-Merge pre-script remains the
+# authority for every deterministic gate and may reject a stale or incomplete
+# PR regardless of this label.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  pull_request:
+    types: [synchronize, closed]
+
+permissions: {}
+
+jobs:
+  mark-ready:
+    if: >-
+      github.event_name == 'workflow_run'
+      && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Mark matching pull requests as Auto-Merge ready
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+
+          gh api --method POST \
+            -H 'Accept: application/vnd.github+json' \
+            "/repos/${REPO}/labels" \
+            -f name='fullsend-auto-merge-ready' \
+            -f color='167A5B' \
+            -f description='Trusted CI success wake-up signal for Auto-Merge' \
+            >/dev/null 2>&1 || true
+
+          gh api \
+            -H 'Accept: application/vnd.github+json' \
+            "/repos/${REPO}/commits/${RUN_SHA}/pulls" \
+            -H 'Accept: application/vnd.github+json' \
+            --jq '.[] | select(.base.ref == "main" and .head.repo.full_name == "'"${REPO}"'") | .number' \
+            | while read -r pr_number; do
+                [[ -n "${pr_number}" ]] || continue
+
+                head_sha=$(gh pr view "${pr_number}" --repo "${REPO}" --json headRefOid --jq '.headRefOid')
+                [[ "${head_sha}" == "${RUN_SHA}" ]] || continue
+
+                gh pr edit "${pr_number}" --repo "${REPO}" \
+                  --add-label 'fullsend-auto-merge-ready'
+              done
+
+  clear-ready:
+    if: >-
+      github.event_name == 'pull_request'
+      && (github.event.action == 'synchronize' || github.event.action == 'closed')
+    runs-on: ubuntu-24.04
+    permissions:
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Clear stale Auto-Merge readiness signal
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          gh pr edit "${PR_NUMBER}" --repo "${REPO}" \
+            --remove-label 'fullsend-auto-merge-ready' || true

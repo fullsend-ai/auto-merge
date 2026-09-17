@@ -111,11 +111,23 @@ expected head SHA. If the forge reports that the head changed, the agent records
 a stale-decision rejection and waits for a new reconciliation event. It does
 not enable native auto-merge or leave behind standing authority.
 
-## Human trigger
+## Evaluation triggers
 
 `/fs-auto-merge` follows the same preflight, semantic decision, receipt, and
-postflight path. A human command requests evaluation; it does not bypass any
-gate and is not itself an approval.
+postflight path. A human command requests immediate evaluation; it does not
+bypass any gate and is not itself an approval.
+
+The harness may also request evaluation when:
+
+- a non-fork pull request receives an approved review; or
+- the trusted `auto-merge-ready` workflow adds
+  `fullsend-auto-merge-ready` after the exact required CI workflow succeeds.
+
+These automatic events are wake-up signals, not eligibility evidence. The
+pre-script must stop before model invocation when the other readiness condition
+is missing, and it must recollect every mutable fact before any merge attempt.
+The readiness label is removed when the PR receives new commits or closes, so
+a later head cannot inherit an earlier CI wake-up signal.
 
 ## Explicit non-goals
 
