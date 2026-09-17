@@ -25,6 +25,7 @@ from jsonschema import validate  # noqa: E402
 
 HEAD = "a" * 40
 BASE = "b" * 40
+MERGE = "c" * 40
 
 
 def policy() -> dict:
@@ -53,11 +54,14 @@ def eligible_snapshot() -> dict:
             "labels": [],
             "mergeable": True,
             "mergeable_state": "clean",
+            "merge_commit_sha": MERGE,
             "auto_merge": None,
             "additions": 3,
             "deletions": 1,
             "changed_files": 1,
         },
+        "base_branch": {"commit": {"sha": BASE}},
+        "merge_preview": {"sha": MERGE, "parents": [{"sha": BASE}, {"sha": HEAD}]},
         "files": [
             {
                 "filename": "docs/example-feature.md",
@@ -139,6 +143,16 @@ class GateTests(unittest.TestCase):
         snapshot = eligible_snapshot()
         snapshot["pull_request"]["mergeable"] = None
         self.assert_ineligible(snapshot, "false or unknown")
+
+    def test_stale_reported_base_is_rejected(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["base_branch"]["commit"]["sha"] = "d" * 40
+        self.assert_ineligible(snapshot, "live base SHA")
+
+    def test_stale_merge_preview_is_rejected(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["merge_preview"]["parents"][0]["sha"] = "d" * 40
+        self.assert_ineligible(snapshot, "merge preview")
 
     def test_native_auto_merge_is_rejected(self) -> None:
         snapshot = eligible_snapshot()

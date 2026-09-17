@@ -46,6 +46,9 @@ Before inference, the trusted pre-script must establish all of the following:
 
 1. The target is an open, non-draft pull request in the configured repository.
 2. The current head SHA and base ref/SHA are recorded from fresh forge state.
+   The base SHA comes from the live base branch, not only the pull-request
+   payload. The payload's reported base SHA and the synthetic merge preview's
+   ordered parents must match that live base SHA and exact head SHA.
 3. The author and changed paths fit the configured low-risk cohort.
 4. No hold label, changes-requested review, unresolved review blocker, or
    policy-denied path is present.
@@ -91,7 +94,7 @@ Immediately before mutation, the post-script obtains fresh forge state and
 repeats every mutable gate. It must verify at least:
 
 - repository and pull request identity;
-- exact head SHA, base ref, and base SHA;
+- exact head SHA, base ref, live base SHA, and merge-preview parent tuple;
 - required check conclusions for that head;
 - review decision and approval revision;
 - draft/open state, labels, unresolved blockers, mergeability, and policy
@@ -122,4 +125,3 @@ gate and is not itself an approval.
 - Auto-merging changes to workflows, Fullsend configuration, agent prompts,
   security policy, ownership files, or the merge implementation itself.
 - Preserving or supporting the legacy `CODE_AUTO_MERGE` path.
-

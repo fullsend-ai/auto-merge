@@ -102,6 +102,9 @@ threads, and exact-head mutation itself.
 - [x] Define a strict APPROVE/REJECT/ESCALATE result schema.
 - [x] Implement write-ahead decision receipts.
 - [x] Implement postflight revalidation and exact-head merge mutation.
+- [x] Bind base eligibility to the live base-branch SHA and require GitHub's
+  synthetic merge preview to have exactly `[live_base_sha, head_sha]` parents;
+  never trust the stale `pull_request.base.sha` field alone.
 - [x] Bind privileged postflight independently to immutable runner policy and
   the triggering repository/PR URL; reject model-visible evidence tampering.
 - [x] Add fixture-based unit tests covering stale SHA, stale approval, pending or
@@ -186,4 +189,9 @@ credential unavailable to the model sandbox.
   PR patch because the trusted checkout intentionally remained at the base.
   The evidence contract now includes bounded, API-sourced per-file patches;
   missing or oversized patches fail deterministic preflight.
+- Live-base binding discovery: after `main` advanced to `4af79b3`, GitHub's PR
+  payload and synthetic merge preview still used `ce2eb95` even though the PR
+  showed clean. The strengthened preflight binds `base_sha` from the live
+  branch and rejects unless the reported base and merge-preview parent tuple
+  match it. PR #2 must be rebased before another semantic run.
 - Auto-Merge decision receipt: pending

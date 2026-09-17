@@ -13,6 +13,7 @@ import re
 import subprocess
 import sys
 from typing import Any
+from urllib.parse import quote
 
 
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -70,6 +71,11 @@ def collect_snapshot(repository: str, number: int) -> dict[str, Any]:
     head_sha = pr.get("head", {}).get("sha", "")
     if not SHA_RE.fullmatch(head_sha):
         raise GateError("pull request returned an invalid head SHA")
+    base_ref = str((pr.get("base") or {}).get("ref", ""))
+    if not base_ref:
+        raise GateError("pull request returned an empty base ref")
+    branch_endpoint = f"repos/{repository}/branches/{quote(base_ref, safe='')}"
+    base_before = gh_json("api", branch_endpoint)
 
     files = gh_json("api", f"repos/{repository}/pulls/{number}/files?per_page=100")
     reviews = gh_json("api", f"repos/{repository}/pulls/{number}/reviews?per_page=100")
@@ -100,8 +106,24 @@ def collect_snapshot(repository: str, number: int) -> dict[str, Any]:
         .get("reviewThreads", {})
     )
 
+    pr_after = gh_json("api", f"repos/{repository}/pulls/{number}")
+    base_after = gh_json("api", branch_endpoint)
+    if (pr_after.get("head") or {}).get("sha") != head_sha:
+        raise GateError("pull-request head changed while evidence was collected")
+    if (pr_after.get("base") or {}).get("ref") != base_ref:
+        raise GateError("pull-request base ref changed while evidence was collected")
+    if (base_before.get("commit") or {}).get("sha") != (base_after.get("commit") or {}).get("sha"):
+        raise GateError("base branch changed while evidence was collected")
+
+    merge_preview: dict[str, Any] = {}
+    merge_commit_sha = str(pr_after.get("merge_commit_sha") or "")
+    if SHA_RE.fullmatch(merge_commit_sha):
+        merge_preview = gh_json("api", f"repos/{repository}/git/commits/{merge_commit_sha}")
+
     return {
-        "pull_request": pr,
+        "pull_request": pr_after,
+        "base_branch": base_after,
+        "merge_preview": merge_preview,
         "files": files,
         "reviews": reviews,
         "commits": commits,
@@ -151,7 +173,8 @@ def evaluate_snapshot(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[
     pr = snapshot["pull_request"]
     repository = policy["repository"]
     head_sha = str((pr.get("head") or {}).get("sha", ""))
-    base_sha = str((pr.get("base") or {}).get("sha", ""))
+    reported_base_sha = str((pr.get("base") or {}).get("sha", ""))
+    live_base_sha = str((snapshot.get("base_branch") or {}).get("commit", {}).get("sha", ""))
     failures: list[str] = []
 
     def require(condition: bool, reason: str) -> None:
@@ -161,13 +184,24 @@ def evaluate_snapshot(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[
     require(pr.get("state") == "open", "pull request is not open")
     require(pr.get("draft") is False, "pull request is a draft")
     require(SHA_RE.fullmatch(head_sha) is not None, "head SHA is invalid")
-    require(SHA_RE.fullmatch(base_sha) is not None, "base SHA is invalid")
+    require(SHA_RE.fullmatch(reported_base_sha) is not None, "reported base SHA is invalid")
+    require(SHA_RE.fullmatch(live_base_sha) is not None, "live base SHA is invalid")
     require((pr.get("base") or {}).get("ref") == policy["base_ref"], "base ref is not allowed")
     require((pr.get("base") or {}).get("repo", {}).get("full_name") == repository, "base repository mismatch")
     require((pr.get("head") or {}).get("repo", {}).get("full_name") == repository, "fork pull requests are not allowed")
     require(pr.get("mergeable") is True, "mergeability is false or unknown")
     require(pr.get("mergeable_state") == "clean", "mergeable state is not clean")
     require(pr.get("auto_merge") is None, "native standing auto-merge is enabled")
+    require(reported_base_sha == live_base_sha, "pull request is not bound to the live base SHA")
+
+    merge_preview = snapshot.get("merge_preview") or {}
+    merge_preview_sha = str(merge_preview.get("sha", ""))
+    merge_preview_parents = [str(parent.get("sha", "")) for parent in merge_preview.get("parents", [])]
+    require(SHA_RE.fullmatch(merge_preview_sha) is not None, "merge preview SHA is unavailable")
+    require(
+        merge_preview_parents == [live_base_sha, head_sha],
+        "merge preview is not bound to the live base and exact head",
+    )
 
     author = str((pr.get("user") or {}).get("login", ""))
     require(author in policy["allowed_authors"], f"author {author or '<unknown>'} is not allowed")
@@ -255,6 +289,9 @@ def evaluate_snapshot(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[
         "changes_requested_by": changes_requested,
         "unresolved_review_threads": unresolved_count,
         "commits": commit_evidence,
+        "live_base_sha": live_base_sha,
+        "merge_preview_sha": merge_preview_sha,
+        "merge_preview_parents": merge_preview_parents,
     }
 
 
@@ -269,7 +306,7 @@ def build_evidence(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[str
             "pull_request_number": int(pr["number"]),
             "head_sha": pr["head"]["sha"],
             "base_ref": pr["base"]["ref"],
-            "base_sha": pr["base"]["sha"],
+            "base_sha": snapshot["base_branch"]["commit"]["sha"],
             "policy_version": policy["policy_version"],
         },
         "pull_request": {
@@ -282,6 +319,8 @@ def build_evidence(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[str
             "changed_files": pr.get("changed_files", 0),
             "mergeable": pr.get("mergeable"),
             "mergeable_state": pr.get("mergeable_state"),
+            "reported_base_sha": (pr.get("base") or {}).get("sha", ""),
+            "merge_preview_sha": (snapshot.get("merge_preview") or {}).get("sha", ""),
             "native_auto_merge_enabled": pr.get("auto_merge") is not None,
         },
         "semantic": {
