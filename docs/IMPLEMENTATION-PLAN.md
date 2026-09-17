@@ -30,7 +30,8 @@ The exercise is complete only when all of these statements are proven:
 - [x] Create `ascerra/auto-merge` as a private repository.
 - [x] Confirm CLI GitHub access without printing credentials.
 - [x] Build the latest Fullsend main locally for features newer than v0.43.0.
-- [x] Preview a repo-scoped Vertex WIF provider whose condition is exactly
+- [x] Preview a repo-scoped Vertex WIF provider in a dedicated
+  `ascerra-auto-merge` pool whose condition is exactly
   `assertion.repository == 'ascerra/auto-merge'`.
 - [ ] Provision and verify that provider.
 - [x] Record a secret-name-only inventory after setup.
@@ -43,6 +44,13 @@ Current blocker: the available GCP service account lacks
 `roles/resourcemanager.projectIamAdmin` as required for provisioning.
 Provisioning also requires explicit approval to create persistent workload
 identity trust in GCP project `it-gcp-konflux-dev-fullsend` before retrying.
+
+Isolation decision: use `--pool ascerra-auto-merge`, not Fullsend's shared
+`fullsend-inference` default. The public mint uses the separate `fullsend-pool`.
+Provisioning may add only the dedicated pool/provider and one additive
+`roles/aiplatform.user` project IAM member whose principal is scoped to
+`attribute.repository/ascerra/auto-merge`. No mint deploy, enroll, update,
+deprovision, disable, or delete command is permitted in this exercise.
 
 GitHub constraint: private repositories owned by this personal account cannot
 enable branch protection without GitHub Pro. GitHub native auto-merge is
@@ -83,6 +91,8 @@ threads, and exact-head mutation itself.
 - [x] Define a strict APPROVE/REJECT/ESCALATE result schema.
 - [x] Implement write-ahead decision receipts.
 - [x] Implement postflight revalidation and exact-head merge mutation.
+- [x] Bind privileged postflight independently to immutable runner policy and
+  the triggering repository/PR URL; reject model-visible evidence tampering.
 - [x] Add fixture-based unit tests covering stale SHA, stale approval, pending or
   failed checks, hold labels, disallowed paths, invalid model output, unknown
   mergeability, receipt mismatch, and successful exact-head merge.
@@ -130,7 +140,7 @@ credential unavailable to the model sandbox.
 - Agents source observed at implementation time: `fullsend-ai/agents` main
   commit `6ffe9c7729cf71f3b6f50f8d894cd8e94df83e4d`
 - GCP project number resolved: `855403973659`
-- Planned provider: `projects/855403973659/locations/global/workloadIdentityPools/fullsend-inference/providers/gh-ascerra-auto-merge`
+- Planned provider: `projects/855403973659/locations/global/workloadIdentityPools/ascerra-auto-merge/providers/gh-ascerra-auto-merge`
 - GitHub Apps: triage, coder, and review installed for only
   `ascerra/auto-merge` (installation IDs `162307332`, `162307487`, and
   `162307526`)

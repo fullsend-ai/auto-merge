@@ -12,6 +12,7 @@ import sys
 import tempfile
 import unittest
 from unittest import mock
+import yaml
 
 
 SCRIPTS = Path(__file__).parents[1] / ".fullsend" / "scripts"
@@ -149,6 +150,12 @@ class GateTests(unittest.TestCase):
         self.assert_ineligible(snapshot, "changes-requested")
 
 
+class RepositoryBoundaryTests(unittest.TestCase):
+    def test_only_issue_write_target_is_exercise_repository(self) -> None:
+        config = yaml.safe_load((SCRIPTS.parent / "config.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(config["create_issues"]["allow_targets"]["repos"], ["ascerra/auto-merge"])
+
+
 class BindingTests(unittest.TestCase):
     def setUp(self) -> None:
         self.evidence = build_evidence(eligible_snapshot(), policy())
@@ -190,6 +197,12 @@ class BindingTests(unittest.TestCase):
         result_path.write_text(json.dumps(self.result), encoding="utf-8")
         return SimpleNamespace(
             issue_url="https://github.com/ascerra/auto-merge/issues/7",
+            allowed_repository="ascerra/auto-merge",
+            base_ref="main",
+            policy_version="lab-v1",
+            required_checks="Example contract,Delayed integration (4 minutes)",
+            allowed_paths="docs/example-feature.md",
+            allowed_authors="fullsend-ai-coder[bot]",
             evidence=str(evidence_path),
             result=str(result_path),
             gate_script=str(SCRIPTS / "auto_merge_gate.py"),
@@ -245,6 +258,37 @@ class BindingTests(unittest.TestCase):
                 self.assertEqual(finalize(args), 0)
                 self.assertEqual(receipt.call_count, 2)
                 collect.assert_not_called()
+                merge.assert_not_called()
+
+    def test_tampered_repository_never_posts_or_merges(self) -> None:
+        self.evidence["policy"]["repository"] = "fullsend-ai/fullsend"
+        self.evidence["binding"]["repository"] = "fullsend-ai/fullsend"
+        self.evidence["evidence_sha256"] = canonical_hash(self.evidence)
+        self.evidence["binding"]["evidence_sha256"] = self.evidence["evidence_sha256"]
+        self.result["binding"] = copy.deepcopy(self.evidence["binding"])
+        with tempfile.TemporaryDirectory() as directory:
+            args = self._files_and_args(directory)
+            with mock.patch("auto_merge_finalize.post_receipt") as receipt, mock.patch(
+                "auto_merge_finalize.gh"
+            ) as merge:
+                with self.assertRaisesRegex(GateError, "trusted runner policy"):
+                    finalize(args)
+                receipt.assert_not_called()
+                merge.assert_not_called()
+
+    def test_tampered_pull_request_number_never_posts_or_merges(self) -> None:
+        self.evidence["binding"]["pull_request_number"] = 99
+        self.evidence["evidence_sha256"] = canonical_hash(self.evidence)
+        self.evidence["binding"]["evidence_sha256"] = self.evidence["evidence_sha256"]
+        self.result["binding"] = copy.deepcopy(self.evidence["binding"])
+        with tempfile.TemporaryDirectory() as directory:
+            args = self._files_and_args(directory)
+            with mock.patch("auto_merge_finalize.post_receipt") as receipt, mock.patch(
+                "auto_merge_finalize.gh"
+            ) as merge:
+                with self.assertRaisesRegex(GateError, "trusted repository and pull request URL"):
+                    finalize(args)
+                receipt.assert_not_called()
                 merge.assert_not_called()
 
 

@@ -13,7 +13,7 @@ import sys
 import tempfile
 from typing import Any
 
-from auto_merge_gate import GateError, canonical_hash
+from auto_merge_gate import GateError, ISSUE_URL_RE, canonical_hash, csv_values
 
 
 DECISIONS = {"APPROVE", "REJECT", "ESCALATE"}
@@ -79,6 +79,21 @@ def validate_result(result: dict[str, Any], evidence: dict[str, Any]) -> None:
         raise GateError("APPROVE cannot contain risk signals")
 
 
+def trusted_policy(args: argparse.Namespace) -> dict[str, Any]:
+    """Build policy only from trusted runner arguments, never model-visible evidence."""
+    policy = {
+        "repository": args.allowed_repository,
+        "base_ref": args.base_ref,
+        "policy_version": args.policy_version,
+        "required_checks": csv_values(args.required_checks),
+        "allowed_paths": csv_values(args.allowed_paths),
+        "allowed_authors": csv_values(args.allowed_authors),
+    }
+    if not policy["required_checks"] or not policy["allowed_paths"] or not policy["allowed_authors"]:
+        raise GateError("trusted policy inputs must be non-empty")
+    return policy
+
+
 def receipt_markdown(
     result: dict[str, Any],
     evidence: dict[str, Any],
@@ -119,8 +134,8 @@ def post_receipt(repository: str, number: int, body: str) -> None:
     )
 
 
-def collect_fresh(args: argparse.Namespace, evidence: dict[str, Any], destination: Path) -> dict[str, Any]:
-    policy = evidence["policy"]
+def collect_fresh(args: argparse.Namespace, destination: Path) -> dict[str, Any]:
+    policy = trusted_policy(args)
     command = [
         "python3",
         args.gate_script,
@@ -160,12 +175,23 @@ def finalize(args: argparse.Namespace) -> int:
         raise GateError("preflight binding evidence hash is invalid")
     if evidence.get("deterministic", {}).get("eligible") is not True:
         raise GateError("preflight evidence was not eligible")
+    policy = trusted_policy(args)
+    if evidence.get("policy") != policy:
+        raise GateError("preflight policy does not exactly match trusted runner policy")
 
     result = read_object(Path(args.result), "model result")
     validate_result(result, evidence)
     binding = evidence["binding"]
     repository = binding["repository"]
     number = int(binding["pull_request_number"])
+    issue_match = ISSUE_URL_RE.fullmatch(args.issue_url)
+    if (
+        issue_match is None
+        or issue_match.group("repo") != args.allowed_repository
+        or int(issue_match.group("number")) != number
+        or repository != args.allowed_repository
+    ):
+        raise GateError("preflight binding does not match the trusted repository and pull request URL")
 
     # A durable write-ahead receipt must succeed before any merge attempt.
     post_receipt(
@@ -183,7 +209,7 @@ def finalize(args: argparse.Namespace) -> int:
         return 0
 
     with tempfile.TemporaryDirectory(prefix="auto-merge-postflight-") as tmp:
-        fresh = collect_fresh(args, evidence, Path(tmp) / "evidence.json")
+        fresh = collect_fresh(args, Path(tmp) / "evidence.json")
 
     if fresh.get("evidence_sha256") != canonical_hash(fresh):
         raise GateError("postflight evidence hash is invalid")
@@ -240,6 +266,12 @@ def finalize(args: argparse.Namespace) -> int:
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser()
     result.add_argument("--issue-url", required=True)
+    result.add_argument("--allowed-repository", required=True)
+    result.add_argument("--base-ref", required=True)
+    result.add_argument("--policy-version", required=True)
+    result.add_argument("--required-checks", required=True)
+    result.add_argument("--allowed-paths", required=True)
+    result.add_argument("--allowed-authors", required=True)
     result.add_argument("--evidence", required=True)
     result.add_argument("--result", required=True)
     result.add_argument("--gate-script", required=True)
