@@ -68,6 +68,9 @@ class AutoMergeDispatchTests(unittest.TestCase):
     def test_readiness_label_selects_agent(self) -> None:
         self.assert_selected(event({"kind": "label_changed", "label": {"name": "fullsend-auto-merge-ready", "action": "added"}}))
 
+    def test_readiness_label_on_work_item_selects_agent(self) -> None:
+        self.assert_selected(event({"kind": "label_changed", "label": {"name": "fullsend-auto-merge-ready", "action": "added"}}, entity_kind="work_item"))
+
     def test_unrelated_label_does_not_select_agent(self) -> None:
         self.assertEqual(dispatch(event({"kind": "label_changed", "label": {"name": "hold", "action": "added"}})), [])
 
