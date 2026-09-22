@@ -9,13 +9,11 @@ artifact for agent-authored changes.
 
 ## Behavior
 
-The exercise issue will ask the code agent to extend this section with one
-small, reviewable behavior statement.
-
-The Auto-Merge agent may merge a pull request only after an exact-head review approval, all required CI checks, and configured policy gates have passed.
+In lab-automatic mode, Auto-Merge writes a pending receipt, repeats every gate,
+and requests an exact-head squash merge only after review, required CI, and the
+configured policy all pass for the same revision.
 
 ## Verification
 
 Run `python3 scripts/validate_example.py` and confirm both pull-request CI jobs
 complete successfully.
-
