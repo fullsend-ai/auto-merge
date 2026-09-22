@@ -42,7 +42,7 @@ env:
     AUTO_MERGE_ALLOWED_REPO: "ascerra/auto-merge"
     AUTO_MERGE_BASE_REF: "main"
     AUTO_MERGE_POLICY_VERSION: "lab-v1"
-    AUTO_MERGE_MODE: "observe"
+    AUTO_MERGE_MODE: "lab-automatic"
     AUTO_MERGE_REQUIRED_CHECKS: "Example contract,Delayed integration (4 minutes)"
     FULLSEND_FORGE: github
     GH_TOKEN: ${GH_TOKEN}

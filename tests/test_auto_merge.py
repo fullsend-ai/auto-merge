@@ -18,7 +18,7 @@ import yaml
 SCRIPTS = Path(__file__).parents[1] / ".fullsend" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
-from auto_merge_finalize import GateError, finalize, validate_result  # noqa: E402
+from auto_merge_finalize import GateError, existing_receipt_phases, finalize, validate_result  # noqa: E402
 from auto_merge_gate import build_evidence, canonical_hash, evaluate_snapshot, policy_fingerprint  # noqa: E402
 from jsonschema import validate  # noqa: E402
 
@@ -189,10 +189,16 @@ class RepositoryBoundaryTests(unittest.TestCase):
         config = yaml.safe_load((SCRIPTS.parent / "config.yaml").read_text(encoding="utf-8"))
         self.assertEqual(config["create_issues"]["allow_targets"]["repos"], ["ascerra/auto-merge"])
 
-    def test_observe_finalizer_has_no_github_mutation_call(self) -> None:
+    def test_lab_finalizer_uses_expected_head_merge_endpoint(self) -> None:
         source = (SCRIPTS / "auto_merge_finalize.py").read_text(encoding="utf-8")
-        self.assertNotIn("pulls/{number}/merge", source)
-        self.assertNotIn("--method", source)
+        self.assertIn("pulls/{number}/merge", source)
+        self.assertIn("f\"sha={binding['head_sha']}\"", source)
+
+    def test_untrusted_comment_cannot_spoof_idempotency_receipt(self) -> None:
+        marker = "<!-- fullsend:auto-merge-receipt:key:pending -->"
+        comments = [[{"body": marker, "user": {"login": "untrusted-user"}}]]
+        with mock.patch("auto_merge_finalize.gh", return_value=json.dumps(comments)):
+            self.assertEqual(existing_receipt_phases("ascerra/auto-merge", 7, "key"), set())
 
 
 class BindingTests(unittest.TestCase):
@@ -205,6 +211,13 @@ class BindingTests(unittest.TestCase):
             "reasons": ["The change matches the issue and required checks passed"],
             "risk_signals": [],
         }
+
+    def _set_mode(self, mode: str) -> None:
+        self.evidence["policy"]["mode"] = mode
+        self.evidence["binding"]["policy_fingerprint"] = policy_fingerprint(self.evidence["policy"])
+        self.evidence["context_fingerprint"] = canonical_hash(self.evidence)
+        self.evidence["binding"]["context_fingerprint"] = self.evidence["context_fingerprint"]
+        self.result["binding"] = copy.deepcopy(self.evidence["binding"])
 
     def test_evidence_hash_round_trip(self) -> None:
         self.assertEqual(self.evidence["context_fingerprint"], canonical_hash(self.evidence))
@@ -249,7 +262,7 @@ class BindingTests(unittest.TestCase):
             allowed_repository="ascerra/auto-merge",
             base_ref="main",
             policy_version="lab-v1",
-            mode="observe",
+            mode=self.evidence["policy"]["mode"],
             required_checks="Example contract,Delayed integration (4 minutes)",
             allowed_paths="docs/example-feature.md",
             allowed_authors="fullsend-ai-coder[bot]",
@@ -266,6 +279,45 @@ class BindingTests(unittest.TestCase):
             ), mock.patch("builtins.print") as output:
                 self.assertEqual(finalize(args), 0)
                 output.assert_any_call(mock.ANY)
+
+    def test_lab_automatic_posts_pending_then_merges_exact_head(self) -> None:
+        self._set_mode("lab-automatic")
+        receipts: list[str] = []
+
+        def record(_repository: str, _number: int, body: str) -> None:
+            receipts.append(body)
+
+        with tempfile.TemporaryDirectory() as directory:
+            args = self._files_and_args(directory)
+            with mock.patch.dict(os.environ, {"GH_TOKEN": "test-token"}, clear=False), mock.patch(
+                "auto_merge_finalize.collect_fresh", return_value=copy.deepcopy(self.evidence)
+            ) as collect, mock.patch(
+                "auto_merge_finalize.existing_receipt_phases", return_value=set()
+            ), mock.patch(
+                "auto_merge_finalize.post_receipt", side_effect=record
+            ), mock.patch(
+                "auto_merge_finalize.gh", return_value='{"merged": true}'
+            ) as request:
+                self.assertEqual(finalize(args), 0)
+
+        self.assertEqual(collect.call_count, 2)
+        self.assertIn(":pending -->", receipts[0])
+        self.assertIn(":merged -->", receipts[1])
+        self.assertIn(f"sha={HEAD}", request.call_args.args)
+
+    def test_existing_pending_receipt_suppresses_duplicate_merge(self) -> None:
+        self._set_mode("lab-automatic")
+        with tempfile.TemporaryDirectory() as directory:
+            args = self._files_and_args(directory)
+            with mock.patch.dict(os.environ, {"GH_TOKEN": "test-token"}, clear=False), mock.patch(
+                "auto_merge_finalize.collect_fresh", return_value=copy.deepcopy(self.evidence)
+            ), mock.patch(
+                "auto_merge_finalize.existing_receipt_phases", return_value={"pending"}
+            ), mock.patch(
+                "auto_merge_finalize.pull_request_state", return_value={"merged": False}
+            ), mock.patch("auto_merge_finalize.gh") as request, mock.patch("builtins.print"):
+                self.assertEqual(finalize(args), 0)
+                request.assert_not_called()
 
     def test_stale_postflight_binding_never_merges(self) -> None:
         fresh = copy.deepcopy(self.evidence)

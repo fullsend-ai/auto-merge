@@ -1,8 +1,7 @@
 # Auto-Merge agent implementation
 
-Status: observe-only POC aligned with Fullsend ADR 0110; the earlier lab proved
-an exact-head merge, but mutation is now deliberately disabled pending the
-production authority controls
+Status: mutation-capable private lab with ADR-aligned bindings and postflight;
+not a production implementation
 
 ## What this agent is
 
@@ -18,8 +17,8 @@ The implementation splits responsibility across three trust zones:
 1. A trusted runner pre-script reads live GitHub state and applies deterministic
    policy.
 2. A credential-free model sandbox evaluates the bounded semantic evidence.
-3. A trusted runner post-script records an Actions-log preview and refreshes
-   every mutable fact. This POC never calls a GitHub mutation endpoint.
+3. A trusted runner post-script refreshes every mutable fact and, only in the
+   private lab's `lab-automatic` mode, may request one exact-head squash merge.
 
 The normative invariants are in
 [`AUTO-MERGE-SECURITY-CONTRACT.md`](AUTO-MERGE-SECURITY-CONTRACT.md).
@@ -43,9 +42,9 @@ The lab uses Fullsend's hosted `coder` role because the hosted mint does not yet
 offer a dedicated auto-merge role. That token exists only in runner environment
 for pre/post scripts. The harness deliberately omits `GH_TOKEN` and the GitHub
 provider/profile from `env.sandbox`; the model cannot query or mutate GitHub.
-The current policy mode is `observe`. Production should replace `coder` with a
-purpose-built identity and split read/observe capability from the narrowly
-constrained live merge driver.
+The current policy mode is `lab-automatic`; `observe` remains available.
+Production should replace `coder` with a purpose-built identity and split
+read/observe capability from the narrowly constrained live merge driver.
 
 ## Deterministic preflight
 
@@ -120,13 +119,15 @@ allows no extra fields and constrains decisions, hashes, lengths, reason counts,
 and risk counts. The trusted post-script adds the stronger invariant that
 `APPROVE` must have an empty `risk_signals` array.
 
-## Observe record
+## Decision and pending receipts
 
 After Fullsend's validation loop accepts the model JSON, the post-script invokes
 `.fullsend/scripts/auto_merge_finalize.py`. It verifies both fingerprints,
 eligibility, schema-level fields, exact binding, and the APPROVE/risk invariant.
-It emits decision and outcome previews to the Actions log. Observe mode makes no
-pull-request comment, merge, queue, label, or other GitHub mutation.
+Observe mode emits only an Actions-log preview. `lab-automatic` posts a durable
+pending comment only after a successful postflight, derives an idempotency key
+from the bound tuple and operation, runs the full gate again after the pending
+receipt, then records the final outcome.
 
 ## Authoritative postflight
 
@@ -141,14 +142,15 @@ If eligibility or binding changed, the script records a stale-decision outcome
 and exits successfully without merging. It never retries using the old
 decision and never falls back to a less precise mutation.
 
-## Live mutation is intentionally absent
+## Lab-scoped exact-head merge
 
-The POC accepts only `AUTO_MERGE_MODE=observe`; parser and trusted postflight
-reject every other value. The finalizer contains no GitHub mutation helper or
-merge call. The earlier private-lab run remains evidence that expected-head
-merging works, but live code must not return until Fullsend owns a per-PR lease,
-idempotency key, durable pending receipt, timeout reconciliation, constrained
-forge driver, and queue-aware operation.
+The POC accepts only `observe` and `lab-automatic`. The live lab path is bound
+to `ascerra/auto-merge`, the allowlisted cohort, squash merge, and the exact
+reviewed head SHA. Duplicate receipt keys suppress a second request. An
+uncertain forge response is reconciled once against fresh PR state and is never
+blindly retried. Production still requires a real per-PR lease, persistent
+receipt store, constrained forge driver, queue-aware operation, and startup
+reconciliation.
 
 ## CI fixture
 
@@ -185,6 +187,7 @@ The dispatch test is `tests/test_auto_merge_dispatch.py`.
   run #99 loaded `307b6f9` even though the workflow itself ran from
   `main@5975b78`. Production dispatch must use current trusted base-branch
   configuration while preserving the untrusted-head boundary.
-- Observe mode still executes on a runner whose hosted `coder` identity is
-  broader than the eventual observer identity. Code prevents mutations, but
-  capability separation must be enforced by credentials in production.
+- The hosted `coder` identity is broader than the eventual dedicated
+  Auto-Merge identity. The repository/path/method/SHA boundary is enforced in
+  code for this lab; capability separation must be enforced by credentials in
+  production.

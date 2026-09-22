@@ -1,19 +1,19 @@
 # Auto-Merge security contract
 
-Status: normative for the observe-only POC; live-mode requirements are deferred
-to the Fullsend v1 contract
+Status: normative for this mutation-capable private lab; the Fullsend v1
+contract remains authoritative for production
 
 ## Purpose
 
 The Auto-Merge agent evaluates whether deterministic forge state and a bounded
-semantic assessment agree that the exact current revision would be eligible.
-This POC is a reconciliation observer, not a standing permission to merge.
+semantic assessment agree that the exact current revision is eligible. In the
+private lab's `lab-automatic` mode only, that one revision may be merged.
 
 ## Authority boundary
 
 The model is advisory. It may return `APPROVE`, `REJECT`, or `ESCALATE`, but it
 never receives the credential or network authority that performs a merge.
-The observe-only post-script may not mutate the pull request.
+Only trusted postflight may mutate the pull request; `observe` never mutates.
 
 An approval applies to one tuple:
 
@@ -30,9 +30,10 @@ event -> deterministic preflight
       -> ineligible: record SKIP/REJECT and stop
       -> eligible: assemble bounded evidence
                   -> model APPROVE/REJECT/ESCALATE
-                  -> decision preview in the workflow log
                   -> authoritative postflight
-                     -> unchanged and eligible: record observe preview
+                  -> durable pending receipt
+                  -> final authoritative recheck
+                     -> unchanged and eligible: merge exact head in lab mode
                      -> otherwise: reject stale decision and stop
 ```
 
@@ -80,11 +81,13 @@ The output must conform to the result schema and include the complete tuple,
 context fingerprint, decision, concise reasons, and risk signals. Invalid or
 incomplete output fails closed.
 
-## Observe result record
+## Pending and outcome receipts
 
-The trusted runner writes a secret-free decision and outcome preview to the
-workflow log. It does not comment on the PR. A durable write-ahead receipt is a
-mandatory future requirement before any live mutation code is introduced.
+Observe mode writes a secret-free preview to the workflow log. Live lab mode
+persists a pending PR comment after postflight and before the forge request,
+including the tuple, policy/context fingerprints, workflow identity, and
+idempotency key. It then records merged, rejected, aborted, reconciled, or
+unknown outcome state.
 
 ## Authoritative postflight
 
@@ -102,12 +105,14 @@ repeats every mutable gate. It must verify at least:
 Any mismatch, lookup error, unknown state, or race fails closed. The script
 must never fall back to a less precise merge command.
 
-## Live mutation boundary
+## Lab mutation boundary
 
-This POC accepts only `observe` mode and contains no merge mutation. Future live
-mode must implement the Fullsend v1 lease, idempotency, durable pending receipt,
-timeout reconciliation, merge-queue, current-policy, and expected-head
-requirements before a constrained forge call can exist.
+This POC accepts only `observe` and `lab-automatic`. Live lab mode uses GitHub's
+expected-head merge API, squash only, after a second complete gate following the
+pending receipt. Duplicate keys do not issue another request. An uncertain
+response is reconciled against current PR state and is not retried. Production
+must additionally implement the Fullsend v1 per-PR lease, persistent receipt
+store, startup reconciliation, merge queue, and purpose-built forge driver.
 
 ## Evaluation triggers
 

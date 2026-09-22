@@ -1,6 +1,6 @@
 # Auto-Merge lab implementation plan
 
-Status: original private lab complete; ADR 0110 alignment pass implemented and
+Status: original private lab complete; mutation-capable ADR alignment pass
 awaiting fresh hosted example evidence
 
 This is the living execution record for `ascerra/auto-merge`. Update the status,
@@ -21,7 +21,8 @@ The exercise is complete only when all of these statements are proven:
 - Fast and deliberately delayed four-minute CI checks pass on that head.
 - The custom Auto-Merge agent performs deterministic preflight, bounded model
   assessment, exact policy/context binding, and authoritative postflight.
-- The current POC runs in `observe` mode and performs no GitHub mutation.
+- The POC supports non-mutating `observe` and tightly scoped, real
+  `lab-automatic` execution.
 - No credential appears in git history, logs captured in the repository, issue
   text, pull request text, comments, or agent evidence.
 
@@ -241,15 +242,16 @@ credential unavailable to the model sandbox.
   `policy_fingerprint` while retaining version as policy metadata.
 - [x] Rename the evidence integrity binding to `context_fingerprint` and verify
   both fingerprints across model and runner trust zones.
-- [x] Set the demo to `observe` mode and remove executable GitHub mutation code
-  from postflight.
+- [x] Add `observe` and explicit `lab-automatic` policy modes. The live lab path
+  uses a pending receipt, idempotency key, post-receipt full recheck,
+  expected-head squash merge, and no-blind-retry reconciliation.
 - [x] Keep manual, approved-review, and CI-readiness wake-up triggers; all remain
   hints and all pass through the same gate.
 - [ ] Push the alignment changes with DCO.
 - [ ] Create a fresh signed example PR after the new trusted base exists.
 - [ ] Run review plus both CI jobs and verify the automatic readiness label
   selects the custom Auto-Merge harness.
-- [ ] Confirm semantic evaluation and fresh postflight produce an observe
-  preview while the PR remains unmerged.
+- [ ] Confirm semantic evaluation, fresh postflight, pending receipt, final
+  recheck, and exact-head merge all run from the automatic readiness trigger.
 - [ ] Add the new PR/run evidence and final behavior assessment to this plan,
   the HTML report, and the NotebookLM source.

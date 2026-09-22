@@ -186,7 +186,7 @@ def evaluate_snapshot(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[
         if not condition:
             failures.append(reason)
 
-    require(policy.get("mode") == "observe", "POC policy mode is not observe")
+    require(policy.get("mode") in {"observe", "lab-automatic"}, "POC policy mode is unsupported")
     require(pr.get("state") == "open", "pull request is not open")
     require(pr.get("draft") is False, "pull request is a draft")
     require(SHA_RE.fullmatch(head_sha) is not None, "head SHA is invalid")
@@ -383,7 +383,7 @@ def parser() -> argparse.ArgumentParser:
     collect.add_argument("--repository", required=True)
     collect.add_argument("--base-ref", required=True)
     collect.add_argument("--policy-version", required=True)
-    collect.add_argument("--mode", required=True, choices=["observe"])
+    collect.add_argument("--mode", required=True, choices=["observe", "lab-automatic"])
     collect.add_argument("--required-checks", required=True)
     collect.add_argument("--allowed-paths", required=True)
     collect.add_argument("--allowed-authors", required=True)
