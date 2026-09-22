@@ -196,7 +196,14 @@ def evaluate_snapshot(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[
     require((pr.get("base") or {}).get("repo", {}).get("full_name") == repository, "base repository mismatch")
     require((pr.get("head") or {}).get("repo", {}).get("full_name") == repository, "fork pull requests are not allowed")
     require(pr.get("mergeable") is True, "mergeability is false or unknown")
-    require(pr.get("mergeable_state") == "clean", "mergeable state is not clean")
+    # GitHub reports `unstable` while this Auto-Merge check is itself pending.
+    # That state is safe only because the policy independently requires each
+    # named merge check to have succeeded for the exact head below. States
+    # such as `behind`, `dirty`, `blocked`, and unknown still fail closed.
+    require(
+        pr.get("mergeable_state") in {"clean", "unstable"},
+        "mergeable state is neither clean nor unstable",
+    )
     require(pr.get("auto_merge") is None, "native standing auto-merge is enabled")
     require(reported_base_sha == live_base_sha, "pull request is not bound to the live base SHA")
 

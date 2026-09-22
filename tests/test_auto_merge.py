@@ -145,6 +145,21 @@ class GateTests(unittest.TestCase):
         snapshot["pull_request"]["mergeable"] = None
         self.assert_ineligible(snapshot, "false or unknown")
 
+    def test_unstable_state_is_eligible_when_explicit_checks_pass(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["pull_request"]["mergeable_state"] = "unstable"
+        self.assertTrue(evaluate_snapshot(snapshot, policy())["eligible"])
+
+    def test_behind_state_is_rejected(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["pull_request"]["mergeable_state"] = "behind"
+        self.assert_ineligible(snapshot, "neither clean nor unstable")
+
+    def test_blocked_state_is_rejected(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["pull_request"]["mergeable_state"] = "blocked"
+        self.assert_ineligible(snapshot, "neither clean nor unstable")
+
     def test_stale_reported_base_is_rejected(self) -> None:
         snapshot = eligible_snapshot()
         snapshot["base_branch"]["commit"]["sha"] = "d" * 40

@@ -53,8 +53,11 @@ read/observe capability from the narrowly constrained live merge driver.
 gate obtains current state through `gh api` and requires:
 
 - target repository exactly `ascerra/auto-merge`;
-- open, non-draft pull request with known `mergeable: true` and
-  `mergeable_state: clean`;
+- open, non-draft pull request with known `mergeable: true` and a
+  `mergeable_state` of `clean` or `unstable`; `unstable` is accepted only
+  because the gate separately requires every policy-named check to have
+  succeeded for the exact head, avoiding self-deadlock while Auto-Merge's own
+  check is pending;
 - head repository equal to base repository, so forks are excluded;
 - base ref exactly `main`;
 - author in the explicit POC allowlist (`ascerra` or the Fullsend bots);
@@ -187,6 +190,11 @@ The dispatch test is `tests/test_auto_merge_dispatch.py`.
   run #99 loaded `307b6f9` even though the workflow itself ran from
   `main@5975b78`. Production dispatch must use current trusted base-branch
   configuration while preserving the untrusted-head boundary.
+- GitHub marks a pull request `unstable` while the Auto-Merge check itself is
+  pending. Requiring only `clean` therefore self-deadlocks the agent. The lab
+  accepts `clean` or `unstable`, still rejects `behind`, `dirty`, `blocked`, and
+  unknown states, and independently validates each required check by exact
+  name, conclusion, and head SHA.
 - The hosted `coder` identity is broader than the eventual dedicated
   Auto-Merge identity. The repository/path/method/SHA boundary is enforced in
   code for this lab; capability separation must be enforced by credentials in
