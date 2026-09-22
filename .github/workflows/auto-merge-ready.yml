@@ -52,8 +52,11 @@ jobs:
                 head_sha=$(gh pr view "${pr_number}" --repo "${REPO}" --json headRefOid --jq '.headRefOid')
                 [[ "${head_sha}" == "${RUN_SHA}" ]] || continue
 
-                gh pr edit "${pr_number}" --repo "${REPO}" \
-                  --add-label 'fullsend-auto-merge-ready'
+                gh api --method POST \
+                  -H 'Accept: application/vnd.github+json' \
+                  "/repos/${REPO}/issues/${pr_number}/labels" \
+                  -f 'labels[]=fullsend-auto-merge-ready' \
+                  >/dev/null
               done
 
   clear-ready:
@@ -72,5 +75,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
-          gh pr edit "${PR_NUMBER}" --repo "${REPO}" \
-            --remove-label 'fullsend-auto-merge-ready' || true
+          gh api --method DELETE \
+            -H 'Accept: application/vnd.github+json' \
+            "/repos/${REPO}/issues/${PR_NUMBER}/labels/fullsend-auto-merge-ready" \
+            >/dev/null 2>&1 || true
