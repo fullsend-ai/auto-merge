@@ -18,6 +18,7 @@ python3 "${SCRIPT_DIR}/auto_merge_gate.py" collect \
   --repository "${AUTO_MERGE_ALLOWED_REPO}" \
   --base-ref "${AUTO_MERGE_BASE_REF:-main}" \
   --policy-version "${AUTO_MERGE_POLICY_VERSION:-lab-v1}" \
+  --mode "${AUTO_MERGE_MODE:-observe}" \
   --required-checks "${AUTO_MERGE_REQUIRED_CHECKS:-}" \
   --allowed-paths "${AUTO_MERGE_ALLOWED_PATHS:-}" \
   --allowed-authors "${AUTO_MERGE_ALLOWED_AUTHORS:-}" \

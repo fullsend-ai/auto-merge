@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Trusted Auto-Merge postflight and exact-head mutation."""
+"""Trusted Auto-Merge postflight for the observe-only POC."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import sys
 import tempfile
 from typing import Any
 
-from auto_merge_gate import GateError, ISSUE_URL_RE, canonical_hash, csv_values
+from auto_merge_gate import GateError, ISSUE_URL_RE, canonical_hash, csv_values, policy_fingerprint
 
 
 DECISIONS = {"APPROVE", "REJECT", "ESCALATE"}
@@ -23,28 +23,9 @@ BINDING_KEYS = {
     "head_sha",
     "base_ref",
     "base_sha",
-    "policy_version",
-    "evidence_sha256",
+    "policy_fingerprint",
+    "context_fingerprint",
 }
-
-
-def gh(*args: str, input_text: str | None = None) -> str:
-    if not os.environ.get("GH_TOKEN"):
-        raise GateError("GH_TOKEN is not set")
-    proc = subprocess.run(
-        ["gh", *args],
-        input=input_text,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=False,
-        timeout=45,
-        env=os.environ.copy(),
-    )
-    if proc.returncode != 0:
-        detail = proc.stderr.strip().splitlines()[-1] if proc.stderr.strip() else "unknown gh error"
-        raise GateError(f"GitHub mutation failed: {detail[:500]}")
-    return proc.stdout
 
 
 def read_object(path: Path, name: str) -> dict[str, Any]:
@@ -85,6 +66,7 @@ def trusted_policy(args: argparse.Namespace) -> dict[str, Any]:
         "repository": args.allowed_repository,
         "base_ref": args.base_ref,
         "policy_version": args.policy_version,
+        "mode": args.mode,
         "required_checks": csv_values(args.required_checks),
         "allowed_paths": csv_values(args.allowed_paths),
         "allowed_authors": csv_values(args.allowed_authors),
@@ -111,26 +93,11 @@ def receipt_markdown(
         f"- Decision: `{result['decision']}`\n"
         f"- Head: `{binding['head_sha']}`\n"
         f"- Base: `{binding['base_ref']}@{binding['base_sha']}`\n"
-        f"- Policy: `{binding['policy_version']}`\n"
-        f"- Evidence: `{binding['evidence_sha256']}`\n"
+        f"- Policy: `{binding['policy_fingerprint']}`\n"
+        f"- Context: `{binding['context_fingerprint']}`\n"
         f"- Workflow: {run_url or 'local dry run'}\n"
         f"- Recorded: `{dt.datetime.now(dt.timezone.utc).isoformat().replace('+00:00', 'Z')}`\n\n"
         f"{detail}\n\n{reasons}\n"
-    )
-
-
-def post_receipt(repository: str, number: int, body: str) -> None:
-    if os.environ.get("AUTO_MERGE_DRY_RUN") == "1":
-        print(body)
-        return
-    gh(
-        "api",
-        "--method",
-        "POST",
-        f"repos/{repository}/issues/{number}/comments",
-        "--input",
-        "-",
-        input_text=json.dumps({"body": body}),
     )
 
 
@@ -148,6 +115,8 @@ def collect_fresh(args: argparse.Namespace, destination: Path) -> dict[str, Any]
         policy["base_ref"],
         "--policy-version",
         policy["policy_version"],
+        "--mode",
+        policy["mode"],
         "--required-checks",
         ",".join(policy["required_checks"]),
         "--allowed-paths",
@@ -164,20 +133,24 @@ def collect_fresh(args: argparse.Namespace, destination: Path) -> dict[str, Any]
 
 
 def comparable_binding(binding: dict[str, Any]) -> dict[str, Any]:
-    return {key: value for key, value in binding.items() if key != "evidence_sha256"}
+    return {key: value for key, value in binding.items() if key != "context_fingerprint"}
 
 
 def finalize(args: argparse.Namespace) -> int:
     evidence = read_object(Path(args.evidence), "preflight evidence")
-    if evidence.get("evidence_sha256") != canonical_hash(evidence):
-        raise GateError("preflight evidence hash is invalid")
-    if evidence.get("binding", {}).get("evidence_sha256") != evidence.get("evidence_sha256"):
-        raise GateError("preflight binding evidence hash is invalid")
+    if evidence.get("context_fingerprint") != canonical_hash(evidence):
+        raise GateError("preflight context fingerprint is invalid")
+    if evidence.get("binding", {}).get("context_fingerprint") != evidence.get("context_fingerprint"):
+        raise GateError("preflight binding context fingerprint is invalid")
     if evidence.get("deterministic", {}).get("eligible") is not True:
         raise GateError("preflight evidence was not eligible")
     policy = trusted_policy(args)
     if evidence.get("policy") != policy:
         raise GateError("preflight policy does not exactly match trusted runner policy")
+    if evidence.get("binding", {}).get("policy_fingerprint") != policy_fingerprint(policy):
+        raise GateError("preflight policy fingerprint does not match trusted runner policy")
+    if policy["mode"] != "observe":
+        raise GateError("this POC is intentionally limited to observe mode")
 
     result = read_object(Path(args.result), "model result")
     validate_result(result, evidence)
@@ -193,73 +166,27 @@ def finalize(args: argparse.Namespace) -> int:
     ):
         raise GateError("preflight binding does not match the trusted repository and pull request URL")
 
-    # A durable write-ahead receipt must succeed before any merge attempt.
-    post_receipt(
-        repository,
-        number,
-        receipt_markdown(result, evidence, "decision recorded", "Postflight has not yet authorized a merge."),
-    )
+    # Observe mode records to the run log and performs no GitHub mutation.
+    print(receipt_markdown(result, evidence, "decision observed", "Postflight has not yet authorized a merge."))
 
     if result["decision"] != "APPROVE":
-        post_receipt(
-            repository,
-            number,
-            receipt_markdown(result, evidence, "not merged", "The semantic decision did not authorize merge."),
-        )
+        print(receipt_markdown(result, evidence, "not merged", "The semantic decision did not authorize merge."))
         return 0
 
     with tempfile.TemporaryDirectory(prefix="auto-merge-postflight-") as tmp:
         fresh = collect_fresh(args, Path(tmp) / "evidence.json")
 
-    if fresh.get("evidence_sha256") != canonical_hash(fresh):
-        raise GateError("postflight evidence hash is invalid")
+    if fresh.get("context_fingerprint") != canonical_hash(fresh):
+        raise GateError("postflight context fingerprint is invalid")
     if fresh.get("deterministic", {}).get("eligible") is not True:
         failures = fresh.get("deterministic", {}).get("failures", [])
-        post_receipt(
-            repository,
-            number,
-            receipt_markdown(result, evidence, "stale decision rejected", "Postflight failed: " + "; ".join(failures)),
-        )
+        print(receipt_markdown(result, evidence, "stale decision rejected", "Postflight failed: " + "; ".join(failures)))
         return 0
     if comparable_binding(fresh["binding"]) != comparable_binding(binding):
-        post_receipt(
-            repository,
-            number,
-            receipt_markdown(result, evidence, "stale decision rejected", "The head or base binding changed before mutation."),
-        )
+        print(receipt_markdown(result, evidence, "stale decision rejected", "The head, base, policy, or context binding changed before mutation."))
         return 0
 
-    if os.environ.get("AUTO_MERGE_DRY_RUN") == "1":
-        print("auto-merge: dry run; exact-head merge was not attempted")
-        return 0
-
-    response_text = gh(
-        "api",
-        "--method",
-        "PUT",
-        f"repos/{repository}/pulls/{number}/merge",
-        "-f",
-        f"sha={binding['head_sha']}",
-        "-f",
-        "merge_method=squash",
-        "-f",
-        f"commit_title=Auto-merge PR #{number}",
-    )
-    try:
-        response = json.loads(response_text)
-    except json.JSONDecodeError as exc:
-        raise GateError("merge endpoint returned invalid JSON") from exc
-    if response.get("merged") is not True:
-        raise GateError("exact-head merge was rejected: " + str(response.get("message", "unknown reason"))[:500])
-
-    try:
-        post_receipt(
-            repository,
-            number,
-            receipt_markdown(result, evidence, "merged", f"Merged exact head `{binding['head_sha']}` by squash."),
-        )
-    except GateError as exc:
-        print(f"auto-merge warning: merge succeeded but outcome receipt failed: {exc}", file=sys.stderr)
+    print(receipt_markdown(result, evidence, "observe preview", "All final gates passed. Observe mode did not attempt a merge."))
     return 0
 
 
@@ -269,6 +196,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--allowed-repository", required=True)
     result.add_argument("--base-ref", required=True)
     result.add_argument("--policy-version", required=True)
+    result.add_argument("--mode", required=True, choices=["observe"])
     result.add_argument("--required-checks", required=True)
     result.add_argument("--allowed-paths", required=True)
     result.add_argument("--allowed-authors", required=True)

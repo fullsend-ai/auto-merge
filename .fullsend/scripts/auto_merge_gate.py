@@ -33,10 +33,15 @@ class GateError(RuntimeError):
 
 def canonical_hash(document: dict[str, Any]) -> str:
     unsigned = json.loads(json.dumps(document))
-    unsigned.pop("evidence_sha256", None)
+    unsigned.pop("context_fingerprint", None)
     if isinstance(unsigned.get("binding"), dict):
-        unsigned["binding"].pop("evidence_sha256", None)
+        unsigned["binding"].pop("context_fingerprint", None)
     payload = json.dumps(unsigned, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def policy_fingerprint(policy: dict[str, Any]) -> str:
+    payload = json.dumps(policy, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(payload).hexdigest()
 
 
@@ -181,6 +186,7 @@ def evaluate_snapshot(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[
         if not condition:
             failures.append(reason)
 
+    require(policy.get("mode") == "observe", "POC policy mode is not observe")
     require(pr.get("state") == "open", "pull request is not open")
     require(pr.get("draft") is False, "pull request is a draft")
     require(SHA_RE.fullmatch(head_sha) is not None, "head SHA is invalid")
@@ -307,7 +313,7 @@ def build_evidence(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[str
             "head_sha": pr["head"]["sha"],
             "base_ref": pr["base"]["ref"],
             "base_sha": snapshot["base_branch"]["commit"]["sha"],
-            "policy_version": policy["policy_version"],
+            "policy_fingerprint": policy_fingerprint(policy),
         },
         "pull_request": {
             "url": pr.get("html_url", ""),
@@ -339,8 +345,8 @@ def build_evidence(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[str
         "policy": policy,
         "deterministic": evaluation,
     }
-    document["evidence_sha256"] = canonical_hash(document)
-    document["binding"]["evidence_sha256"] = document["evidence_sha256"]
+    document["context_fingerprint"] = canonical_hash(document)
+    document["binding"]["context_fingerprint"] = document["context_fingerprint"]
     return document
 
 
@@ -354,6 +360,7 @@ def collect_command(args: argparse.Namespace) -> int:
         "repository": args.repository,
         "base_ref": args.base_ref,
         "policy_version": args.policy_version,
+        "mode": args.mode,
         "required_checks": csv_values(args.required_checks),
         "allowed_paths": csv_values(args.allowed_paths),
         "allowed_authors": csv_values(args.allowed_authors),
@@ -376,6 +383,7 @@ def parser() -> argparse.ArgumentParser:
     collect.add_argument("--repository", required=True)
     collect.add_argument("--base-ref", required=True)
     collect.add_argument("--policy-version", required=True)
+    collect.add_argument("--mode", required=True, choices=["observe"])
     collect.add_argument("--required-checks", required=True)
     collect.add_argument("--allowed-paths", required=True)
     collect.add_argument("--allowed-authors", required=True)

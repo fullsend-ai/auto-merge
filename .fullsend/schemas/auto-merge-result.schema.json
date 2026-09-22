@@ -9,13 +9,13 @@
       "properties": {
         "base_ref": {"const": "main"},
         "base_sha": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
-        "evidence_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "context_fingerprint": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
         "head_sha": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
-        "policy_version": {"const": "lab-v1"},
+        "policy_fingerprint": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
         "pull_request_number": {"minimum": 1, "type": "integer"},
         "repository": {"const": "ascerra/auto-merge"}
       },
-      "required": ["repository", "pull_request_number", "head_sha", "base_ref", "base_sha", "policy_version", "evidence_sha256"],
+      "required": ["repository", "pull_request_number", "head_sha", "base_ref", "base_sha", "policy_fingerprint", "context_fingerprint"],
       "type": "object"
     },
     "decision": {

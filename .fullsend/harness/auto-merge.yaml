@@ -37,11 +37,12 @@ validation_loop:
   preflight_check: python3 -c "import jsonschema"
 env:
   runner:
-    AUTO_MERGE_ALLOWED_AUTHORS: "fullsend-ai-coder[bot],fullsend-ai[bot]"
+    AUTO_MERGE_ALLOWED_AUTHORS: "ascerra,fullsend-ai-coder[bot],fullsend-ai[bot]"
     AUTO_MERGE_ALLOWED_PATHS: "docs/example-feature.md"
     AUTO_MERGE_ALLOWED_REPO: "ascerra/auto-merge"
     AUTO_MERGE_BASE_REF: "main"
     AUTO_MERGE_POLICY_VERSION: "lab-v1"
+    AUTO_MERGE_MODE: "observe"
     AUTO_MERGE_REQUIRED_CHECKS: "Example contract,Delayed integration (4 minutes)"
     FULLSEND_FORGE: github
     GH_TOKEN: ${GH_TOKEN}

@@ -19,7 +19,7 @@ SCRIPTS = Path(__file__).parents[1] / ".fullsend" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from auto_merge_finalize import GateError, finalize, validate_result  # noqa: E402
-from auto_merge_gate import build_evidence, canonical_hash, evaluate_snapshot  # noqa: E402
+from auto_merge_gate import build_evidence, canonical_hash, evaluate_snapshot, policy_fingerprint  # noqa: E402
 from jsonschema import validate  # noqa: E402
 
 
@@ -33,6 +33,7 @@ def policy() -> dict:
         "repository": "ascerra/auto-merge",
         "base_ref": "main",
         "policy_version": "lab-v1",
+        "mode": "observe",
         "required_checks": ["Example contract", "Delayed integration (4 minutes)"],
         "allowed_paths": ["docs/example-feature.md"],
         "allowed_authors": ["fullsend-ai-coder[bot]"],
@@ -188,6 +189,11 @@ class RepositoryBoundaryTests(unittest.TestCase):
         config = yaml.safe_load((SCRIPTS.parent / "config.yaml").read_text(encoding="utf-8"))
         self.assertEqual(config["create_issues"]["allow_targets"]["repos"], ["ascerra/auto-merge"])
 
+    def test_observe_finalizer_has_no_github_mutation_call(self) -> None:
+        source = (SCRIPTS / "auto_merge_finalize.py").read_text(encoding="utf-8")
+        self.assertNotIn("pulls/{number}/merge", source)
+        self.assertNotIn("--method", source)
+
 
 class BindingTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -201,7 +207,12 @@ class BindingTests(unittest.TestCase):
         }
 
     def test_evidence_hash_round_trip(self) -> None:
-        self.assertEqual(self.evidence["evidence_sha256"], canonical_hash(self.evidence))
+        self.assertEqual(self.evidence["context_fingerprint"], canonical_hash(self.evidence))
+
+    def test_policy_fingerprint_changes_with_authorization_policy(self) -> None:
+        changed = policy()
+        changed["allowed_paths"] = ["docs/another-file.md"]
+        self.assertNotEqual(policy_fingerprint(policy()), policy_fingerprint(changed))
 
     def test_evidence_contains_bounded_semantic_patch(self) -> None:
         changed_file = self.evidence["semantic"]["changed_files"][0]
@@ -238,6 +249,7 @@ class BindingTests(unittest.TestCase):
             allowed_repository="ascerra/auto-merge",
             base_ref="main",
             policy_version="lab-v1",
+            mode="observe",
             required_checks="Example contract,Delayed integration (4 minutes)",
             allowed_paths="docs/example-feature.md",
             allowed_authors="fullsend-ai-coder[bot]",
@@ -246,88 +258,57 @@ class BindingTests(unittest.TestCase):
             gate_script=str(SCRIPTS / "auto_merge_gate.py"),
         )
 
-    def test_successful_finalize_uses_exact_head_after_receipt(self) -> None:
-        events: list[str] = []
-
-        def receipt(*_args, **_kwargs) -> None:
-            events.append("receipt")
-
-        def merge(*args, **_kwargs) -> str:
-            events.append("merge")
-            self.assertIn(f"sha={HEAD}", args)
-            return '{"merged": true}'
-
+    def test_successful_finalize_observe_revalidates_without_mutation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             args = self._files_and_args(directory)
             with mock.patch.dict(os.environ, {"GH_TOKEN": "test-token"}, clear=False), mock.patch(
-                "auto_merge_finalize.post_receipt", side_effect=receipt
-            ), mock.patch(
                 "auto_merge_finalize.collect_fresh", return_value=copy.deepcopy(self.evidence)
-            ), mock.patch("auto_merge_finalize.gh", side_effect=merge):
+            ), mock.patch("builtins.print") as output:
                 self.assertEqual(finalize(args), 0)
-
-        self.assertEqual(events[0:2], ["receipt", "merge"])
+                output.assert_any_call(mock.ANY)
 
     def test_stale_postflight_binding_never_merges(self) -> None:
         fresh = copy.deepcopy(self.evidence)
         fresh["binding"]["base_sha"] = "c" * 40
-        fresh["evidence_sha256"] = canonical_hash(fresh)
-        fresh["binding"]["evidence_sha256"] = fresh["evidence_sha256"]
+        fresh["context_fingerprint"] = canonical_hash(fresh)
+        fresh["binding"]["context_fingerprint"] = fresh["context_fingerprint"]
         with tempfile.TemporaryDirectory() as directory:
             args = self._files_and_args(directory)
             with mock.patch.dict(os.environ, {"GH_TOKEN": "test-token"}, clear=False), mock.patch(
-                "auto_merge_finalize.post_receipt"
-            ) as receipt, mock.patch(
                 "auto_merge_finalize.collect_fresh", return_value=fresh
-            ), mock.patch("auto_merge_finalize.gh") as merge:
+            ), mock.patch("builtins.print"):
                 self.assertEqual(finalize(args), 0)
-                merge.assert_not_called()
-                self.assertEqual(receipt.call_count, 2)
 
     def test_reject_records_receipts_without_collecting_or_merging(self) -> None:
         self.result["decision"] = "REJECT"
         with tempfile.TemporaryDirectory() as directory:
             args = self._files_and_args(directory)
             with mock.patch.dict(os.environ, {"GH_TOKEN": "test-token"}, clear=False), mock.patch(
-                "auto_merge_finalize.post_receipt"
-            ) as receipt, mock.patch("auto_merge_finalize.collect_fresh") as collect, mock.patch(
-                "auto_merge_finalize.gh"
-            ) as merge:
+                "auto_merge_finalize.collect_fresh"
+            ) as collect, mock.patch("builtins.print"):
                 self.assertEqual(finalize(args), 0)
-                self.assertEqual(receipt.call_count, 2)
                 collect.assert_not_called()
-                merge.assert_not_called()
 
     def test_tampered_repository_never_posts_or_merges(self) -> None:
         self.evidence["policy"]["repository"] = "fullsend-ai/fullsend"
         self.evidence["binding"]["repository"] = "fullsend-ai/fullsend"
-        self.evidence["evidence_sha256"] = canonical_hash(self.evidence)
-        self.evidence["binding"]["evidence_sha256"] = self.evidence["evidence_sha256"]
+        self.evidence["context_fingerprint"] = canonical_hash(self.evidence)
+        self.evidence["binding"]["context_fingerprint"] = self.evidence["context_fingerprint"]
         self.result["binding"] = copy.deepcopy(self.evidence["binding"])
         with tempfile.TemporaryDirectory() as directory:
             args = self._files_and_args(directory)
-            with mock.patch("auto_merge_finalize.post_receipt") as receipt, mock.patch(
-                "auto_merge_finalize.gh"
-            ) as merge:
-                with self.assertRaisesRegex(GateError, "trusted runner policy"):
-                    finalize(args)
-                receipt.assert_not_called()
-                merge.assert_not_called()
+            with self.assertRaisesRegex(GateError, "trusted runner policy"):
+                finalize(args)
 
     def test_tampered_pull_request_number_never_posts_or_merges(self) -> None:
         self.evidence["binding"]["pull_request_number"] = 99
-        self.evidence["evidence_sha256"] = canonical_hash(self.evidence)
-        self.evidence["binding"]["evidence_sha256"] = self.evidence["evidence_sha256"]
+        self.evidence["context_fingerprint"] = canonical_hash(self.evidence)
+        self.evidence["binding"]["context_fingerprint"] = self.evidence["context_fingerprint"]
         self.result["binding"] = copy.deepcopy(self.evidence["binding"])
         with tempfile.TemporaryDirectory() as directory:
             args = self._files_and_args(directory)
-            with mock.patch("auto_merge_finalize.post_receipt") as receipt, mock.patch(
-                "auto_merge_finalize.gh"
-            ) as merge:
-                with self.assertRaisesRegex(GateError, "trusted repository and pull request URL"):
-                    finalize(args)
-                receipt.assert_not_called()
-                merge.assert_not_called()
+            with self.assertRaisesRegex(GateError, "trusted repository and pull request URL"):
+                finalize(args)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 # Auto-Merge lab implementation plan
 
-Status: complete for the private lab
+Status: original private lab complete; ADR 0110 alignment pass implemented and
+awaiting fresh hosted example evidence
 
 This is the living execution record for `ascerra/auto-merge`. Update the status,
 evidence links, and discovered constraints after every material phase.
@@ -19,9 +20,8 @@ The exercise is complete only when all of these statements are proven:
 - Review and fix execute, and the final approval applies to the final head SHA.
 - Fast and deliberately delayed four-minute CI checks pass on that head.
 - The custom Auto-Merge agent performs deterministic preflight, bounded model
-  assessment, write-ahead receipt, and authoritative postflight.
-- The post-script either rejects with an auditable reason or merges using an
-  expected-head compare-and-swap.
+  assessment, exact policy/context binding, and authoritative postflight.
+- The current POC runs in `observe` mode and performs no GitHub mutation.
 - No credential appears in git history, logs captured in the repository, issue
   text, pull request text, comments, or agent evidence.
 
@@ -210,6 +210,12 @@ credential unavailable to the model sandbox.
 
 ## Remaining production gaps
 
+- The reusable dispatch checkout uses the PR event's `base.sha`, which can be
+  older than the current trusted base branch. Hosted run #99 loaded config from
+  `307b6f9` while its workflow ran from `main@5975b78`, so it could not see the
+  newly added automatic trigger. Fullsend should load current base-branch
+  configuration without ever checking out or executing the untrusted PR head.
+
 - The hosted mint provides this custom stage through the coder identity. A
   production deployment needs a purpose-built least-privilege merge identity.
 - Fullsend's generated per-repo role list omitted `fix`; this lab enabled it
@@ -227,3 +233,23 @@ credential unavailable to the model sandbox.
 - GitHub comments are adequate durable receipts for the lab but production
   should use an idempotent receipt store with reconciliation after ambiguous
   forge timeouts.
+
+## Phase 6 - ADR 0110 alignment follow-up
+
+- [x] Diagnose hosted readiness-label dispatch from archived run logs.
+- [x] Replace `policy_version` in the immutable binding with a canonical
+  `policy_fingerprint` while retaining version as policy metadata.
+- [x] Rename the evidence integrity binding to `context_fingerprint` and verify
+  both fingerprints across model and runner trust zones.
+- [x] Set the demo to `observe` mode and remove executable GitHub mutation code
+  from postflight.
+- [x] Keep manual, approved-review, and CI-readiness wake-up triggers; all remain
+  hints and all pass through the same gate.
+- [ ] Push the alignment changes with DCO.
+- [ ] Create a fresh signed example PR after the new trusted base exists.
+- [ ] Run review plus both CI jobs and verify the automatic readiness label
+  selects the custom Auto-Merge harness.
+- [ ] Confirm semantic evaluation and fresh postflight produce an observe
+  preview while the PR remains unmerged.
+- [ ] Add the new PR/run evidence and final behavior assessment to this plan,
+  the HTML report, and the NotebookLM source.

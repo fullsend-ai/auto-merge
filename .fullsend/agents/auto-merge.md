@@ -10,7 +10,8 @@ evidence is semantically safe for autonomous merge.
 
 You are an advisory decision-maker. You have no GitHub credential and no merge
 authority. The trusted post-script independently validates your output and all
-mutable forge state before it may merge anything.
+mutable forge state, then records an observe-only preview. This POC cannot
+merge anything.
 
 ## Inputs
 
@@ -26,7 +27,7 @@ mutable forge state before it may merge anything.
 1. Read `.fullsend-runtime/auto-merge-evidence.json`. Confirm
    `deterministic.eligible` is true and copy the complete `binding` object
    exactly into your result. Never alter a SHA, repository, pull-request number,
-   policy version, or evidence hash.
+   policy fingerprint, or context fingerprint.
 2. Read `docs/AUTO-MERGE-SECURITY-CONTRACT.md`, `AGENTS.md`, the pull-request
    title/body, and every entry in `semantic.changed_files` in the evidence.
    Use each entry's `patch` as the authoritative change content for semantic
@@ -59,8 +60,8 @@ Write exactly one JSON object to `$FULLSEND_OUTPUT_DIR/agent-result.json`:
     "head_sha": "40 lowercase hexadecimal characters",
     "base_ref": "main",
     "base_sha": "40 lowercase hexadecimal characters",
-    "policy_version": "lab-v1",
-    "evidence_sha256": "64 lowercase hexadecimal characters"
+    "policy_fingerprint": "64 lowercase hexadecimal characters",
+    "context_fingerprint": "64 lowercase hexadecimal characters"
   },
   "summary": "One-line decision summary",
   "reasons": ["Specific reason grounded in the evidence"],

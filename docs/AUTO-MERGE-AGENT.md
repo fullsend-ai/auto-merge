@@ -1,7 +1,8 @@
 # Auto-Merge agent implementation
 
-Status: implemented and exercised in the private integration lab; production
-hardening and GitHub App/DCO alignment remain
+Status: observe-only POC aligned with Fullsend ADR 0110; the earlier lab proved
+an exact-head merge, but mutation is now deliberately disabled pending the
+production authority controls
 
 ## What this agent is
 
@@ -17,8 +18,8 @@ The implementation splits responsibility across three trust zones:
 1. A trusted runner pre-script reads live GitHub state and applies deterministic
    policy.
 2. A credential-free model sandbox evaluates the bounded semantic evidence.
-3. A trusted runner post-script records the decision, refreshes every mutable
-   fact, and may merge only the exact approved head.
+3. A trusted runner post-script records an Actions-log preview and refreshes
+   every mutable fact. This POC never calls a GitHub mutation endpoint.
 
 The normative invariants are in
 [`AUTO-MERGE-SECURITY-CONTRACT.md`](AUTO-MERGE-SECURITY-CONTRACT.md).
@@ -42,9 +43,9 @@ The lab uses Fullsend's hosted `coder` role because the hosted mint does not yet
 offer a dedicated auto-merge role. That token exists only in runner environment
 for pre/post scripts. The harness deliberately omits `GH_TOKEN` and the GitHub
 provider/profile from `env.sandbox`; the model cannot query or mutate GitHub.
-Production should replace `coder` with a purpose-built role that can read pull
-request state, write decision receipts, and merge, but cannot push arbitrary
-repository contents.
+The current policy mode is `observe`. Production should replace `coder` with a
+purpose-built identity and split read/observe capability from the narrowly
+constrained live merge driver.
 
 ## Deterministic preflight
 
@@ -57,7 +58,7 @@ gate obtains current state through `gh api` and requires:
   `mergeable_state: clean`;
 - head repository equal to base repository, so forks are excluded;
 - base ref exactly `main`;
-- author in the explicit Fullsend coder-bot allowlist;
+- author in the explicit POC allowlist (`ascerra` or the Fullsend bots);
 - one to three changed files, all exactly allowlisted (the initial cohort is
   only `docs/example-feature.md`);
 - no `do-not-merge`, `hold`, `fullsend-no-merge`, or
@@ -90,13 +91,16 @@ head_sha
 base_ref
 base_sha
 policy_version
-evidence_sha256
+mode
+policy_fingerprint
+context_fingerprint
 ```
 
-The SHA-256 is computed over canonical sorted JSON with both hash fields
-removed. The post-script recomputes it before trusting any evidence. No token,
-credential, raw workflow environment, or complete event payload enters the
-document.
+`policy_fingerprint` hashes canonical policy state, including mode and cohort
+controls. `context_fingerprint` hashes the complete canonical evidence after
+its context-fingerprint fields are removed. The post-script recomputes both
+before trusting the evidence. No token, credential, raw workflow environment,
+or complete event payload enters the document.
 
 ## Semantic evaluation
 
@@ -116,46 +120,35 @@ allows no extra fields and constrains decisions, hashes, lengths, reason counts,
 and risk counts. The trusted post-script adds the stronger invariant that
 `APPROVE` must have an empty `risk_signals` array.
 
-## Write-ahead receipt
+## Observe record
 
 After Fullsend's validation loop accepts the model JSON, the post-script invokes
-`.fullsend/scripts/auto_merge_finalize.py`. It verifies the evidence hash,
-eligibility, schema-level fields, exact binding, and APPROVE/risk invariant.
-
-Before any postflight lookup or merge attempt, it posts a durable pull-request
-comment containing the decision, exact head/base binding, policy version,
-evidence hash, workflow URL, timestamp, and model reasons. If this write fails,
-the run stops and cannot merge. `REJECT` and `ESCALATE` produce a second outcome
-receipt and return without attempting a merge.
+`.fullsend/scripts/auto_merge_finalize.py`. It verifies both fingerprints,
+eligibility, schema-level fields, exact binding, and the APPROVE/risk invariant.
+It emits decision and outcome previews to the Actions log. Observe mode makes no
+pull-request comment, merge, queue, label, or other GitHub mutation.
 
 ## Authoritative postflight
 
 For `APPROVE`, the finalizer runs the same gate again against live GitHub state
 using the same policy. It requires the fresh result to remain eligible and the
-repository, pull request, head SHA, base ref, base SHA, and policy version to
-match the original binding. The fresh evidence hash may differ because capture
-time and non-binding observations are new; its own canonical hash must still be
-valid.
+repository, pull request, head SHA, base ref, base SHA, and policy fingerprint
+to match the original binding. The fresh context fingerprint may differ because
+capture time and non-binding observations are new; its own canonical hash must
+still be valid.
 
 If eligibility or binding changed, the script records a stale-decision outcome
 and exits successfully without merging. It never retries using the old
 decision and never falls back to a less precise mutation.
 
-## Exact-head merge
+## Live mutation is intentionally absent
 
-Only after successful postflight does the trusted runner call GitHub's merge
-endpoint with:
-
-```text
-PUT /repos/ascerra/auto-merge/pulls/<number>/merge
-sha=<bound head SHA>
-merge_method=squash
-```
-
-GitHub rejects the request if the pull-request head changed between postflight
-and mutation. The script requires `merged: true` in the response. A final
-outcome comment is best-effort because the pre-merge receipt already provides
-the durable authority record.
+The POC accepts only `AUTO_MERGE_MODE=observe`; parser and trusted postflight
+reject every other value. The finalizer contains no GitHub mutation helper or
+merge call. The earlier private-lab run remains evidence that expected-head
+merging works, but live code must not return until Fullsend owns a per-PR lease,
+idempotency key, durable pending receipt, timeout reconciliation, constrained
+forge driver, and queue-aware operation.
 
 ## CI fixture
 
@@ -187,8 +180,11 @@ The dispatch test is `tests/test_auto_merge_dispatch.py`.
 - GitHub branch protection is unavailable for this private personal-account
   repository without GitHub Pro. The scripts therefore enforce checks,
   approval freshness, conversation resolution, and exact-head binding directly.
-- GCP provisioning requires `roles/iam.workloadIdentityPoolAdmin` and
-  `roles/resourcemanager.projectIamAdmin` for the setup identity. Until those
-  are granted, hosted inference cannot run.
-- The triage, coder, and review GitHub Apps still need repository-scoped
-  installation before the end-to-end exercise.
+- The reusable Fullsend workflow loads custom harness configuration from
+  `github.event.pull_request.base.sha`. For long-lived PRs this can be stale;
+  run #99 loaded `307b6f9` even though the workflow itself ran from
+  `main@5975b78`. Production dispatch must use current trusted base-branch
+  configuration while preserving the untrusted-head boundary.
+- Observe mode still executes on a runner whose hosted `coder` identity is
+  broader than the eventual observer identity. Code prevents mutations, but
+  capability separation must be enforced by credentials in production.

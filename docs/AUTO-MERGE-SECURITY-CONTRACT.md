@@ -1,24 +1,24 @@
 # Auto-Merge security contract
 
-Status: normative for this lab
+Status: normative for the observe-only POC; live-mode requirements are deferred
+to the Fullsend v1 contract
 
 ## Purpose
 
-The Auto-Merge agent closes a pull request only after deterministic forge
-state and a bounded semantic assessment agree that the exact current revision
-is eligible. It is a reconciliation controller, not a standing permission to
-merge future revisions.
+The Auto-Merge agent evaluates whether deterministic forge state and a bounded
+semantic assessment agree that the exact current revision would be eligible.
+This POC is a reconciliation observer, not a standing permission to merge.
 
 ## Authority boundary
 
 The model is advisory. It may return `APPROVE`, `REJECT`, or `ESCALATE`, but it
 never receives the credential or network authority that performs a merge.
-Only the trusted post-script may mutate the pull request.
+The observe-only post-script may not mutate the pull request.
 
 An approval applies to one tuple:
 
 ```text
-(repository, pull_request_number, head_sha, base_ref, base_sha, policy_version)
+(repository, pull_request_number, head_sha, base_ref, base_sha, policy_fingerprint)
 ```
 
 Changing any member invalidates the decision.
@@ -30,9 +30,9 @@ event -> deterministic preflight
       -> ineligible: record SKIP/REJECT and stop
       -> eligible: assemble bounded evidence
                   -> model APPROVE/REJECT/ESCALATE
-                  -> durable decision receipt
+                  -> decision preview in the workflow log
                   -> authoritative postflight
-                     -> unchanged and eligible: merge exact head
+                     -> unchanged and eligible: record observe preview
                      -> otherwise: reject stale decision and stop
 ```
 
@@ -76,21 +76,19 @@ signals that require human judgment. It must not infer missing facts.
 - `ESCALATE`: evidence is ambiguous, unusually risky, or requires a human
   decision.
 
-The output must conform to the result schema and include the bound head SHA,
-base SHA, evidence hash, decision, concise reasons, and risk signals. Invalid
-or incomplete output fails closed.
+The output must conform to the result schema and include the complete tuple,
+context fingerprint, decision, concise reasons, and risk signals. Invalid or
+incomplete output fails closed.
 
-## Write-ahead decision receipt
+## Observe result record
 
-Before any merge attempt, the trusted runner writes a durable receipt containing
-the bound tuple, deterministic findings, semantic decision, timestamps, and
-the workflow/run identity. The receipt must exist even when postflight later
-rejects the decision as stale. This makes every attempted authority transition
-auditable.
+The trusted runner writes a secret-free decision and outcome preview to the
+workflow log. It does not comment on the PR. A durable write-ahead receipt is a
+mandatory future requirement before any live mutation code is introduced.
 
 ## Authoritative postflight
 
-Immediately before mutation, the post-script obtains fresh forge state and
+After semantic evaluation, the post-script obtains fresh forge state and
 repeats every mutable gate. It must verify at least:
 
 - repository and pull request identity;
@@ -99,17 +97,17 @@ repeats every mutable gate. It must verify at least:
 - review decision and approval revision;
 - draft/open state, labels, unresolved blockers, mergeability, and policy
   cohort;
-- receipt integrity and an `APPROVE` semantic result.
+- policy/context integrity and an `APPROVE` semantic result.
 
 Any mismatch, lookup error, unknown state, or race fails closed. The script
 must never fall back to a less precise merge command.
 
-## Merge mutation
+## Live mutation boundary
 
-The mutation must use the forge's compare-and-swap equivalent, supplying the
-expected head SHA. If the forge reports that the head changed, the agent records
-a stale-decision rejection and waits for a new reconciliation event. It does
-not enable native auto-merge or leave behind standing authority.
+This POC accepts only `observe` mode and contains no merge mutation. Future live
+mode must implement the Fullsend v1 lease, idempotency, durable pending receipt,
+timeout reconciliation, merge-queue, current-policy, and expected-head
+requirements before a constrained forge call can exist.
 
 ## Evaluation triggers
 
