@@ -15,7 +15,7 @@ privilege_levels:
   pre_script: read
   runtime: read
   post_script: write
-slug: ascerra-auto-merge
+slug: fullsend-ai-auto-merge
 image: ghcr.io/fullsend-ai/fullsend-code@sha256:ea2a31f38ee80e2a9a898a898a289fe432aa882fa5a4046c3236ab8e2627d7e7
 policy: policies/base.yaml
 providers:
@@ -44,10 +44,10 @@ env:
     AUTO_MERGE_ALLOWED_AUTHORS: "ascerra,fullsend-ai-coder[bot]"
     AUTO_MERGE_ALLOWED_REVIEWERS: "ascerra,fullsend-ai-review[bot]"
     AUTO_MERGE_ALLOWED_PATHS: "docs/example-feature.md"
-    AUTO_MERGE_ALLOWED_REPO: "ascerra/auto-merge"
+    AUTO_MERGE_ALLOWED_REPO: "fullsend-ai/auto-merge"
     AUTO_MERGE_BASE_REF: "main"
     AUTO_MERGE_ALLOWED_RISK_LEVELS: "low,moderate"
-    AUTO_MERGE_EXECUTION_STRATEGY: "direct"
+    AUTO_MERGE_EXECUTION_STRATEGY: "queue"
     AUTO_MERGE_POLICY_VERSION: "lab-v2"
     AUTO_MERGE_RISK_GATE: "required"
     AUTO_MERGE_MODE: "lab-automatic"

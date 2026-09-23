@@ -46,6 +46,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           AUTO_MERGE_ALLOWED_RISK_LEVELS: low,moderate
-          AUTO_MERGE_ALLOWED_REPOSITORY: ascerra/auto-merge
+          AUTO_MERGE_ALLOWED_REPOSITORY: fullsend-ai/auto-merge
           GITHUB_EVENT_PATH: ${{ github.event_path }}
         run: python3 .fullsend/scripts/auto_merge_queue_gate.py

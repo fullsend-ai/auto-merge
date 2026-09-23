@@ -24,7 +24,7 @@ QUEUE_HEAD = "d" * 40
 def queue_event() -> dict:
     return {
         "action": "checks_requested",
-        "repository": {"full_name": "ascerra/auto-merge"},
+        "repository": {"full_name": "fullsend-ai/auto-merge"},
         "merge_group": {
             "head_sha": QUEUE_HEAD,
             "base_sha": BASE,
@@ -51,7 +51,7 @@ def pull_request() -> dict:
         "number": 7,
         "state": "open",
         "draft": False,
-        "head": {"sha": HEAD, "repo": {"full_name": "ascerra/auto-merge"}},
+        "head": {"sha": HEAD, "repo": {"full_name": "fullsend-ai/auto-merge"}},
         "base": {"ref": "main"},
         "labels": [{"name": "risk/low"}],
     }
@@ -67,7 +67,7 @@ def evaluate(comments: list[dict], **overrides: object) -> dict:
         "pull_request": pull_request(),
         "comments": comments,
         "rulesets": rulesets(),
-        "repository": "ascerra/auto-merge",
+        "repository": "fullsend-ai/auto-merge",
         "allowed_risk_levels": {"low", "moderate"},
     }
     inputs.update(overrides)

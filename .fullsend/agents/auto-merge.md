@@ -59,7 +59,7 @@ Write exactly one JSON object to `$FULLSEND_OUTPUT_DIR/agent-result.json`:
 {
   "decision": "APPROVE",
   "binding": {
-    "repository": "ascerra/auto-merge",
+    "repository": "fullsend-ai/auto-merge",
     "pull_request_number": 1,
     "head_sha": "40 lowercase hexadecimal characters",
     "base_ref": "main",

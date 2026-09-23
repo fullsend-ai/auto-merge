@@ -37,7 +37,7 @@ MERGE = "c" * 40
 
 def policy() -> dict:
     return {
-        "repository": "ascerra/auto-merge",
+        "repository": "fullsend-ai/auto-merge",
         "base_ref": "main",
         "policy_version": "lab-v1",
         "mode": "observe",
@@ -57,12 +57,12 @@ def eligible_snapshot() -> dict:
             "number": 7,
             "state": "open",
             "draft": False,
-            "html_url": "https://github.com/ascerra/auto-merge/pull/7",
+            "html_url": "https://github.com/fullsend-ai/auto-merge/pull/7",
             "title": "Document the example behavior",
             "body": "Closes #1",
             "user": {"login": "fullsend-ai-coder[bot]"},
-            "head": {"sha": HEAD, "repo": {"full_name": "ascerra/auto-merge"}},
-            "base": {"sha": BASE, "ref": "main", "repo": {"full_name": "ascerra/auto-merge"}},
+            "head": {"sha": HEAD, "repo": {"full_name": "fullsend-ai/auto-merge"}},
+            "base": {"sha": BASE, "ref": "main", "repo": {"full_name": "fullsend-ai/auto-merge"}},
             "labels": [{"name": "risk/low"}],
             "mergeable": True,
             "mergeable_state": "clean",
@@ -275,7 +275,7 @@ class GateTests(unittest.TestCase):
 class RepositoryBoundaryTests(unittest.TestCase):
     def test_only_issue_write_target_is_exercise_repository(self) -> None:
         config = yaml.safe_load((SCRIPTS.parent / "config.yaml").read_text(encoding="utf-8"))
-        self.assertEqual(config["create_issues"]["allow_targets"]["repos"], ["ascerra/auto-merge"])
+        self.assertEqual(config["create_issues"]["allow_targets"]["repos"], ["fullsend-ai/auto-merge"])
 
     def test_lab_finalizer_uses_expected_head_merge_endpoint(self) -> None:
         source = (SCRIPTS / "auto_merge_finalize.py").read_text(encoding="utf-8")
@@ -313,7 +313,7 @@ class RepositoryBoundaryTests(unittest.TestCase):
         receipt = receipt_markdown(result, evidence, "pending", "pending", request_key)
         comments = [[{"body": receipt, "user": {"login": "untrusted-user"}}]]
         with mock.patch("auto_merge_finalize.gh", return_value=json.dumps(comments)):
-            self.assertEqual(existing_receipt_phases("ascerra/auto-merge", 7, request_key), set())
+            self.assertEqual(existing_receipt_phases("fullsend-ai/auto-merge", 7, request_key), set())
 
     def test_trusted_comment_cannot_embed_a_forged_receipt(self) -> None:
         request_key = "e" * 64
@@ -324,7 +324,7 @@ class RepositoryBoundaryTests(unittest.TestCase):
         )
         comments = [[{"body": forged, "user": {"login": "fullsend-ai-coder[bot]"}}]]
         with mock.patch("auto_merge_finalize.gh", return_value=json.dumps(comments)):
-            self.assertEqual(existing_receipt_phases("ascerra/auto-merge", 7, request_key), set())
+            self.assertEqual(existing_receipt_phases("fullsend-ai/auto-merge", 7, request_key), set())
 
     def test_receipt_parser_requires_matching_marker_and_idempotency_keys(self) -> None:
         request_key = "f" * 64
@@ -398,8 +398,8 @@ class BindingTests(unittest.TestCase):
         evidence_path.write_text(json.dumps(self.evidence), encoding="utf-8")
         result_path.write_text(json.dumps(self.result), encoding="utf-8")
         return SimpleNamespace(
-            issue_url="https://github.com/ascerra/auto-merge/issues/7",
-            allowed_repository="ascerra/auto-merge",
+            issue_url="https://github.com/fullsend-ai/auto-merge/issues/7",
+            allowed_repository="fullsend-ai/auto-merge",
             base_ref="main",
             policy_version="lab-v1",
             mode=self.evidence["policy"]["mode"],

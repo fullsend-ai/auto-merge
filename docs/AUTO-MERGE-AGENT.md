@@ -52,7 +52,7 @@ read/observe capability from the narrowly constrained live merge driver.
 `.fullsend/scripts/auto_merge_gate.py` before Fullsend creates the sandbox. The
 gate obtains current state through `gh api` and requires:
 
-- target repository exactly `ascerra/auto-merge`;
+- target repository exactly `fullsend-ai/auto-merge`;
 - open, non-draft pull request with known `mergeable: true` and a
   `mergeable_state` of `clean` or `unstable`; `unstable` is accepted only
   because the gate separately requires every policy-named check to have
@@ -148,7 +148,7 @@ decision and never falls back to a less precise mutation.
 ## Lab-scoped exact-head merge
 
 The POC accepts only `observe` and `lab-automatic`. The live lab path is bound
-to `ascerra/auto-merge`, the allowlisted cohort, squash merge, and the exact
+to `fullsend-ai/auto-merge`, the allowlisted cohort, squash merge, and the exact
 reviewed head SHA. Duplicate receipt keys suppress a second request. An
 uncertain forge response is reconciled once against fresh PR state and is never
 blindly retried. Production still requires a real per-PR lease, persistent

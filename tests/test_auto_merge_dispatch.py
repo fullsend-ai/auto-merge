@@ -23,11 +23,11 @@ def event(
     actor_kind: str = "human",
     actor_role: str = "write",
 ) -> dict:
-    entity = {"kind": entity_kind, "id": 5, "url": "https://github.com/ascerra/auto-merge/pull/5"}
+    entity = {"kind": entity_kind, "id": 5, "url": "https://github.com/fullsend-ai/auto-merge/pull/5"}
     if entity_kind == "work_item":
-        entity["linked_change_proposal"] = {"id": 5, "url": "https://github.com/ascerra/auto-merge/pull/5"}
+        entity["linked_change_proposal"] = {"id": 5, "url": "https://github.com/fullsend-ai/auto-merge/pull/5"}
     return {
-        "repo": "ascerra/auto-merge",
+        "repo": "fullsend-ai/auto-merge",
         "entity": entity,
         "transition": transition,
         "actor": {"id": actor_id, "kind": actor_kind, "role": actor_role, "is_entity_author": False},
@@ -35,8 +35,8 @@ def event(
             "labels": [],
             "change_proposal": {
                 "id": 5,
-                "head_repo": "ascerra/auto-merge",
-                "base_repo": "ascerra/auto-merge",
+                "head_repo": "fullsend-ai/auto-merge",
+                "base_repo": "fullsend-ai/auto-merge",
                 "head_ref": "agent/test",
                 "base_ref": "main",
                 "head_sha": "a" * 40,
@@ -52,7 +52,7 @@ def dispatch(payload: dict) -> list[dict]:
     if FULLSEND is None:
         raise unittest.SkipTest("fullsend CLI is not installed")
     result = subprocess.run(
-        [FULLSEND, "dispatch", "--config-dir", str(CONFIG_DIR), "--input-driver", "json", "--input-file", "-", "--output-driver", "json", "--repo", "ascerra/auto-merge"],
+        [FULLSEND, "dispatch", "--config-dir", str(CONFIG_DIR), "--input-driver", "json", "--input-file", "-", "--output-driver", "json", "--repo", "fullsend-ai/auto-merge"],
         input=json.dumps(payload), text=True, capture_output=True, check=True, cwd=ROOT,
     )
     return json.loads(result.stdout) or []

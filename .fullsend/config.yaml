@@ -20,7 +20,7 @@ allowed_remote_resources:
 create_issues:
     allow_targets:
         repos:
-            - ascerra/auto-merge
+            - fullsend-ai/auto-merge
 inference:
     project: it-gcp-konflux-dev-fullsend
-    wif_provider: projects/855403973659/locations/global/workloadIdentityPools/ascerra-auto-merge/providers/gh-ascerra-auto-merge
+    wif_provider: projects/855403973659/locations/global/workloadIdentityPools/fullsend-ai-auto-merge/providers/gh-fullsend-ai-auto-merge

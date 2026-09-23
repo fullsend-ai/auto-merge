@@ -13,7 +13,7 @@
         "head_sha": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
         "policy_fingerprint": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
         "pull_request_number": {"minimum": 1, "type": "integer"},
-        "repository": {"const": "ascerra/auto-merge"}
+        "repository": {"const": "fullsend-ai/auto-merge"}
       },
       "required": ["repository", "pull_request_number", "head_sha", "base_ref", "base_sha", "policy_fingerprint", "context_fingerprint"],
       "type": "object"
