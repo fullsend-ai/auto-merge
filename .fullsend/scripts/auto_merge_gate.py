@@ -23,6 +23,8 @@ ISSUE_URL_RE = re.compile(
 )
 SIGNOFF_RE = re.compile(r"(?im)^Signed-off-by:\s+[^<\n]+<[^>\n]+>\s*$")
 DENY_LABELS = {"do-not-merge", "hold", "fullsend-no-merge", "security-review-required"}
+RISK_LEVELS = {"low": 1, "moderate": 2, "elevated": 3, "high": 4, "critical": 5}
+RISK_LABEL_PREFIX = "risk/"
 MAX_PATCH_CHARS = 12_000
 MAX_TOTAL_PATCH_CHARS = 24_000
 
@@ -111,6 +113,13 @@ def collect_snapshot(repository: str, number: int) -> dict[str, Any]:
         .get("reviewThreads", {})
     )
 
+    ruleset_summaries = gh_json("api", f"repos/{repository}/rulesets?includes_parents=true")
+    rulesets = []
+    for summary in ruleset_summaries if isinstance(ruleset_summaries, list) else []:
+        ruleset_id = summary.get("id")
+        if ruleset_id is not None:
+            rulesets.append(gh_json("api", f"repos/{repository}/rulesets/{ruleset_id}"))
+
     pr_after = gh_json("api", f"repos/{repository}/pulls/{number}")
     base_after = gh_json("api", branch_endpoint)
     if (pr_after.get("head") or {}).get("sha") != head_sha:
@@ -134,7 +143,16 @@ def collect_snapshot(repository: str, number: int) -> dict[str, Any]:
         "commits": commits,
         "check_runs": checks_obj.get("check_runs", []),
         "review_threads": threads,
+        "rulesets": rulesets,
     }
+
+
+def active_merge_queue_required(rulesets: list[dict[str, Any]]) -> bool:
+    return any(
+        ruleset.get("enforcement") == "active"
+        and any(rule.get("type") == "merge_queue" for rule in ruleset.get("rules", []))
+        for ruleset in rulesets
+    )
 
 
 def _latest_reviews(reviews: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -187,6 +205,8 @@ def evaluate_snapshot(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[
             failures.append(reason)
 
     require(policy.get("mode") in {"observe", "lab-automatic"}, "POC policy mode is unsupported")
+    require(policy.get("execution_strategy") in {"direct", "queue"}, "execution strategy is unsupported")
+    require(policy.get("risk_gate") in {"informational", "required"}, "risk gate is unsupported")
     require(pr.get("state") == "open", "pull request is not open")
     require(pr.get("draft") is False, "pull request is a draft")
     require(SHA_RE.fullmatch(head_sha) is not None, "head SHA is invalid")
@@ -221,6 +241,21 @@ def evaluate_snapshot(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[
     labels = sorted(str(label.get("name", "")) for label in pr.get("labels", []))
     blocked = sorted({label.lower() for label in labels} & DENY_LABELS)
     require(not blocked, "hold label present: " + ", ".join(blocked))
+
+    risk_labels = [label for label in labels if label.startswith(RISK_LABEL_PREFIX)]
+    known_risk_labels = [label for label in risk_labels if label.removeprefix(RISK_LABEL_PREFIX) in RISK_LEVELS]
+    risk_level = known_risk_labels[0].removeprefix(RISK_LABEL_PREFIX) if len(known_risk_labels) == 1 else ""
+    require(len(risk_labels) <= 1, "multiple PR risk assessments are present")
+    require(len(risk_labels) == len(known_risk_labels), "PR risk assessment label is malformed")
+    if policy["risk_gate"] == "required":
+        require(bool(risk_level), "required PR risk assessment is missing")
+        require(risk_level in policy["allowed_risk_levels"], f"PR risk level {risk_level or '<missing>'} is not allowed")
+
+    queue_required = active_merge_queue_required(snapshot.get("rulesets") or [])
+    require(
+        (policy["execution_strategy"] == "queue") == queue_required,
+        "configured execution strategy does not match repository merge-queue policy",
+    )
 
     files = snapshot["files"]
     changed_paths = sorted(str(item.get("filename", "")) for item in files)
@@ -258,18 +293,29 @@ def evaluate_snapshot(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[
             require(check.get("conclusion") == "success", f"required check did not succeed: {name}")
 
     latest_reviews = _latest_reviews(snapshot["reviews"])
+    allowed_reviewers = {login.casefold() for login in policy["allowed_reviewers"]}
+    trusted_reviews = [
+        review
+        for review in latest_reviews
+        if str((review.get("user") or {}).get("login", "")).casefold() in allowed_reviewers
+    ]
+    ignored_reviewers = sorted(
+        str((review.get("user") or {}).get("login", ""))
+        for review in latest_reviews
+        if str((review.get("user") or {}).get("login", "")).casefold() not in allowed_reviewers
+    )
     changes_requested = [
         (review.get("user") or {}).get("login", "unknown")
-        for review in latest_reviews
+        for review in trusted_reviews
         if review.get("state") == "CHANGES_REQUESTED"
     ]
     approvals = [
         review
-        for review in latest_reviews
+        for review in trusted_reviews
         if review.get("state") == "APPROVED" and review.get("commit_id") == head_sha
     ]
-    require(not changes_requested, "changes-requested review remains: " + ", ".join(changes_requested))
-    require(bool(approvals), "no approval applies to the exact head SHA")
+    require(not changes_requested, "trusted changes-requested review remains: " + ", ".join(changes_requested))
+    require(bool(approvals), "no trusted approval applies to the exact head SHA")
 
     threads = snapshot.get("review_threads") or {}
     thread_nodes = threads.get("nodes") or []
@@ -294,12 +340,20 @@ def evaluate_snapshot(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[
         "failures": failures,
         "changed_paths": changed_paths,
         "labels": labels,
+        "risk_assessment": {
+            "gate": policy["risk_gate"],
+            "level": risk_level,
+            "label": known_risk_labels[0] if len(known_risk_labels) == 1 else "",
+            "approval_head_sha": head_sha if approvals else "",
+        },
+        "merge_queue_required": queue_required,
         "checks": check_evidence,
         "approvals": [
             {"login": (review.get("user") or {}).get("login", ""), "commit_id": review.get("commit_id", "")}
             for review in approvals
         ],
         "changes_requested_by": changes_requested,
+        "ignored_untrusted_reviewers": ignored_reviewers,
         "unresolved_review_threads": unresolved_count,
         "commits": commit_evidence,
         "live_base_sha": live_base_sha,
@@ -368,12 +422,25 @@ def collect_command(args: argparse.Namespace) -> int:
         "base_ref": args.base_ref,
         "policy_version": args.policy_version,
         "mode": args.mode,
+        "execution_strategy": args.execution_strategy,
+        "risk_gate": args.risk_gate,
+        "allowed_risk_levels": csv_values(args.allowed_risk_levels),
         "required_checks": csv_values(args.required_checks),
         "allowed_paths": csv_values(args.allowed_paths),
         "allowed_authors": csv_values(args.allowed_authors),
+        "allowed_reviewers": csv_values(args.allowed_reviewers),
     }
-    if not policy["required_checks"] or not policy["allowed_paths"] or not policy["allowed_authors"]:
-        raise GateError("required checks, allowed paths, and allowed authors must be non-empty")
+    if (
+        not policy["required_checks"]
+        or not policy["allowed_paths"]
+        or not policy["allowed_authors"]
+        or not policy["allowed_reviewers"]
+    ):
+        raise GateError("required checks, allowed paths, allowed authors, and allowed reviewers must be non-empty")
+    if policy["risk_gate"] == "required" and not policy["allowed_risk_levels"]:
+        raise GateError("required risk gate must define allowed risk levels")
+    if any(level not in RISK_LEVELS for level in policy["allowed_risk_levels"]):
+        raise GateError("allowed risk levels contain an unsupported value")
     snapshot = collect_snapshot(args.repository, int(match.group("number")))
     document = build_evidence(snapshot, policy)
     output = Path(args.output)
@@ -391,9 +458,13 @@ def parser() -> argparse.ArgumentParser:
     collect.add_argument("--base-ref", required=True)
     collect.add_argument("--policy-version", required=True)
     collect.add_argument("--mode", required=True, choices=["observe", "lab-automatic"])
+    collect.add_argument("--execution-strategy", required=True, choices=["direct", "queue"])
+    collect.add_argument("--risk-gate", required=True, choices=["informational", "required"])
+    collect.add_argument("--allowed-risk-levels", required=True)
     collect.add_argument("--required-checks", required=True)
     collect.add_argument("--allowed-paths", required=True)
     collect.add_argument("--allowed-authors", required=True)
+    collect.add_argument("--allowed-reviewers", required=True)
     collect.add_argument("--output", required=True)
     collect.set_defaults(func=collect_command)
     return root

@@ -56,7 +56,7 @@ Provisioning may add only the dedicated pool/provider and one additive
 `attribute.repository/ascerra/auto-merge`. No mint deploy, enroll, update,
 deprovision, disable, or delete command is permitted in this exercise.
 
-Billing decision: Adam explicitly approved `it-gcp-konflux-dev-fullsend` for
+Billing decision: Adam explicitly approved the dedicated dev GCP project for
 the lab's inference usage. Isolation is provided by the dedicated pool/provider
 and exact repository condition. The only shared-project IAM mutation is an
 additive `roles/aiplatform.user` member scoped to that repository principal;
@@ -163,15 +163,15 @@ credential unavailable to the model sandbox.
 ## Evidence log
 
 - Repository: https://github.com/ascerra/auto-merge (private)
-- Fullsend source under test: `fullsend-ai/fullsend` main commit
-  `6aa078bc7dc2a5f0dcf2aea8e78e604e380cb2ff`
-- Agents source observed at implementation time: `fullsend-ai/agents` main
-  commit `6ffe9c7729cf71f3b6f50f8d894cd8e94df83e4d`
-- GCP project number resolved: `855403973659`
-- Planned provider: `projects/855403973659/locations/global/workloadIdentityPools/ascerra-auto-merge/providers/gh-ascerra-auto-merge`
-- GitHub Apps: triage, coder, and review installed for only
-  `ascerra/auto-merge` (installation IDs `162307332`, `162307487`, and
-  `162307526`)
+- Fullsend workflow pin refreshed before publication review:
+  `5e6f41157a2163af1df290d2e01db827b38a7d8f`
+- Agents source refreshed during publication review: `fullsend-ai/agents` main
+  commit `bc692e8228115004ff2560e20646cae5b3d376af`; Fullsend resolves the
+  first-party agent fallback to an immutable SHA at run time.
+- A dedicated dev GCP project and repository-scoped WIF provider were verified;
+  exact infrastructure identifiers remain in private operational configuration.
+- GitHub Apps for triage, code, and review were installed only for
+  `ascerra/auto-merge`; installation identifiers are intentionally omitted.
 - Issue: https://github.com/ascerra/auto-merge/issues/1
 - Exercise PR: https://github.com/ascerra/auto-merge/pull/2
 - Triage proof run: https://github.com/ascerra/auto-merge/actions/runs/35169161822

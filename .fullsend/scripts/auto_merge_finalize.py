@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -19,7 +20,32 @@ from auto_merge_gate import GateError, ISSUE_URL_RE, canonical_hash, csv_values,
 
 DECISIONS = {"APPROVE", "REJECT", "ESCALATE"}
 MODES = {"observe", "lab-automatic"}
-TRUSTED_RECEIPT_AUTHORS = {"ascerra", "fullsend-ai-coder[bot]", "fullsend-ai[bot]"}
+EXECUTION_STRATEGIES = {"direct", "queue"}
+RISK_LEVELS = {"low", "moderate", "elevated", "high", "critical"}
+TRUSTED_RECEIPT_AUTHORS = {"fullsend-ai-coder[bot]"}
+RECEIPT_PHASES = {
+    "aborted",
+    "merged",
+    "not-merged",
+    "not-queued",
+    "observe-preview",
+    "outcome-unknown",
+    "pending",
+    "queued",
+    "reconciled-merged",
+    "stale-decision-rejected",
+}
+RECEIPT_HEADER_RE = re.compile(
+    r"\A<!-- fullsend:auto-merge-receipt:(?P<marker_key>[0-9a-f]{64}|observation):"
+    r"(?P<phase>[a-z][a-z-]*) -->\n"
+    r"### Auto-Merge: (?P<title>[^\n]+)\n\n"
+    r"- Decision: `(?P<decision>APPROVE|REJECT|ESCALATE)`\n"
+    r"- Head: `(?P<head>[0-9a-f]{40})`\n"
+    r"- Base: `(?P<base_ref>[A-Za-z0-9._/-]+)@(?P<base_sha>[0-9a-f]{40})`\n"
+    r"- Policy: `(?P<policy>[0-9a-f]{64})`\n"
+    r"- Context: `(?P<context>[0-9a-f]{64})`\n"
+    r"- Idempotency key: `(?P<idempotency>[0-9a-f]{64}|not-applicable)`\n"
+)
 BINDING_KEYS = {
     "repository",
     "pull_request_number",
@@ -89,21 +115,38 @@ def trusted_policy(args: argparse.Namespace) -> dict[str, Any]:
         "base_ref": args.base_ref,
         "policy_version": args.policy_version,
         "mode": args.mode,
+        "execution_strategy": args.execution_strategy,
+        "risk_gate": args.risk_gate,
+        "allowed_risk_levels": csv_values(args.allowed_risk_levels),
         "required_checks": csv_values(args.required_checks),
         "allowed_paths": csv_values(args.allowed_paths),
         "allowed_authors": csv_values(args.allowed_authors),
+        "allowed_reviewers": csv_values(args.allowed_reviewers),
     }
-    if not policy["required_checks"] or not policy["allowed_paths"] or not policy["allowed_authors"]:
+    if (
+        not policy["required_checks"]
+        or not policy["allowed_paths"]
+        or not policy["allowed_authors"]
+        or not policy["allowed_reviewers"]
+    ):
         raise GateError("trusted policy inputs must be non-empty")
     if policy["mode"] not in MODES:
         raise GateError("trusted policy mode is unsupported")
+    if policy["execution_strategy"] not in EXECUTION_STRATEGIES:
+        raise GateError("trusted execution strategy is unsupported")
+    if policy["risk_gate"] not in {"informational", "required"}:
+        raise GateError("trusted risk gate is unsupported")
+    if policy["risk_gate"] == "required" and not policy["allowed_risk_levels"]:
+        raise GateError("trusted risk gate requires allowed levels")
+    if any(level not in RISK_LEVELS for level in policy["allowed_risk_levels"]):
+        raise GateError("trusted allowed risk levels contain an unsupported value")
     return policy
 
 
-def idempotency_key(binding: dict[str, Any]) -> str:
+def idempotency_key(binding: dict[str, Any], execution_strategy: str) -> str:
     request = {
         "binding": {key: value for key, value in binding.items() if key != "context_fingerprint"},
-        "operation": "squash-merge",
+        "operation": f"{execution_strategy}-merge",
     }
     payload = json.dumps(request, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(payload).hexdigest()
@@ -148,6 +191,24 @@ def post_receipt(repository: str, number: int, body: str) -> None:
     )
 
 
+def parse_receipt_header(body: str) -> dict[str, str] | None:
+    """Parse only canonical receipts emitted at the start of a trusted comment."""
+    match = RECEIPT_HEADER_RE.match(body)
+    if match is None:
+        return None
+    receipt = match.groupdict()
+    if receipt["phase"] not in RECEIPT_PHASES:
+        return None
+    if receipt["title"].lower().replace(" ", "-") != receipt["phase"]:
+        return None
+    if receipt["marker_key"] == "observation":
+        if receipt["idempotency"] != "not-applicable":
+            return None
+    elif receipt["marker_key"] != receipt["idempotency"]:
+        return None
+    return receipt
+
+
 def existing_receipt_phases(repository: str, number: int, request_key: str) -> set[str]:
     raw = gh(
         "api",
@@ -160,16 +221,14 @@ def existing_receipt_phases(repository: str, number: int, request_key: str) -> s
     except json.JSONDecodeError as exc:
         raise GateError("GitHub comments query returned invalid JSON") from exc
     phases: set[str] = set()
-    prefix = f"<!-- fullsend:auto-merge-receipt:{request_key}:"
     for page in pages:
         for comment in page if isinstance(page, list) else []:
             author = str((comment.get("user") or {}).get("login") or "")
             if author not in TRUSTED_RECEIPT_AUTHORS:
                 continue
-            body = str(comment.get("body") or "")
-            if prefix in body:
-                marker = body.split(prefix, 1)[1].split(" -->", 1)[0]
-                phases.add(marker)
+            receipt = parse_receipt_header(str(comment.get("body") or ""))
+            if receipt is not None and receipt["marker_key"] == request_key:
+                phases.add(receipt["phase"])
     return phases
 
 
@@ -199,12 +258,20 @@ def collect_fresh(args: argparse.Namespace, destination: Path) -> dict[str, Any]
         policy["policy_version"],
         "--mode",
         policy["mode"],
+        "--execution-strategy",
+        policy["execution_strategy"],
+        "--risk-gate",
+        policy["risk_gate"],
+        "--allowed-risk-levels",
+        ",".join(policy["allowed_risk_levels"]),
         "--required-checks",
         ",".join(policy["required_checks"]),
         "--allowed-paths",
         ",".join(policy["allowed_paths"]),
         "--allowed-authors",
         ",".join(policy["allowed_authors"]),
+        "--allowed-reviewers",
+        ",".join(policy["allowed_reviewers"]),
         "--output",
         str(destination),
     ]
@@ -279,7 +346,7 @@ def finalize(args: argparse.Namespace) -> int:
         print(receipt_markdown(result, evidence, "observe preview", "All final gates passed. Observe mode did not attempt a merge."))
         return 0
 
-    request_key = idempotency_key(binding)
+    request_key = idempotency_key(binding, policy["execution_strategy"])
     phases = existing_receipt_phases(repository, number, request_key)
     if phases:
         pr_state = pull_request_state(repository, number)
@@ -297,7 +364,15 @@ def finalize(args: argparse.Namespace) -> int:
     post_receipt(
         repository,
         number,
-        receipt_markdown(result, evidence, "pending", "Final authorization passed; an exact-head squash merge request is pending.", request_key),
+        receipt_markdown(
+            result,
+            evidence,
+            "pending",
+            "Final authorization passed; a queue enrollment is pending."
+            if policy["execution_strategy"] == "queue"
+            else "Final authorization passed; an exact-head squash merge request is pending.",
+            request_key,
+        ),
     )
 
     # Re-run every mutable gate after the durable pending receipt and before the
@@ -312,6 +387,37 @@ def finalize(args: argparse.Namespace) -> int:
             repository,
             number,
             receipt_markdown(result, evidence, "aborted", "Final authorization changed after the pending receipt: " + "; ".join(failures), request_key),
+        )
+        return 0
+
+    if policy["execution_strategy"] == "queue":
+        try:
+            gh(
+                "pr",
+                "merge",
+                str(number),
+                "--repo",
+                repository,
+                "--match-head-commit",
+                binding["head_sha"],
+            )
+        except GateError as exc:
+            post_receipt(
+                repository,
+                number,
+                receipt_markdown(result, evidence, "not queued", "GitHub rejected merge-queue enrollment.", request_key),
+            )
+            raise GateError("merge-queue enrollment failed closed") from exc
+        post_receipt(
+            repository,
+            number,
+            receipt_markdown(
+                result,
+                evidence,
+                "queued",
+                "GitHub accepted the exact approved head for merge-queue processing. The queue-generated revision still requires fresh authorization.",
+                request_key,
+            ),
         )
         return 0
 
@@ -368,9 +474,13 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--base-ref", required=True)
     result.add_argument("--policy-version", required=True)
     result.add_argument("--mode", required=True, choices=sorted(MODES))
+    result.add_argument("--execution-strategy", required=True, choices=sorted(EXECUTION_STRATEGIES))
+    result.add_argument("--risk-gate", required=True, choices=["informational", "required"])
+    result.add_argument("--allowed-risk-levels", required=True)
     result.add_argument("--required-checks", required=True)
     result.add_argument("--allowed-paths", required=True)
     result.add_argument("--allowed-authors", required=True)
+    result.add_argument("--allowed-reviewers", required=True)
     result.add_argument("--evidence", required=True)
     result.add_argument("--result", required=True)
     result.add_argument("--gate-script", required=True)

@@ -19,13 +19,18 @@ jobs:
     if: >-
       github.event_name == 'workflow_run'
       && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'pull_request'
+      && github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.prepare.outputs.matrix }}
     permissions:
       contents: read
       issues: write
       pull-requests: write
     steps:
       - name: Mark matching pull requests as Auto-Merge ready
+        id: prepare
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -41,23 +46,65 @@ jobs:
             -f description='Trusted CI success wake-up signal for Auto-Merge' \
             >/dev/null 2>&1 || true
 
-          gh api \
+          matrix='{"include":[]}'
+          mapfile -t pr_numbers < <(gh api \
             -H 'Accept: application/vnd.github+json' \
             "/repos/${REPO}/commits/${RUN_SHA}/pulls" \
             -H 'Accept: application/vnd.github+json' \
-            --jq '.[] | select(.base.ref == "main" and .head.repo.full_name == "'"${REPO}"'") | .number' \
-            | while read -r pr_number; do
-                [[ -n "${pr_number}" ]] || continue
+            --jq '.[] | select(.base.ref == "main" and .head.repo.full_name == "'"${REPO}"'") | .number')
+          for pr_number in "${pr_numbers[@]}"; do
+            [[ -n "${pr_number}" ]] || continue
 
-                head_sha=$(gh pr view "${pr_number}" --repo "${REPO}" --json headRefOid --jq '.headRefOid')
-                [[ "${head_sha}" == "${RUN_SHA}" ]] || continue
+            pr_state=$(gh pr view "${pr_number}" --repo "${REPO}" --json headRefOid,isDraft,state)
+            head_sha=$(jq -r '.headRefOid' <<<"${pr_state}")
+            [[ "${head_sha}" == "${RUN_SHA}" ]] || continue
+            [[ "$(jq -r '.state' <<<"${pr_state}")" == 'OPEN' ]] || continue
+            [[ "$(jq -r '.isDraft' <<<"${pr_state}")" == 'false' ]] || continue
 
-                gh api --method POST \
-                  -H 'Accept: application/vnd.github+json' \
-                  "/repos/${REPO}/issues/${pr_number}/labels" \
-                  -f 'labels[]=fullsend-auto-merge-ready' \
-                  >/dev/null
-              done
+            gh api --method POST \
+              -H 'Accept: application/vnd.github+json' \
+              "/repos/${REPO}/issues/${pr_number}/labels" \
+              -f 'labels[]=fullsend-auto-merge-ready' \
+              >/dev/null
+
+            event_payload=$(jq -cn \
+              --arg repo "${REPO}" \
+              --argjson number "${pr_number}" \
+              --arg sha "${RUN_SHA}" \
+              '{action:"fullsend_auto_merge_ready",repository:{full_name:$repo},pull_request:{number:$number,html_url:("https://github.com/"+$repo+"/pull/"+($number|tostring)),head:{sha:$sha}},issue:{number:$number,html_url:("https://github.com/"+$repo+"/pull/"+($number|tostring))},comment:{id:0}}')
+            entry=$(jq -cn \
+              --arg repo "${REPO}" \
+              --argjson number "${pr_number}" \
+              --arg payload "${event_payload}" \
+              '{agent:"auto-merge",source_repo:$repo,role:"coder",event_payload:$payload,status_repo:$repo,status_number:$number}')
+            matrix=$(jq -c --argjson entry "${entry}" '.include += [$entry]' <<<"${matrix}")
+          done
+
+          echo "matrix=${matrix}" >>"${GITHUB_OUTPUT}"
+
+  reconcile:
+    name: Reconcile Auto-Merge after CI
+    needs: mark-ready
+    if: ${{ needs.mark-ready.outputs.matrix != '{"include":[]}' }}
+    permissions:
+      actions: write
+      contents: write
+      id-token: write
+      issues: write
+      packages: read
+      pull-requests: write
+    uses: fullsend-ai/fullsend/.github/workflows/reusable-dispatch.yml@5e6f41157a2163af1df290d2e01db827b38a7d8f
+    with:
+      matrix: ${{ needs.mark-ready.outputs.matrix }}
+      install_mode: per-repo
+      mint_url: ${{ vars.FULLSEND_MINT_URL }}
+      gcp_region: ${{ vars.FULLSEND_GCP_REGION }}
+      runner_image: ubuntu-24.04
+    secrets:
+      FULLSEND_GCP_WIF_PROVIDER: ${{ secrets.FULLSEND_GCP_WIF_PROVIDER }}
+      FULLSEND_GCP_PROJECT_ID: ${{ secrets.FULLSEND_GCP_PROJECT_ID }}
+      OTEL_EXPORTER_OTLP_TRACES_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_TRACES_HEADERS }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 
   clear-ready:
     if: >-

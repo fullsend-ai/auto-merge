@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="0.55" stop-color="#0d1b31"/>
+      <stop offset="1" stop-color="#112b2d"/>
+    </linearGradient>
+    <radialGradient id="glow">
+      <stop offset="0" stop-color="#55e6c1" stop-opacity=".28"/>
+      <stop offset="1" stop-color="#55e6c1" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <circle cx="1600" cy="210" r="520" fill="url(#glow)"/>
+  <path d="M110 830H1810" stroke="#55e6c1" stroke-opacity=".22" stroke-width="2"/>
+  <g font-family="Inter,DejaVu Sans,sans-serif">
+    <text x="110" y="170" fill="#55e6c1" font-size="30" font-weight="700" letter-spacing="7">PRIVATE LAB · REAL HOSTED RUN</text>
+    <text x="110" y="360" fill="#f6fbff" font-size="112" font-weight="800">Fullsend Auto-Merge</text>
+    <text x="110" y="475" fill="#afbdd0" font-size="54">A policy-bound agent that proves readiness,</text>
+    <text x="110" y="545" fill="#afbdd0" font-size="54">asks for semantic judgment, then revalidates.</text>
+    <g transform="translate(110 675)">
+      <rect width="560" height="92" rx="46" fill="#55e6c1"/>
+      <circle cx="54" cy="46" r="17" fill="#07111f"/>
+      <path d="M45 46l7 7 14-17" fill="none" stroke="#55e6c1" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="92" y="59" fill="#07111f" font-size="36" font-weight="800">Exact-head authorization</text>
+    </g>
+    <text x="110" y="925" fill="#75869b" font-size="30">ascerra/auto-merge · PR #7 · 2½-minute field demo</text>
+  </g>
+</svg>

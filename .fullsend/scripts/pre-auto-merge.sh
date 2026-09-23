@@ -19,9 +19,13 @@ python3 "${SCRIPT_DIR}/auto_merge_gate.py" collect \
   --base-ref "${AUTO_MERGE_BASE_REF:-main}" \
   --policy-version "${AUTO_MERGE_POLICY_VERSION:-lab-v1}" \
   --mode "${AUTO_MERGE_MODE:-observe}" \
+  --execution-strategy "${AUTO_MERGE_EXECUTION_STRATEGY:-direct}" \
+  --risk-gate "${AUTO_MERGE_RISK_GATE:-informational}" \
+  --allowed-risk-levels "${AUTO_MERGE_ALLOWED_RISK_LEVELS:-low,moderate}" \
   --required-checks "${AUTO_MERGE_REQUIRED_CHECKS:-}" \
   --allowed-paths "${AUTO_MERGE_ALLOWED_PATHS:-}" \
   --allowed-authors "${AUTO_MERGE_ALLOWED_AUTHORS:-}" \
+  --allowed-reviewers "${AUTO_MERGE_ALLOWED_REVIEWERS:-}" \
   --output "${EVIDENCE_FILE}"
 
 if ! jq -e '.deterministic.eligible == true' "${EVIDENCE_FILE}" >/dev/null; then

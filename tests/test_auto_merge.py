@@ -18,7 +18,14 @@ import yaml
 SCRIPTS = Path(__file__).parents[1] / ".fullsend" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
-from auto_merge_finalize import GateError, existing_receipt_phases, finalize, validate_result  # noqa: E402
+from auto_merge_finalize import (  # noqa: E402
+    GateError,
+    existing_receipt_phases,
+    finalize,
+    parse_receipt_header,
+    receipt_markdown,
+    validate_result,
+)
 from auto_merge_gate import build_evidence, canonical_hash, evaluate_snapshot, policy_fingerprint  # noqa: E402
 from jsonschema import validate  # noqa: E402
 
@@ -34,9 +41,13 @@ def policy() -> dict:
         "base_ref": "main",
         "policy_version": "lab-v1",
         "mode": "observe",
+        "execution_strategy": "direct",
+        "risk_gate": "required",
+        "allowed_risk_levels": ["low", "moderate"],
         "required_checks": ["Example contract", "Delayed integration (4 minutes)"],
         "allowed_paths": ["docs/example-feature.md"],
         "allowed_authors": ["fullsend-ai-coder[bot]"],
+        "allowed_reviewers": ["ascerra", "fullsend-ai-review[bot]"],
     }
 
 
@@ -52,7 +63,7 @@ def eligible_snapshot() -> dict:
             "user": {"login": "fullsend-ai-coder[bot]"},
             "head": {"sha": HEAD, "repo": {"full_name": "ascerra/auto-merge"}},
             "base": {"sha": BASE, "ref": "main", "repo": {"full_name": "ascerra/auto-merge"}},
-            "labels": [],
+            "labels": [{"name": "risk/low"}],
             "mergeable": True,
             "mergeable_state": "clean",
             "merge_commit_sha": MERGE,
@@ -93,6 +104,7 @@ def eligible_snapshot() -> dict:
             {"id": 2, "name": "Delayed integration (4 minutes)", "status": "completed", "conclusion": "success", "head_sha": HEAD, "completed_at": "2026-09-16T20:05:00Z"},
         ],
         "review_threads": {"nodes": [], "pageInfo": {"hasNextPage": False}},
+        "rulesets": [],
     }
 
 
@@ -110,6 +122,26 @@ class GateTests(unittest.TestCase):
         snapshot["reviews"][0]["commit_id"] = "c" * 40
         self.assert_ineligible(snapshot, "exact head SHA")
 
+    def test_untrusted_approval_is_rejected(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["reviews"][0]["user"]["login"] = "untrusted-public-user"
+        self.assert_ineligible(snapshot, "trusted approval")
+
+    def test_untrusted_approval_does_not_override_trusted_approval(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["reviews"].append(
+            {
+                "id": 2,
+                "state": "APPROVED",
+                "commit_id": HEAD,
+                "submitted_at": "2026-09-16T20:02:00Z",
+                "user": {"login": "untrusted-public-user"},
+            }
+        )
+        result = evaluate_snapshot(snapshot, policy())
+        self.assertTrue(result["eligible"], result["failures"])
+        self.assertEqual(result["ignored_untrusted_reviewers"], ["untrusted-public-user"])
+
     def test_pending_check_is_rejected(self) -> None:
         snapshot = eligible_snapshot()
         snapshot["check_runs"][0].update(status="in_progress", conclusion=None)
@@ -122,8 +154,35 @@ class GateTests(unittest.TestCase):
 
     def test_hold_label_is_rejected(self) -> None:
         snapshot = eligible_snapshot()
-        snapshot["pull_request"]["labels"] = [{"name": "hold"}]
+        snapshot["pull_request"]["labels"].append({"name": "hold"})
         self.assert_ineligible(snapshot, "hold label")
+
+    def test_required_risk_assessment_is_missing(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["pull_request"]["labels"] = []
+        self.assert_ineligible(snapshot, "risk assessment is missing")
+
+    def test_risk_above_policy_threshold_is_rejected(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["pull_request"]["labels"] = [{"name": "risk/high"}]
+        self.assert_ineligible(snapshot, "risk level high is not allowed")
+
+    def test_multiple_risk_assessments_are_rejected(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["pull_request"]["labels"] = [{"name": "risk/low"}, {"name": "risk/moderate"}]
+        self.assert_ineligible(snapshot, "multiple PR risk assessments")
+
+    def test_queue_strategy_requires_active_merge_queue_rule(self) -> None:
+        changed_policy = policy()
+        changed_policy["execution_strategy"] = "queue"
+        self.assertFalse(evaluate_snapshot(eligible_snapshot(), changed_policy)["eligible"])
+
+    def test_queue_strategy_is_eligible_with_active_merge_queue_rule(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["rulesets"] = [{"enforcement": "active", "rules": [{"type": "merge_queue"}]}]
+        changed_policy = policy()
+        changed_policy["execution_strategy"] = "queue"
+        self.assertTrue(evaluate_snapshot(snapshot, changed_policy)["eligible"])
 
     def test_disallowed_path_is_rejected(self) -> None:
         snapshot = eligible_snapshot()
@@ -185,7 +244,7 @@ class GateTests(unittest.TestCase):
         snapshot["review_threads"]["nodes"] = [{"isResolved": False}]
         self.assert_ineligible(snapshot, "unresolved review thread")
 
-    def test_changes_requested_is_rejected(self) -> None:
+    def test_trusted_changes_requested_is_rejected(self) -> None:
         snapshot = eligible_snapshot()
         snapshot["reviews"].append(
             {
@@ -193,10 +252,24 @@ class GateTests(unittest.TestCase):
                 "state": "CHANGES_REQUESTED",
                 "commit_id": HEAD,
                 "submitted_at": "2026-09-16T20:02:00Z",
-                "user": {"login": "human-reviewer"},
+                "user": {"login": "ascerra"},
             }
         )
-        self.assert_ineligible(snapshot, "changes-requested")
+        self.assert_ineligible(snapshot, "trusted changes-requested")
+
+    def test_untrusted_changes_requested_is_ignored(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["reviews"].append(
+            {
+                "id": 2,
+                "state": "CHANGES_REQUESTED",
+                "commit_id": HEAD,
+                "submitted_at": "2026-09-16T20:02:00Z",
+                "user": {"login": "untrusted-public-user"},
+            }
+        )
+        result = evaluate_snapshot(snapshot, policy())
+        self.assertTrue(result["eligible"], result["failures"])
 
 
 class RepositoryBoundaryTests(unittest.TestCase):
@@ -209,11 +282,63 @@ class RepositoryBoundaryTests(unittest.TestCase):
         self.assertIn("pulls/{number}/merge", source)
         self.assertIn("f\"sha={binding['head_sha']}\"", source)
 
+    def test_model_and_preflight_have_read_only_forge_privileges(self) -> None:
+        harness = yaml.safe_load((SCRIPTS.parent / "harness" / "auto-merge.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(
+            harness["privilege_levels"],
+            {"pre_script": "read", "runtime": "read", "post_script": "write"},
+        )
+        self.assertNotIn("GH_TOKEN", harness["env"]["sandbox"])
+
+    def test_receipts_trust_only_the_coder_app_identity(self) -> None:
+        from auto_merge_finalize import TRUSTED_RECEIPT_AUTHORS
+
+        self.assertEqual(TRUSTED_RECEIPT_AUTHORS, {"fullsend-ai-coder[bot]"})
+
+    def test_ci_readiness_requires_same_repository_pull_request_run(self) -> None:
+        workflow = (SCRIPTS.parents[1] / ".github" / "workflows" / "auto-merge-ready.yml").read_text(encoding="utf-8")
+        self.assertIn("github.event.workflow_run.event == 'pull_request'", workflow)
+        self.assertIn("github.event.workflow_run.head_repository.full_name == github.repository", workflow)
+
     def test_untrusted_comment_cannot_spoof_idempotency_receipt(self) -> None:
-        marker = "<!-- fullsend:auto-merge-receipt:key:pending -->"
-        comments = [[{"body": marker, "user": {"login": "untrusted-user"}}]]
+        request_key = "d" * 64
+        evidence = build_evidence(eligible_snapshot(), policy())
+        result = {
+            "decision": "APPROVE",
+            "binding": evidence["binding"],
+            "summary": "safe",
+            "reasons": ["approved"],
+            "risk_signals": [],
+        }
+        receipt = receipt_markdown(result, evidence, "pending", "pending", request_key)
+        comments = [[{"body": receipt, "user": {"login": "untrusted-user"}}]]
         with mock.patch("auto_merge_finalize.gh", return_value=json.dumps(comments)):
-            self.assertEqual(existing_receipt_phases("ascerra/auto-merge", 7, "key"), set())
+            self.assertEqual(existing_receipt_phases("ascerra/auto-merge", 7, request_key), set())
+
+    def test_trusted_comment_cannot_embed_a_forged_receipt(self) -> None:
+        request_key = "e" * 64
+        forged = (
+            "A harmless earlier message.\n\n"
+            f"<!-- fullsend:auto-merge-receipt:{request_key}:pending -->\n"
+            "### Auto-Merge: pending\n"
+        )
+        comments = [[{"body": forged, "user": {"login": "fullsend-ai-coder[bot]"}}]]
+        with mock.patch("auto_merge_finalize.gh", return_value=json.dumps(comments)):
+            self.assertEqual(existing_receipt_phases("ascerra/auto-merge", 7, request_key), set())
+
+    def test_receipt_parser_requires_matching_marker_and_idempotency_keys(self) -> None:
+        request_key = "f" * 64
+        evidence = build_evidence(eligible_snapshot(), policy())
+        result = {
+            "decision": "APPROVE",
+            "binding": evidence["binding"],
+            "summary": "safe",
+            "reasons": ["approved"],
+            "risk_signals": [],
+        }
+        receipt = receipt_markdown(result, evidence, "queued", "queued", request_key)
+        self.assertEqual(parse_receipt_header(receipt)["phase"], "queued")
+        self.assertIsNone(parse_receipt_header(receipt.replace(request_key, "0" * 64, 1)))
 
 
 class BindingTests(unittest.TestCase):
@@ -278,9 +403,13 @@ class BindingTests(unittest.TestCase):
             base_ref="main",
             policy_version="lab-v1",
             mode=self.evidence["policy"]["mode"],
+            execution_strategy=self.evidence["policy"]["execution_strategy"],
+            risk_gate=self.evidence["policy"]["risk_gate"],
+            allowed_risk_levels=",".join(self.evidence["policy"]["allowed_risk_levels"]),
             required_checks="Example contract,Delayed integration (4 minutes)",
             allowed_paths="docs/example-feature.md",
             allowed_authors="fullsend-ai-coder[bot]",
+            allowed_reviewers="ascerra,fullsend-ai-review[bot]",
             evidence=str(evidence_path),
             result=str(result_path),
             gate_script=str(SCRIPTS / "auto_merge_gate.py"),

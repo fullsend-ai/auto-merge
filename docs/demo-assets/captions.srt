@@ -1,0 +1,39 @@
+1
+00:00:00,000 --> 00:00:15,000
+Fullsend Auto-Merge runs for real in a private lab—not as a forge button or observe-only mock.
+
+2
+00:00:15,000 --> 00:00:30,000
+The decision binds one repository, pull request, exact head, live base, policy, and evidence context.
+
+3
+00:00:30,000 --> 00:00:45,000
+Review and a fast CI contract check begin independently.
+
+4
+00:00:45,000 --> 00:01:00,000
+A deliberate four-minute check proves Auto-Merge remains dormant while readiness is incomplete.
+
+5
+00:01:00,000 --> 00:01:15,000
+Exact-head review approval automatically routes through Fullsend; no human merge command is used.
+
+6
+00:01:15,000 --> 00:01:30,000
+Trusted preflight validates checks, approval, DCO, scope, threads, mergeability, and bounded patch evidence.
+
+7
+00:01:30,000 --> 00:01:45,000
+The read-only model sandbox has no GitHub token and answers only the bounded semantic question.
+
+8
+00:01:45,000 --> 00:02:00,000
+Trusted code records a pending receipt, then recollects every mutable fact before mutation.
+
+9
+00:02:00,000 --> 00:02:15,000
+PR #7 receives APPROVE for exact head ae9e2a0; GitHub accepts the exact-head squash merge nine seconds later.
+
+10
+00:02:15,000 --> 00:02:30,000
+The merged receipt closes the loop; production gaps remain explicit, but the authority boundary is proven.

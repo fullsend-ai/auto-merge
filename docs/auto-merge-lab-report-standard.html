@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A clear report of the Fullsend Auto-Merge private repository lab.">
+  <title>Fullsend Auto-Merge Lab Report</title>
+  <style>
+    :root {
+      --paper: #f4f1e8;
+      --surface: #fffdf7;
+      --ink: #15211d;
+      --muted: #596660;
+      --line: #d8d5c9;
+      --green: #167a5b;
+      --green-soft: #dceee7;
+      --blue: #235f89;
+      --blue-soft: #e1edf5;
+      --amber: #9a6500;
+      --amber-soft: #f5e9c8;
+      --red: #a13b3b;
+      --red-soft: #f4dfdc;
+      --purple: #684c8c;
+      --purple-soft: #ebe4f3;
+      --mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.55;
+    }
+
+    a { color: var(--blue); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    a:hover { text-decoration-thickness: 2px; }
+    code { font-family: var(--mono); font-size: .92em; }
+
+    .shell { width: min(1160px, calc(100% - 40px)); margin: 0 auto; }
+
+    header {
+      padding: 24px 0;
+      border-bottom: 1px solid rgba(255,255,255,.18);
+      background: #14231e;
+      color: white;
+    }
+
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 24px; }
+    .brand { font-weight: 760; letter-spacing: -.02em; }
+    nav { display: flex; flex-wrap: wrap; gap: 18px; }
+    nav a { color: #c8d8d1; font-size: .88rem; text-decoration: none; }
+    nav a:hover { color: white; }
+
+    .hero {
+      padding: 78px 0 58px;
+      background: #14231e;
+      color: white;
+    }
+
+    .eyebrow {
+      margin: 0 0 14px;
+      color: #81c7ac;
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 900px;
+      margin: 0;
+      font-size: clamp(2.7rem, 7vw, 5.7rem);
+      line-height: .98;
+      letter-spacing: -.055em;
+    }
+
+    .hero-copy {
+      max-width: 780px;
+      margin: 28px 0 0;
+      color: #d0ddd8;
+      font-size: clamp(1.05rem, 2vw, 1.3rem);
+    }
+
+    .hero-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+    .hero-links a {
+      padding: 8px 13px;
+      border: 1px solid #466158;
+      border-radius: 999px;
+      color: #e6f4ee;
+      font-size: .84rem;
+      text-decoration: none;
+    }
+    .hero-links a:hover { background: #20372f; }
+
+    .outcomes {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      margin-top: 58px;
+      overflow: hidden;
+      border: 1px solid #3c5149;
+      border-radius: 12px;
+      background: #3c5149;
+    }
+
+    .outcome { min-height: 135px; padding: 20px; background: #192c25; }
+    .outcome strong { display: block; margin-bottom: 6px; color: white; font-size: 1.55rem; letter-spacing: -.03em; }
+    .outcome span { color: #aebfb8; font-size: .88rem; }
+
+    main { padding: 74px 0 96px; }
+    section { margin-bottom: 86px; scroll-margin-top: 24px; }
+    .section-head { display: grid; grid-template-columns: 220px 1fr; gap: 32px; margin-bottom: 28px; }
+    .section-number { color: var(--green); font-family: var(--mono); font-size: .82rem; font-weight: 800; letter-spacing: .08em; }
+    h2 { margin: 0; font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.08; letter-spacing: -.045em; }
+    .section-intro { max-width: 720px; margin: 14px 0 0; color: var(--muted); font-size: 1.05rem; }
+
+    .diagram-frame {
+      overflow-x: auto;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface);
+    }
+    .diagram-frame svg { display: block; width: 100%; min-width: 940px; height: auto; }
+    .diagram-caption { margin: 16px 4px 0; color: var(--muted); font-size: .88rem; }
+
+    .principles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .principle { padding: 24px; border-top: 4px solid var(--green); background: var(--surface); }
+    .principle:nth-child(2) { border-top-color: var(--purple); }
+    .principle:nth-child(3) { border-top-color: var(--blue); }
+    .principle h3 { margin: 0 0 9px; font-size: 1.15rem; }
+    .principle p { margin: 0; color: var(--muted); }
+
+    .story { position: relative; padding-left: 36px; }
+    .story::before { content: ""; position: absolute; top: 12px; bottom: 12px; left: 10px; width: 2px; background: var(--line); }
+    .story-step { position: relative; display: grid; grid-template-columns: 175px 1fr; gap: 26px; padding: 0 0 32px; }
+    .story-step:last-child { padding-bottom: 0; }
+    .story-step::before { content: ""; position: absolute; left: -32px; top: 8px; width: 12px; height: 12px; border: 3px solid var(--paper); border-radius: 50%; background: var(--green); }
+    .story-step time { color: var(--green); font-family: var(--mono); font-size: .82rem; font-weight: 700; }
+    .story-step h3 { margin: 0 0 7px; font-size: 1.2rem; }
+    .story-step p { margin: 0; color: var(--muted); }
+
+    .binding {
+      margin-top: 24px;
+      padding: 19px 22px;
+      overflow-x: auto;
+      border-left: 5px solid var(--green);
+      background: #10221c;
+      color: #cae7dc;
+      font-family: var(--mono);
+      line-height: 1.75;
+    }
+
+    .case-list { display: grid; gap: 13px; }
+    .case {
+      display: grid;
+      grid-template-columns: 200px 1fr 210px;
+      gap: 18px;
+      align-items: center;
+      padding: 18px 20px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+    }
+    .case:first-child { border-radius: 12px 12px 0 0; }
+    .case:last-child { border-radius: 0 0 12px 12px; }
+    .case h3 { margin: 0; font-size: 1rem; }
+    .case p { margin: 0; color: var(--muted); font-size: .92rem; }
+    .result { justify-self: end; width: 100%; padding: 10px 12px; border-radius: 8px; font-size: .86rem; font-weight: 730; }
+    .result.pass { color: var(--green); background: var(--green-soft); }
+    .result.wait { color: var(--amber); background: var(--amber-soft); }
+    .result.stop { color: var(--red); background: var(--red-soft); }
+
+    .live-cases { display: grid; gap: 18px; margin: 28px 0 34px; }
+    .live-case { overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+    .live-case-head { display: flex; justify-content: space-between; gap: 18px; align-items: baseline; padding: 20px 22px; background: #edf4f1; }
+    .live-case-head h3 { margin: 0; font-size: 1.25rem; }
+    .live-case-head span { color: var(--muted); font-family: var(--mono); font-size: .78rem; }
+    .live-case-body { display: grid; grid-template-columns: 1.1fr 1fr; gap: 0; }
+    .live-case-summary { padding: 22px; border-right: 1px solid var(--line); }
+    .live-case-summary p { margin: 0 0 12px; color: var(--muted); }
+    .live-case-summary p:last-child { margin-bottom: 0; }
+    .live-case-summary .verdict { color: var(--ink); font-weight: 760; }
+    .live-case-timeline { margin: 0; padding: 20px 22px 20px 42px; list-style: none; }
+    .live-case-timeline li { position: relative; padding: 0 0 13px; color: var(--muted); font-size: .9rem; }
+    .live-case-timeline li:last-child { padding-bottom: 0; }
+    .live-case-timeline li::before { content: ""; position: absolute; left: -22px; top: .55em; width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+    .live-case-timeline li::after { content: ""; position: absolute; left: -19px; top: 1.15em; bottom: -1px; width: 2px; background: var(--line); }
+    .live-case-timeline li:last-child::after { display: none; }
+    .live-case-timeline b { color: var(--ink); }
+    .live-case-links { padding: 14px 22px; border-top: 1px solid var(--line); font-size: .84rem; }
+    .live-case-links a { margin-right: 14px; }
+    .lab-callout { margin: 20px 0 0; padding: 18px 20px; border-left: 5px solid var(--amber); background: var(--amber-soft); color: #59491f; }
+
+    .receipts { display: grid; grid-template-columns: 1fr 72px 1fr; align-items: stretch; }
+    .receipt { padding: 28px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+    .receipt small { color: var(--green); font-family: var(--mono); font-weight: 800; text-transform: uppercase; }
+    .receipt h3 { margin: 10px 0 8px; font-size: 1.35rem; }
+    .receipt p { margin: 0; color: var(--muted); }
+    .receipt-arrow { display: flex; align-items: center; justify-content: center; color: var(--green); font-size: 2rem; }
+    .receipt-note { margin-top: 18px; padding: 16px 18px; border-left: 4px solid var(--amber); background: var(--amber-soft); color: #59491f; }
+
+    .forge-summary { display: grid; grid-template-columns: 1fr 1.5fr; gap: 16px; margin-bottom: 18px; }
+    .forge-good, .forge-limit { padding: 26px; border-radius: 12px; }
+    .forge-good { background: var(--green-soft); color: #194f3d; }
+    .forge-limit { background: var(--amber-soft); color: #59491f; }
+    .forge-good h3, .forge-limit h3 { margin: 0 0 9px; font-size: 1.2rem; }
+    .forge-good p, .forge-limit p { margin: 0; }
+    .forge-risks { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .forge-risk { padding: 21px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+    .forge-risk b { display: block; margin-bottom: 7px; }
+    .forge-risk p { margin: 0; color: var(--muted); font-size: .92rem; }
+    .forge-recommendation { margin-top: 18px; padding: 22px; border-left: 5px solid var(--blue); background: var(--blue-soft); color: #24475f; }
+    .forge-recommendation h3 { margin: 0 0 8px; }
+    .forge-recommendation p { margin: 0; }
+    .source-note { margin-top: 14px; color: var(--muted); font-size: .82rem; }
+
+    .lessons { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .lesson { padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+    .lesson b { display: block; margin-bottom: 8px; }
+    .lesson p { margin: 0; color: var(--muted); }
+
+    .evidence-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--line); }
+    .evidence { padding: 18px 20px; background: var(--surface); }
+    .evidence span { display: block; margin-bottom: 5px; color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; }
+    .evidence a { font-weight: 700; }
+
+    .gaps { margin: 0; padding: 0; list-style: none; counter-reset: gaps; }
+    .gaps li { counter-increment: gaps; display: grid; grid-template-columns: 42px 1fr; gap: 12px; padding: 18px 0; border-bottom: 1px solid var(--line); color: var(--muted); }
+    .gaps li::before { content: counter(gaps, decimal-leading-zero); color: var(--green); font-family: var(--mono); font-weight: 800; }
+
+    footer { padding: 34px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: .86rem; }
+    footer .shell { display: flex; justify-content: space-between; gap: 20px; }
+
+    @media (max-width: 860px) {
+      .outcomes, .principles { grid-template-columns: repeat(2, 1fr); }
+      .section-head { grid-template-columns: 1fr; gap: 8px; }
+      .case { grid-template-columns: 1fr; }
+      .result { justify-self: start; }
+      .receipts { grid-template-columns: 1fr; }
+      .receipt-arrow { min-height: 54px; transform: rotate(90deg); }
+      .forge-summary, .live-case-body { grid-template-columns: 1fr; }
+      .live-case-summary { border-right: 0; border-bottom: 1px solid var(--line); }
+    }
+    @media (max-width: 620px) {
+      .shell { width: min(100% - 28px, 1160px); }
+      nav { display: none; }
+      .hero { padding-top: 54px; }
+      .outcomes, .principles, .lessons, .evidence-grid, .forge-risks { grid-template-columns: 1fr; }
+      .story-step { grid-template-columns: 1fr; gap: 5px; }
+      footer .shell { display: block; }
+    }
+    @media print {
+      body { background: white; }
+      header, .hero { background: white; color: var(--ink); }
+      nav, .hero-links { display: none; }
+      .hero-copy, .outcome span { color: var(--muted); }
+      .outcomes { border-color: var(--line); background: var(--line); }
+      .outcome { background: white; }
+      .outcome strong { color: var(--ink); }
+      section { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="shell topbar">
+      <div class="brand">Fullsend Auto-Merge</div>
+      <nav aria-label="Report sections">
+        <a href="#architecture">Architecture</a>
+        <a href="#work">What we did</a>
+        <a href="#cases">Live cases + cases</a>
+        <a href="#forge-only">Forge button</a>
+        <a href="#evidence">Evidence</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="shell">
+      <p class="eyebrow">Private repository proof · updated September 22, 2026</p>
+      <h1>One agent.<br>One exact revision.<br>No standing authority.</h1>
+      <p class="hero-copy">We installed Fullsend in an isolated repository, exercised the complete issue-to-PR loop, and proved a custom Auto-Merge agent that fails closed unless deterministic checks and bounded semantic judgment agree on the same immutable revision.</p>
+      <div class="hero-links">
+        <a href="https://github.com/ascerra/auto-merge" target="_blank" rel="noopener">Private repository ↗</a>
+        <a href="https://github.com/ascerra/auto-merge/issues/1" target="_blank" rel="noopener">Issue #1 ↗</a>
+        <a href="https://github.com/ascerra/auto-merge/pull/2" target="_blank" rel="noopener">Merged PR #2 ↗</a>
+        <a href="https://github.com/ascerra/auto-merge/pull/5" target="_blank" rel="noopener">Live PR #5 ↗</a>
+        <a href="https://github.com/ascerra/auto-merge/pull/6" target="_blank" rel="noopener">Live PR #6 ↗</a>
+        <a href="https://github.com/ascerra/auto-merge/pull/7" target="_blank" rel="noopener">Merged PR #7 ↗</a>
+        <a href="https://github.com/ascerra/auto-merge/actions/runs/35772620347" target="_blank" rel="noopener">Latest Auto-Merge run ↗</a>
+      </div>
+      <div class="outcomes" aria-label="Lab outcomes">
+        <div class="outcome"><strong>41</strong><span>Auto-Merge tests passed</span></div>
+        <div class="outcome"><strong>4m</strong><span>Deliberately delayed CI check passed</span></div>
+        <div class="outcome"><strong>ae9e2a0</strong><span>Latest exact approved head merged</span></div>
+        <div class="outcome"><strong>4</strong><span>Hosted behavior cases evaluated</span></div>
+      </div>
+    </div>
+  </div>
+
+  <main class="shell">
+    <section id="architecture">
+      <div class="section-head">
+        <div class="section-number">01 / ARCHITECTURE</div>
+        <div>
+          <h2>Authority stays outside the model.</h2>
+          <p class="section-intro">The model answers a narrow semantic question. Trusted code gathers evidence, decides whether the model may run, rechecks every mutable fact, and performs the exact-head merge.</p>
+        </div>
+      </div>
+
+      <figure class="diagram-frame">
+        <svg viewBox="0 0 1120 470" role="img" aria-labelledby="flow-title flow-desc" xmlns="http://www.w3.org/2000/svg">
+          <title id="flow-title">Auto-Merge authority and decision flow</title>
+          <desc id="flow-desc">An event enters deterministic preflight. Eligible evidence reaches an advisory model. Approve decisions are recorded, revalidated by trusted postflight, and merged only if the exact head and base remain unchanged. Every rejection path stops without merge.</desc>
+          <defs>
+            <marker id="flow-arrow" viewBox="0 0 10 8" refX="9" refY="4" markerWidth="8" markerHeight="8" orient="auto">
+              <path d="M0 0 10 4 0 8Z" fill="#596660"/>
+            </marker>
+            <style>
+              .box{fill:#fffdf7;stroke:#c9c7bc;stroke-width:2}.trusted{fill:#e1edf5;stroke:#235f89}.model{fill:#ebe4f3;stroke:#684c8c}.merge{fill:#dceee7;stroke:#167a5b}.stop{fill:#f4dfdc;stroke:#a13b3b}.flow{fill:none;stroke:#596660;stroke-width:2.5;marker-end:url(#flow-arrow)}.dash{stroke-dasharray:7 6}.label{fill:#15211d;font:700 17px system-ui}.sub{fill:#596660;font:13px system-ui}.tiny{fill:#596660;font:700 11px system-ui;letter-spacing:1.4px}.yes{fill:#167a5b;font:700 12px system-ui}.no{fill:#a13b3b;font:700 12px system-ui}
+            </style>
+          </defs>
+
+          <rect x="18" y="36" width="502" height="300" rx="18" fill="#235f89" opacity=".055" stroke="#235f89" stroke-dasharray="8 7"/>
+          <text x="40" y="65" class="tiny">TRUSTED READ-ONLY CONTROL</text>
+          <rect x="537" y="36" width="216" height="300" rx="18" fill="#684c8c" opacity=".06" stroke="#684c8c" stroke-dasharray="8 7"/>
+          <text x="559" y="65" class="tiny">MODEL SANDBOX</text>
+          <rect x="770" y="36" width="332" height="300" rx="18" fill="#167a5b" opacity=".055" stroke="#167a5b" stroke-dasharray="8 7"/>
+          <text x="792" y="65" class="tiny">TRUSTED MUTATION CONTROL</text>
+
+          <rect class="box trusted" x="44" y="130" width="180" height="100" rx="12"/>
+          <text class="label" x="134" y="169" text-anchor="middle">Fresh preflight</text>
+          <text class="sub" x="134" y="194" text-anchor="middle">Exact state + policy gates</text>
+
+          <rect class="box trusted" x="306" y="130" width="180" height="100" rx="12"/>
+          <text class="label" x="396" y="169" text-anchor="middle">Bound evidence</text>
+          <text class="sub" x="396" y="194" text-anchor="middle">Tuple + hash + patch</text>
+
+          <rect class="box model" x="555" y="130" width="180" height="100" rx="12"/>
+          <text class="label" x="645" y="169" text-anchor="middle">Semantic model</text>
+          <text class="sub" x="645" y="194" text-anchor="middle">Approve / reject / escalate</text>
+
+          <rect class="box merge" x="788" y="100" width="138" height="80" rx="12"/>
+          <text class="label" x="857" y="133" text-anchor="middle">Receipt 1</text>
+          <text class="sub" x="857" y="155" text-anchor="middle">Decision first</text>
+
+          <rect class="box merge" x="946" y="100" width="138" height="80" rx="12"/>
+          <text class="label" x="1015" y="133" text-anchor="middle">Postflight</text>
+          <text class="sub" x="1015" y="155" text-anchor="middle">Recheck all state</text>
+
+          <rect class="box merge" x="788" y="230" width="138" height="80" rx="12"/>
+          <text class="label" x="857" y="263" text-anchor="middle">Exact merge</text>
+          <text class="sub" x="857" y="285" text-anchor="middle">Head-SHA CAS</text>
+
+          <rect class="box merge" x="946" y="230" width="138" height="80" rx="12"/>
+          <text class="label" x="1015" y="263" text-anchor="middle">Receipt 2</text>
+          <text class="sub" x="1015" y="285" text-anchor="middle">Actual outcome</text>
+
+          <rect class="box stop" x="426" y="380" width="270" height="68" rx="12"/>
+          <text class="label" x="561" y="409" text-anchor="middle">No merge</text>
+          <text class="sub" x="561" y="431" text-anchor="middle">Record reason · wait for new event</text>
+
+          <path class="flow" d="M224 180H306"/>
+          <path class="flow" d="M486 180H555"/>
+          <path class="flow" d="M735 180H788"/>
+          <path class="flow" d="M926 140H946"/>
+          <path class="flow" d="M1015 180V214Q1015 230 999 230H926"/>
+          <path class="flow" d="M926 270H946"/>
+
+          <path class="flow dash" d="M134 230V345Q134 414 410 414"/>
+          <path class="flow dash" d="M645 230V364Q645 380 629 380"/>
+          <path class="flow dash" d="M1015 180V350Q1015 414 712 414"/>
+          <text class="no" x="149" y="273">INELIGIBLE</text>
+          <text class="no" x="658" y="278">REJECT / ESCALATE</text>
+          <text class="no" x="891" y="401">STATE CHANGED</text>
+          <text class="yes" x="747" y="166">APPROVE</text>
+        </svg>
+        <figcaption class="diagram-caption">A human command or trusted lifecycle event requests evaluation; neither bypasses a gate. The model has no network credential and cannot perform the merge.</figcaption>
+      </figure>
+
+      <div class="principles">
+        <article class="principle"><h3>Exact binding</h3><p>Approval belongs to one repository, PR, head SHA, base ref, live base SHA, and policy fingerprint, with a separate context fingerprint proving the evaluated evidence.</p></article>
+        <article class="principle"><h3>Advisory intelligence</h3><p>The model assesses intent, coherence, and unusual risk. It never supplies authoritative forge facts.</p></article>
+        <article class="principle"><h3>Fresh authorization</h3><p>Trusted postflight repeats every mutable gate immediately before mutation and rejects drift.</p></article>
+      </div>
+
+      <div class="binding">authority tuple: (repository, pull_request_number, head_sha, base_ref,<br> live_base_sha, policy_fingerprint) · evidence: context_fingerprint</div>
+    </section>
+
+    <section id="work">
+      <div class="section-head">
+        <div class="section-number">02 / WHAT WE DID</div>
+        <div><h2>We exercised the whole system.</h2><p class="section-intro">This was not a mocked merge call. The normal Fullsend roles created, reviewed, fixed, tested, and ultimately merged a real pull request in the isolated lab.</p></div>
+      </div>
+
+      <div class="story">
+        <article class="story-step"><time>ISOLATE</time><div><h3>Created one private repository and repo-scoped identity</h3><p>Fullsend was installed per-repository. A dedicated workload-identity provider trusted only <code>ascerra/auto-merge</code>. The public mint and its resources were untouched.</p></div></article>
+        <article class="story-step"><time>ISSUE</time><div><h3>Triggered the normal triage path</h3><p>Issue #1 received <code>/fs-triage</code>, proving the standard event router and triage agent worked in the new repository.</p></div></article>
+        <article class="story-step"><time>CODE</time><div><h3>Had the code agent open PR #2</h3><p>The change was deliberately small: one documentation behavior update constrained by repository instructions and an allow-listed path.</p></div></article>
+        <article class="story-step"><time>REVIEW + FIX</time><div><h3>Ran the review/fix loop</h3><p>Review requested a semantic correction. Fix updated the change. This exposed that generated per-repo configuration omitted the <code>fix</code> role, so it was enabled explicitly.</p></div></article>
+        <article class="story-step"><time>CI</time><div><h3>Waited for both exact-head checks</h3><p>The fast contract check passed, followed by a deliberate four-minute integration check. Approval and checks were verified against the final signed-off head.</p></div></article>
+        <article class="story-step"><time>SAFE FAILURE</time><div><h3>Observed a correct escalation</h3><p>The first Auto-Merge run lacked the PR patch in model evidence. The model returned <code>ESCALATE</code>; receipts were written and no merge occurred.</p></div></article>
+        <article class="story-step"><time>HARDEN</time><div><h3>Added bounded patch and live-base binding</h3><p>Preflight now requires bounded API patch evidence and proves the synthetic merge preview has ordered parents <code>[live base, exact head]</code>.</p></div></article>
+        <article class="story-step"><time>MERGE</time><div><h3>Merged the exact approved head</h3><p>The final model result was <code>APPROVE</code>. Trusted postflight revalidated the tuple and squash-merged head <code>3b1a3ac</code> as <code>bfad1a0</code>.</p></div></article>
+      </div>
+    </section>
+
+    <section id="cases">
+      <div class="section-head">
+        <div class="section-number">03 / EXAMPLE CASES</div>
+        <div><h2>Different inputs stop at different boundaries.</h2><p class="section-intro">Incomplete forge state should be cheap. Ambiguous semantics should be explicit. Changed state after approval should be harmless.</p></div>
+      </div>
+
+      <div class="case-list">
+        <article class="case"><h3>Happy path</h3><p>All gates pass, the bounded change matches intent, and postflight sees the same exact tuple.</p><div class="result pass">Merge exact head + record outcome</div></article>
+        <article class="case"><h3>CI still running</h3><p>The four-minute required check is pending when an event triggers reconciliation.</p><div class="result wait">Stop before model invocation</div></article>
+        <article class="case"><h3>Missing patch</h3><p>The model cannot inspect the actual change and therefore cannot support semantic approval.</p><div class="result wait">ESCALATE + do not merge</div></article>
+        <article class="case"><h3>Unsigned commit</h3><p>One commit lacks the required DCO <code>Signed-off-by</code> trailer.</p><div class="result stop">Deterministic rejection</div></article>
+        <article class="case"><h3>Stale review</h3><p>An approval belongs to an older head, or a latest changes-requested review remains.</p><div class="result stop">Deterministic rejection</div></article>
+        <article class="case"><h3>Semantic mismatch</h3><p>Checks pass, but the patch does not match the issue or exposes an unusual risk.</p><div class="result stop">REJECT or ESCALATE</div></article>
+        <article class="case"><h3>Head/base changes</h3><p>The PR head or live base advances after the model approved the original binding.</p><div class="result stop">Postflight rejects stale decision</div></article>
+        <article class="case"><h3>Ambiguous forge timeout</h3><p>The merge request result is unknown because the forge response was interrupted.</p><div class="result wait">Reconcile forge state before retry</div></article>
+      </div>
+
+      <div class="lab-callout"><strong>These cases are observed runs, not hypothetical examples.</strong> They were created in the private lab repository after the baseline proof. Their outcomes below reflect the actual hosted workflow comments, checks, review decisions, and merge-agent receipts.</div>
+
+      <div class="live-cases">
+        <article class="live-case">
+          <div class="live-case-head"><h3>Case A · Issue #3 → PR #6 · fail closed</h3><span>unmerged / unsafe state</span></div>
+          <div class="live-case-body">
+            <div class="live-case-summary">
+              <p><a href="https://github.com/ascerra/auto-merge/issues/3" target="_blank" rel="noopener">Issue #3</a> requested a small documentation-only Usage section. The code agent opened <a href="https://github.com/ascerra/auto-merge/pull/6" target="_blank" rel="noopener">PR #6</a>.</p>
+              <p class="verdict">Final verdict: the custom Auto-Merge agent skipped the merge.</p>
+              <p>Review found that the generated documentation told users to use a <code>ready-to-code</code> label that this repository does not define. The fix attempt was cancelled without changing the head. The merge decision then rejected the PR because changes remained, no approval applied to the exact head, one review thread was unresolved, and the bot commit lacked DCO sign-off.</p>
+            </div>
+            <ol class="live-case-timeline">
+              <li><b>Bootstrap:</b> the first concurrent triage pair exposed <code>fullsend: command not found</code>; sequential retry <a href="https://github.com/ascerra/auto-merge/actions/runs/35239442433" target="_blank" rel="noopener">succeeded for #3</a>.</li>
+              <li><b>CI:</b> Example contract and <code>Delayed integration (4 minutes)</code> both passed.</li>
+              <li><b>Review:</b> <a href="https://github.com/ascerra/auto-merge/actions/runs/35241054514" target="_blank" rel="noopener">review run succeeded</a> but requested the label correction.</li>
+              <li><b>Fix:</b> <a href="https://github.com/ascerra/auto-merge/actions/runs/35242940735" target="_blank" rel="noopener">fix run cancelled</a>; head remained <code>84a0157</code>.</li>
+              <li><b>Decision:</b> <a href="https://github.com/ascerra/auto-merge/actions/runs/35243312071" target="_blank" rel="noopener">Auto-Merge skipped</a>; no mutation occurred.</li>
+            </ol>
+          </div>
+          <div class="live-case-links"><a href="https://github.com/ascerra/auto-merge/issues/3" target="_blank" rel="noopener">Issue ↗</a><a href="https://github.com/ascerra/auto-merge/pull/6" target="_blank" rel="noopener">PR ↗</a><a href="https://github.com/ascerra/auto-merge/actions/runs/35243312071" target="_blank" rel="noopener">Decision run ↗</a></div>
+        </article>
+
+        <article class="live-case">
+          <div class="live-case-head"><h3>Case B · Issue #4 → PR #5 · corrected, approved, then blocked</h3><span>review approved / merge skipped</span></div>
+          <div class="live-case-body">
+            <div class="live-case-summary">
+              <p><a href="https://github.com/ascerra/auto-merge/issues/4" target="_blank" rel="noopener">Issue #4</a> requested a deterministic validation example. The code agent opened <a href="https://github.com/ascerra/auto-merge/pull/5" target="_blank" rel="noopener">PR #5</a>.</p>
+              <p class="verdict">Final verdict: Auto-Merge ran and skipped the merge.</p>
+              <p>Review first found that the example used the truncated check name <code>Delayed integration</code> instead of the exact job name <code>Delayed integration (4 minutes)</code>. The fix agent corrected the reference, the new head was re-reviewed successfully, and the approval applied to head <code>5b7ca54</code>. The subsequent Auto-Merge run still failed closed because one review thread remained unresolved and both commits lacked DCO sign-off.</p>
+            </div>
+            <ol class="live-case-timeline">
+              <li><b>Bootstrap:</b> sequential retry <a href="https://github.com/ascerra/auto-merge/actions/runs/35240370665" target="_blank" rel="noopener">succeeded for #4</a>.</li>
+              <li><b>CI:</b> Example contract passed; the four-minute delayed integration check passed at the final head.</li>
+              <li><b>Review:</b> initial review identified the stale exact check-name reference.</li>
+              <li><b>Fix:</b> <a href="https://github.com/ascerra/auto-merge/actions/runs/35242664373" target="_blank" rel="noopener">fix succeeded</a> and changed the reference.</li>
+              <li><b>Re-review:</b> <a href="https://github.com/ascerra/auto-merge/actions/runs/35243363421" target="_blank" rel="noopener">review succeeded</a>; PR became clean and approved.</li>
+              <li><b>Auto-Merge:</b> <a href="https://github.com/ascerra/auto-merge/actions/runs/35276607604" target="_blank" rel="noopener">agent ran successfully</a> but skipped the merge for unresolved review and DCO failures.</li>
+            </ol>
+          </div>
+          <div class="live-case-links"><a href="https://github.com/ascerra/auto-merge/issues/4" target="_blank" rel="noopener">Issue ↗</a><a href="https://github.com/ascerra/auto-merge/pull/5" target="_blank" rel="noopener">PR ↗</a><a href="https://github.com/ascerra/auto-merge/actions/runs/35243364230" target="_blank" rel="noopener">Final CI ↗</a><a href="https://github.com/ascerra/auto-merge/actions/runs/35276607604" target="_blank" rel="noopener">Auto-Merge ↗</a></div>
+        </article>
+
+        <article class="live-case">
+          <div class="live-case-head"><h3>Case C · PR #6 · automatic label trigger reached Fullsend, stale base hid the agent</h3><span>trigger observed / stale checkout</span></div>
+          <div class="live-case-body">
+            <div class="live-case-summary">
+              <p>To isolate the automatic path, the trusted <code>fullsend-auto-merge-ready</code> label was added to open <a href="https://github.com/ascerra/auto-merge/pull/6" target="_blank" rel="noopener">PR #6</a> after the earlier manual and review-driven examples.</p>
+              <p class="verdict">Final verdict: the GitHub event triggered Fullsend, but dispatch evaluated the configuration from the PR's stale event base SHA, where Auto-Merge did not yet exist.</p>
+              <p>The hosted run was a real <code>labeled</code> pull-request event. Route and Harness dispatch completed, but the reusable workflow checked out event <code>base.sha</code> <code>307b6f9</code> instead of then-current <code>main</code> <code>5975b78</code>. The custom harness configuration was therefore absent and its matrix job was skipped. The label was removed and the PR remained open. This proves the lifecycle event reached Fullsend and isolates the defect to configuration checkout freshness, not to an unproven CEL entity mismatch.</p>
+            </div>
+            <ol class="live-case-timeline">
+              <li><b>Trigger:</b> <a href="https://github.com/ascerra/auto-merge/actions/runs/35344140609" target="_blank" rel="noopener">Fullsend run #99</a> started from the <code>labeled</code> event.</li>
+              <li><b>Dispatch:</b> Route completed in 6 seconds; Harness dispatch completed in 1 minute 47 seconds.</li>
+              <li><b>Selection:</b> reusable dispatch loaded stale event-base configuration, so the <code>Harness run (${{ matrix.agent }})</code> job was skipped and no Auto-Merge decision or mutation occurred.</li>
+              <li><b>Safety:</b> the readiness label was removed afterward; PR #6 remained open.</li>
+              <li><b>Infrastructure note:</b> the run again reported non-fatal cache restore/write-scope warnings.</li>
+            </ol>
+          </div>
+          <div class="live-case-links"><a href="https://github.com/ascerra/auto-merge/pull/6" target="_blank" rel="noopener">PR ↗</a><a href="https://github.com/ascerra/auto-merge/actions/runs/35344140609" target="_blank" rel="noopener">Fullsend run #99 ↗</a><a href="https://github.com/ascerra/auto-merge/actions/runs/35344140609/job/105596697231" target="_blank" rel="noopener">Skipped harness job ↗</a></div>
+        </article>
+
+        <article class="live-case">
+          <div class="live-case-head"><h3>Case D · PR #7 · automatic exact-head merge</h3><span>approved / receipt-bound / merged</span></div>
+          <div class="live-case-body">
+            <div class="live-case-summary">
+              <p><a href="https://github.com/ascerra/auto-merge/pull/7" target="_blank" rel="noopener">PR #7</a> changed only <code>docs/example-feature.md</code>. Its rebased head <code>ae9e2a0</code> carried DCO sign-off and was reviewed against live base <code>ba8a7e3</code>.</p>
+              <p class="verdict">Final verdict: the approval event automatically selected Auto-Merge, the model returned <code>APPROVE</code>, and trusted code squash-merged the exact head.</p>
+              <p>The first attempt exposed a self-deadlock: GitHub reported aggregate <code>mergeable_state: unstable</code> while the Auto-Merge check itself was pending. The fix accepts only <code>clean</code> or <code>unstable</code>, while still independently requiring both named checks to have succeeded on the exact head and rejecting <code>behind</code>, <code>dirty</code>, <code>blocked</code>, and unknown states. Forty-one tests passed before the fix landed on private <code>main</code>.</p>
+            </div>
+            <ol class="live-case-timeline">
+              <li><b>CI:</b> <a href="https://github.com/ascerra/auto-merge/actions/runs/35770806123" target="_blank" rel="noopener">fast and four-minute checks passed</a>; the trusted workflow added <code>fullsend-auto-merge-ready</code>.</li>
+              <li><b>Review:</b> <a href="https://github.com/ascerra/auto-merge/actions/runs/35770804538" target="_blank" rel="noopener">fresh Review succeeded</a> and approved exact head <code>ae9e2a0</code>.</li>
+              <li><b>Automatic wake-up:</b> the <code>pull_request_review</code> approval event started <a href="https://github.com/ascerra/auto-merge/actions/runs/35772620347" target="_blank" rel="noopener">Fullsend run #123</a> and selected only <code>Harness run (auto-merge)</code>.</li>
+              <li><b>Isolation:</b> preflight passed; the read-only model sandbox had no <code>GH_TOKEN</code>; schema validation and output security scanning passed.</li>
+              <li><b>Authorization:</b> trusted postflight wrote a <a href="https://github.com/ascerra/auto-merge/pull/7#issuecomment-5782571165" target="_blank" rel="noopener">pending receipt</a> bound to head, base, policy, context, workflow, and idempotency key.</li>
+              <li><b>Mutation:</b> after another fresh gate, GitHub accepted the exact-head squash merge as <code>80449fd</code>; the controller wrote the <a href="https://github.com/ascerra/auto-merge/pull/7#issuecomment-5782573084" target="_blank" rel="noopener">merged receipt</a>.</li>
+            </ol>
+          </div>
+          <div class="live-case-links"><a href="https://github.com/ascerra/auto-merge/pull/7" target="_blank" rel="noopener">Merged PR ↗</a><a href="https://github.com/ascerra/auto-merge/actions/runs/35770804538" target="_blank" rel="noopener">Review ↗</a><a href="https://github.com/ascerra/auto-merge/actions/runs/35770806123" target="_blank" rel="noopener">CI ↗</a><a href="https://github.com/ascerra/auto-merge/actions/runs/35772620347" target="_blank" rel="noopener">Auto-Merge ↗</a></div>
+        </article>
+      </div>
+
+      <div class="lab-callout"><strong>Hosted-environment note:</strong> the PR-target runs reported non-fatal GitHub cache warnings: cache write permission was unavailable and some restore paths were unresolved. The workflow continued, but this should be fixed before using cache success as an installation proof. Case C's stale-base checkout was corrected for PR #7. The readiness label records exact-head CI readiness, but because GitHub suppresses workflow recursion for labels written by the workflow <code>GITHUB_TOKEN</code>, PR #7's automatic wake-up came from the later approval event. Production needs trusted dispatch or periodic reconciliation so review-first / CI-second ordering is also guaranteed.</div>
+    </section>
+
+    <section id="forge-only">
+      <div class="section-head">
+        <div class="section-number">04 / FORGE BUTTON ALONE</div>
+        <div><h2>“Merge when ready” is not a complete authorization system.</h2><p class="section-intro">Native forge auto-merge is valuable, but the button delegates a future merge to whatever repository rules happen to be configured. That is narrower than the Auto-Merge contract we proved.</p></div>
+      </div>
+
+      <div class="forge-summary">
+        <article class="forge-good"><h3>What GitHub does well</h3><p>GitHub waits for configured required reviews and status checks. Its merge queue can also test a queued change against the latest target branch and earlier queued pull requests.</p></article>
+        <article class="forge-limit"><h3>The boundary</h3><p>The forge can enforce configured mechanical rules; it does not, by itself, prove that this exact patch still matches the issue, fits the low-risk cohort, carries a bound semantic decision, or has our required audit receipts.</p></article>
+      </div>
+
+      <div class="forge-risks">
+        <article class="forge-risk"><b>1. It is standing future authorization.</b><p>The button is pressed before readiness is complete, and the forge merges later when its requirements become true. GitHub documents automatic disablement when a contributor without write permission pushes or the base branch changes; that is not the same guarantee as revoking intent on every revision change.</p></article>
+        <article class="forge-risk"><b>2. It checks only configured rules.</b><p>A missing, renamed, duplicated, incorrectly sourced, or non-required check is outside the button’s safety story. The button cannot know the organization intended a stronger policy than the repository currently expresses.</p></article>
+        <article class="forge-risk"><b>3. Exact-head review freshness is optional.</b><p>Dismissal of stale approvals and approval of the most recent reviewable push are separate branch-protection settings. Without them, “an approval exists” is weaker than “approval applies to this exact head SHA.”</p></article>
+        <article class="forge-risk"><b>4. Latest-base testing is optional.</b><p>Testing against current <code>main</code> requires an up-to-date-branch rule or a merge queue. A normal green PR check can describe an older base relationship unless repository policy closes that gap.</p></article>
+        <article class="forge-risk"><b>5. There is no semantic fit decision.</b><p>Required checks can validate code, but the native button does not judge whether the patch matches the issue, remains routine and bounded, introduces hidden coupling, or deserves human escalation.</p></article>
+        <article class="forge-risk"><b>6. It lacks our authority receipts.</b><p>The forge records ordinary audit events, but not our immutable evidence hash, semantic reasons, pre-mutation decision receipt, postflight comparison, and explicit stale-decision outcome.</p></article>
+        <article class="forge-risk"><b>7. Bypass configuration can weaken guarantees.</b><p>Branch protection and rulesets may allow privileged actors to bypass requirements unless “do not allow bypassing” and related controls are intentionally configured.</p></article>
+        <article class="forge-risk"><b>8. It cannot reconcile our ambiguous outcome.</b><p>If an external controller loses the forge response, it still needs an idempotent receipt and a fresh state lookup before retrying. Clicking the button does not supply that controller protocol.</p></article>
+      </div>
+
+      <aside class="forge-recommendation"><h3>Recommended role for the forge</h3><p>Use GitHub’s exact-head merge API or merge queue as the final execution mechanism behind the Fullsend authority boundary. Keep semantic assessment, exact tuple binding, write-ahead receipt, and immediate postflight revalidation in the trusted Auto-Merge controller. Native auto-merge alone should not be a second enablement path.</p></aside>
+      <p class="source-note">Current behavior references: <a href="https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/automatically-merging-a-pull-request" target="_blank" rel="noopener">GitHub auto-merge</a>, <a href="https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches" target="_blank" rel="noopener">protected branches</a>, and <a href="https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue" target="_blank" rel="noopener">merge queues</a>.</p>
+    </section>
+
+    <section id="receipts">
+      <div class="section-head">
+        <div class="section-number">05 / RECEIPTS</div>
+        <div><h2>Two events, two different proofs.</h2><p class="section-intro">The apparent duplication is intentional at the data-model level: authorization must be durable before mutation, while the eventual outcome is not known until afterward.</p></div>
+      </div>
+
+      <div class="receipts">
+        <article class="receipt"><small>Before mutation</small><h3>Decision receipt</h3><p>Records the semantic decision, exact binding, deterministic findings, evidence hash, workflow identity, and timestamp.</p></article>
+        <div class="receipt-arrow" aria-hidden="true">→</div>
+        <article class="receipt"><small>After attempt</small><h3>Outcome receipt</h3><p>Records whether the PR merged, was rejected as stale, or remained unmerged after a non-approve decision.</p></article>
+      </div>
+      <div class="receipt-note"><strong>Recommended refinement:</strong> keep both append-only events, but make the second receipt reference the first receipt or evidence hash and include only the outcome, merge SHA, and timestamp.</div>
+    </section>
+
+    <section id="lessons">
+      <div class="section-head">
+        <div class="section-number">06 / LESSONS</div>
+        <div><h2>The lab found real integration gaps.</h2></div>
+      </div>
+      <div class="lessons">
+        <article class="lesson"><b>Patch evidence must be explicit.</b><p>A trusted base checkout is not enough for semantic review. API-sourced bounded patches now form part of the evidence contract.</p></article>
+        <article class="lesson"><b>PR base metadata can lag reality.</b><p>Eligibility now compares the live branch SHA and the merge-preview parent tuple, rather than trusting only <code>pull_request.base.sha</code>.</p></article>
+        <article class="lesson"><b>DCO policies must align.</b><p>Hosted code/fix behavior omitted or declined sign-off, forcing a manual signed history repair before the lab could proceed.</p></article>
+        <article class="lesson"><b>Fix needs intentional configuration.</b><p>The generated per-repo role list did not include <code>fix</code>, even though a review/fix loop was part of the requested workflow.</p></article>
+        <article class="lesson"><b>One merge mechanism is safer.</b><p>The legacy <code>CODE_AUTO_MERGE</code> path is deliberately excluded. The custom agent is the single Auto-Merge enablement path.</p></article>
+        <article class="lesson"><b>Comments are enough for a lab.</b><p>Production needs idempotent receipt storage and explicit reconciliation after ambiguous forge timeouts.</p></article>
+        <article class="lesson"><b>Aggregate mergeability can self-deadlock.</b><p>GitHub reports <code>unstable</code> while Auto-Merge's own check is pending. Explicit exact-head checks must be authoritative; conflict, behind, blocked, and unknown states still fail closed.</p></article>
+        <article class="lesson"><b>A readiness label is not always a wake-up event.</b><p>A label written with <code>GITHUB_TOKEN</code> does not recursively start another workflow. The approval event completed this run; production needs trusted dispatch or reconciliation for the opposite event ordering.</p></article>
+      </div>
+    </section>
+
+    <section id="evidence">
+      <div class="section-head">
+        <div class="section-number">07 / EVIDENCE</div>
+        <div><h2>The outcome is reproducible and inspectable.</h2><p class="section-intro">These links point to the actual issue, workflows, pull request, and receipts used in the exercise.</p></div>
+      </div>
+      <div class="evidence-grid">
+        <div class="evidence"><span>Issue</span><a href="https://github.com/ascerra/auto-merge/issues/1" target="_blank" rel="noopener">Issue #1 — example work item ↗</a></div>
+        <div class="evidence"><span>Pull request</span><a href="https://github.com/ascerra/auto-merge/pull/2" target="_blank" rel="noopener">PR #2 — exact merged revision ↗</a></div>
+        <div class="evidence"><span>Triage</span><a href="https://github.com/ascerra/auto-merge/actions/runs/35169161822" target="_blank" rel="noopener">Triage workflow run ↗</a></div>
+        <div class="evidence"><span>Code</span><a href="https://github.com/ascerra/auto-merge/actions/runs/35169615563" target="_blank" rel="noopener">Code workflow run ↗</a></div>
+        <div class="evidence"><span>Fix</span><a href="https://github.com/ascerra/auto-merge/actions/runs/35171095208" target="_blank" rel="noopener">Successful Fix run ↗</a></div>
+        <div class="evidence"><span>Final CI</span><a href="https://github.com/ascerra/auto-merge/actions/runs/35214655514" target="_blank" rel="noopener">Fast + four-minute checks ↗</a></div>
+        <div class="evidence"><span>Safe escalation</span><a href="https://github.com/ascerra/auto-merge/actions/runs/35172951894" target="_blank" rel="noopener">First Auto-Merge run ↗</a></div>
+        <div class="evidence"><span>Successful merge</span><a href="https://github.com/ascerra/auto-merge/actions/runs/35216234955" target="_blank" rel="noopener">Final Auto-Merge run ↗</a></div>
+        <div class="evidence"><span>Write-ahead proof</span><a href="https://github.com/ascerra/auto-merge/pull/2#issuecomment-5713721773" target="_blank" rel="noopener">Decision receipt ↗</a></div>
+        <div class="evidence"><span>Outcome proof</span><a href="https://github.com/ascerra/auto-merge/pull/2#issuecomment-5713723194" target="_blank" rel="noopener">Merged receipt ↗</a></div>
+        <div class="evidence"><span>Live case A</span><a href="https://github.com/ascerra/auto-merge/actions/runs/35243312071" target="_blank" rel="noopener">PR #6 fail-closed decision ↗</a></div>
+        <div class="evidence"><span>Live case B</span><a href="https://github.com/ascerra/auto-merge/actions/runs/35243363421" target="_blank" rel="noopener">PR #5 approved re-review ↗</a></div>
+        <div class="evidence"><span>Live CI</span><a href="https://github.com/ascerra/auto-merge/actions/runs/35243364230" target="_blank" rel="noopener">PR #5 four-minute check ↗</a></div>
+        <div class="evidence"><span>Live Auto-Merge</span><a href="https://github.com/ascerra/auto-merge/actions/runs/35276607604" target="_blank" rel="noopener">PR #5 fail-closed decision ↗</a></div>
+        <div class="evidence"><span>Automatic trigger</span><a href="https://github.com/ascerra/auto-merge/actions/runs/35344140609" target="_blank" rel="noopener">PR #6 labeled event and skipped harness ↗</a></div>
+        <div class="evidence"><span>Latest merged proof</span><a href="https://github.com/ascerra/auto-merge/pull/7" target="_blank" rel="noopener">PR #7 exact-head merge ↗</a></div>
+        <div class="evidence"><span>Latest Review</span><a href="https://github.com/ascerra/auto-merge/actions/runs/35770804538" target="_blank" rel="noopener">PR #7 exact-head approval ↗</a></div>
+        <div class="evidence"><span>Latest CI</span><a href="https://github.com/ascerra/auto-merge/actions/runs/35770806123" target="_blank" rel="noopener">PR #7 fast + four-minute checks ↗</a></div>
+        <div class="evidence"><span>Latest Auto-Merge</span><a href="https://github.com/ascerra/auto-merge/actions/runs/35772620347" target="_blank" rel="noopener">Run #123 automatic merge ↗</a></div>
+        <div class="evidence"><span>Latest pending receipt</span><a href="https://github.com/ascerra/auto-merge/pull/7#issuecomment-5782571165" target="_blank" rel="noopener">Bound decision before mutation ↗</a></div>
+        <div class="evidence"><span>Latest outcome receipt</span><a href="https://github.com/ascerra/auto-merge/pull/7#issuecomment-5782573084" target="_blank" rel="noopener">Exact-head merged outcome ↗</a></div>
+        <div class="evidence"><span>Bootstrap failure</span><a href="https://github.com/ascerra/auto-merge/actions/runs/35239152314" target="_blank" rel="noopener">Concurrent triage cancellation ↗</a></div>
+      </div>
+    </section>
+
+    <section id="gaps">
+      <div class="section-head">
+        <div class="section-number">08 / PRODUCTION GAPS</div>
+        <div><h2>Successful lab, not production completion.</h2><p class="section-intro">These are the remaining boundaries to solve before treating this as a production Auto-Merge capability.</p></div>
+      </div>
+      <ol class="gaps">
+        <li>Provide a purpose-built, least-privilege merge identity instead of reusing the hosted coder identity.</li>
+        <li>Align Fullsend-generated per-repo roles with the requested review/fix loop.</li>
+        <li>Align autonomous commit behavior with DCO requirements so history repair is unnecessary.</li>
+        <li>Use branch protection or rulesets in production; the private personal lab could not enable them.</li>
+        <li>Add a per-PR lease or merge-queue authority to serialize final live-base validation with the forge request.</li>
+        <li>Store receipts idempotently and reconcile forge state before retrying ambiguous mutation outcomes.</li>
+        <li>Add trusted dispatch or periodic reconciliation so CI completion can wake Auto-Merge even when a workflow-token label cannot recursively trigger Fullsend.</li>
+        <li>Load trusted current base-branch configuration for lifecycle events without weakening the untrusted-head checkout boundary.</li>
+      </ol>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell"><span>Fullsend Auto-Merge private lab</span><span>Local report · no external assets or scripts</span></div>
+  </footer>
+</body>
+</html>

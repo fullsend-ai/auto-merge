@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+    types: [checks_requested]
 
 permissions:
   contents: read
@@ -13,7 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Validate example document
         run: python3 scripts/validate_example.py
 
@@ -22,9 +24,28 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 7
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Simulate a longer integration check
         run: sleep 240
       - name: Validate example document after the delay
         run: python3 scripts/validate_example.py
 
+  queue-authorization:
+    name: Auto-Merge queue authorization
+    if: ${{ github.event_name == 'merge_group' }}
+    needs: [example-contract, delayed-integration]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.merge_group.base_sha }}
+      - name: Reauthorize the queue-generated revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTO_MERGE_ALLOWED_RISK_LEVELS: low,moderate
+          AUTO_MERGE_ALLOWED_REPOSITORY: ascerra/auto-merge
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: python3 .fullsend/scripts/auto_merge_queue_gate.py

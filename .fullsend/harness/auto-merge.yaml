@@ -11,6 +11,10 @@
 agent: agents/auto-merge.md
 description: Safely merge eligible pull requests after deterministic and semantic approval
 role: coder
+privilege_levels:
+  pre_script: read
+  runtime: read
+  post_script: write
 slug: ascerra-auto-merge
 image: ghcr.io/fullsend-ai/fullsend-code@sha256:ea2a31f38ee80e2a9a898a898a289fe432aa882fa5a4046c3236ab8e2627d7e7
 policy: policies/base.yaml
@@ -37,11 +41,15 @@ validation_loop:
   preflight_check: python3 -c "import jsonschema"
 env:
   runner:
-    AUTO_MERGE_ALLOWED_AUTHORS: "ascerra,fullsend-ai-coder[bot],fullsend-ai[bot]"
+    AUTO_MERGE_ALLOWED_AUTHORS: "ascerra,fullsend-ai-coder[bot]"
+    AUTO_MERGE_ALLOWED_REVIEWERS: "ascerra,fullsend-ai-review[bot]"
     AUTO_MERGE_ALLOWED_PATHS: "docs/example-feature.md"
     AUTO_MERGE_ALLOWED_REPO: "ascerra/auto-merge"
     AUTO_MERGE_BASE_REF: "main"
-    AUTO_MERGE_POLICY_VERSION: "lab-v1"
+    AUTO_MERGE_ALLOWED_RISK_LEVELS: "low,moderate"
+    AUTO_MERGE_EXECUTION_STRATEGY: "direct"
+    AUTO_MERGE_POLICY_VERSION: "lab-v2"
+    AUTO_MERGE_RISK_GATE: "required"
     AUTO_MERGE_MODE: "lab-automatic"
     AUTO_MERGE_REQUIRED_CHECKS: "Example contract,Delayed integration (4 minutes)"
     FULLSEND_FORGE: github
@@ -62,7 +70,10 @@ trigger: |
       && event.entity.kind == "work_item"
       && has(event.transition.comment.command)
       && event.transition.comment.command == "/fs-auto-merge"
-      && (!has(event.state.change_proposal) || !event.state.change_proposal.is_fork)
+      && has(event.state.change_proposal)
+      && !event.state.change_proposal.is_fork
+      && event.actor.kind == "human"
+      && event.actor.role in ["admin", "maintain", "write"]
   )
   || (
     event.transition.kind == "review_submitted"
@@ -72,6 +83,11 @@ trigger: |
       && event.transition.review.state == "approved"
       && has(event.state.change_proposal)
       && !event.state.change_proposal.is_fork
+      && (
+        event.actor.id == "fullsend-ai-review[bot]"
+        || (event.actor.kind == "human"
+            && event.actor.role in ["admin", "maintain", "write"])
+      )
   )
   || (
     event.transition.kind == "label_changed"
@@ -83,4 +99,8 @@ trigger: |
       && event.transition.label.action == "added"
       && has(event.state.change_proposal)
       && !event.state.change_proposal.is_fork
+      && (
+        event.actor.id == "github-actions[bot]"
+        || event.actor.role in ["admin", "maintain", "write", "triage"]
+      )
   )

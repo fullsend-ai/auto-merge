@@ -1,7 +1,7 @@
 # Auto-Merge Agent Lab
 
-Private integration lab for designing and exercising Fullsend's Auto-Merge
-agent. The lab proves the complete path from an issue through triage, coding,
+Integration lab for designing and exercising Fullsend's Auto-Merge agent. The
+recorded exercises were run while the repository was private and prove the complete path from an issue through triage, coding,
 review/fix, CI, semantic eligibility evaluation, and an exact-head merge.
 
 The merge agent is intentionally conservative. It may merge only when both
@@ -17,6 +17,14 @@ newer commit.
 
 See [the security contract](docs/AUTO-MERGE-SECURITY-CONTRACT.md) and the
 [living implementation plan](docs/IMPLEMENTATION-PLAN.md).
+
+The detailed design intentionally removed from
+[Fullsend ADR 0110](https://github.com/fullsend-ai/fullsend/blob/main/docs/ADRs/0110-dedicated-auto-merge-authority-boundary.md)
+is preserved here for follow-up implementation work:
+
+- [future implementation contract](docs/AUTO-MERGE-FUTURE-CONTRACT.md)
+- [future implementation plan](docs/AUTO-MERGE-FUTURE-IMPLEMENTATION-PLAN.md)
+- [architecture working note](docs/FULLSEND-AUTO-MERGE-ARCHITECTURE-WORKING-NOTE.md)
 
 ## Exercise fixture
 

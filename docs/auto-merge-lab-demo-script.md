@@ -1,0 +1,63 @@
+# Fullsend Auto-Merge private-lab demo
+
+Target length: 2 minutes 30 seconds. Voice: warm, confident, conversational.
+
+## 0:00–0:16 — What this proves
+
+This is Fullsend Auto-Merge running for real in a private lab repository. It is
+not GitHub's merge-when-ready button, and it is not an observe-only mock. The
+agent can perform a real merge, but only after a tightly bound authorization
+protocol succeeds.
+
+## 0:16–0:34 — Exact request
+
+We open pull request seven with one signed documentation commit. The request is
+bound to this repository, this pull request, this exact head, the current base,
+and a policy fingerprint. A separate context fingerprint identifies the exact
+evidence shown to the model.
+
+## 0:34–0:55 — Real asynchronous gates
+
+Two real processes start. Fullsend Review inspects the change, while CI runs a
+fast contract check and a deliberately slow four-minute integration check.
+Auto-Merge stays dormant while either prerequisite is incomplete. Events wake
+reconciliation; they never count as evidence and never bypass readiness.
+
+## 0:55–1:16 — Automatic trigger
+
+When CI completes, repository automation adds the trusted readiness label. In
+this CI-first example, the later exact-head review approval event automatically
+routes back through Fullsend and selects only the custom Auto-Merge harness. A
+human can request an early evaluation, but no human command was used here.
+
+## 1:16–1:43 — Deterministic preflight plus semantic judgment
+
+Trusted preflight verifies the exact head and live base, signed commits,
+required checks, current approval, resolved review threads, mergeability,
+scope, and bounded patch evidence. Only then does the model answer the narrow
+question: does this patch match its stated intent, remain routine and coherent,
+and avoid risk that needs a person? The sandbox is read-only and has no GitHub
+token.
+
+## 1:43–2:07 — Write ahead, then revalidate
+
+An approval still does not merge immediately. Trusted code first records a
+pending decision receipt. Then postflight recollects every mutable forge fact
+and compares the same authority tuple and evidence binding. If the head, base,
+review, checks, label, thread state, or policy changed, the decision is stale
+and the run stops.
+
+## 2:07–2:22 — Hosted result
+
+On pull request seven, preflight passed, the model returned a schema-valid
+APPROVE for head ae-nine-e-two-a-zero, and trusted code recorded the pending
+receipt. Nine seconds later GitHub accepted the exact-head squash merge as
+commit eight-zero-four-four-nine-f-d, and the merged receipt closed the loop.
+
+## 2:22–2:30 — Honest boundary
+
+This proves the complete private-lab behavior. Production still needs a
+dedicated identity, durable receipts, a per-pull-request lease, merge-queue
+integration, and trusted reconciliation so either CI-first or review-first
+ordering eventually wakes the controller. The authority boundary itself is now
+proven with real hosted events.

@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Interactive report for the Fullsend Auto-Merge private lab.">
+  <title>Fullsend Auto-Merge — Private Lab Report</title>
+  <style>
+    :root {
+      --bg: #060a12;
+      --panel: #0d1117;
+      --panel-2: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --subtle: #6e7681;
+      --cyan: #22d3ee;
+      --green: #34d399;
+      --violet: #a78bfa;
+      --amber: #fbbf24;
+      --rose: #fb7185;
+      --blue: #60a5fa;
+      --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      --ease: cubic-bezier(.16,1,.3,1);
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font); }
+    button, a { font: inherit; }
+    #universe { width: 100%; height: 100%; display: block; cursor: grab; }
+    #universe:active { cursor: grabbing; }
+    .galaxy { cursor: pointer; transition: opacity .45s var(--ease); }
+    .galaxy:hover .hover-ring, .child:hover .hover-ring { opacity: 1; }
+    .hover-ring { opacity: 0; transition: opacity .2s; }
+    .child { opacity: 0; pointer-events: none; cursor: pointer; transition: opacity .35s var(--ease); }
+    .child.visible { opacity: 1; pointer-events: auto; }
+    .internal { opacity: 0; pointer-events: none; transition: opacity .35s; }
+    .internal.visible { opacity: .38; }
+    .flow-line { transition: opacity .35s; }
+    .inline-card {
+      width: 500px; height: 220px; overflow: auto; padding: 14px;
+      color: var(--text); background: rgba(13,17,23,.96); border: 1px solid var(--border);
+      border-radius: 8px; font-size: 18px; line-height: 1.4; font-family: var(--font);
+    }
+    .ic-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-bottom: 9px; margin-bottom: 9px; border-bottom: 1px solid var(--border); }
+    .ic-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 20px; font-weight: 650; }
+    .ic-link { flex: 0 0 auto; color: var(--blue); text-decoration: none; font-size: 15px; }
+    .ic-kicker { color: var(--muted); font-size: 14px; text-transform: uppercase; letter-spacing: .08em; }
+    .ic-body { color: #c9d1d9; margin-top: 6px; font-size: 17px; }
+    .mini-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; color: #c9d1d9; }
+    .mini-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; background: var(--green); }
+    .mini-dot.stop { background: var(--rose); }
+    .mini-dot.wait { background: var(--amber); }
+    .mono { font-family: var(--mono); }
+
+    #title-overlay {
+      position: fixed; z-index: 30; top: 4.5%; left: 50%; width: min(950px, 88vw);
+      transform: translateX(-50%); text-align: center; pointer-events: none; transition: opacity .35s;
+    }
+    #title-overlay h1 { margin: 0; color: #fff; font-size: clamp(1.7rem, 3.4vw, 3rem); letter-spacing: -.035em; line-height: 1.05; }
+    #title-overlay h1 span { color: var(--cyan); }
+    #title-overlay .to-summary { max-width: 760px; margin: .7rem auto 0; color: #c9d1d9; line-height: 1.55; font-size: .98rem; opacity: .9; }
+    #title-overlay .to-sources { margin: .8rem auto 0; pointer-events: auto; font-size: .82rem; }
+    #title-overlay .to-sources a { color: var(--cyan); text-decoration: none; opacity: .8; }
+    #title-overlay .to-sources a:hover { opacity: 1; text-decoration: underline; }
+    #title-overlay .to-guide { margin: .75rem auto 0; color: var(--muted); font-size: .78rem; opacity: .7; }
+
+    .chrome-button {
+      position: fixed; z-index: 50; border: 1px solid rgba(255,255,255,.12); border-radius: 9px;
+      color: var(--text); background: rgba(13,17,23,.9); padding: 9px 14px; cursor: pointer;
+    }
+    .chrome-button:hover { background: var(--panel-2); }
+    #back { top: 20px; left: 20px; opacity: 0; pointer-events: none; transition: opacity .25s; }
+    #back.show { opacity: 1; pointer-events: auto; }
+    #cases { top: 20px; right: 20px; color: var(--amber); }
+    #hint { position: fixed; left: 50%; bottom: 20px; z-index: 25; transform: translateX(-50%); color: rgba(255,255,255,.34); font-size: .74rem; letter-spacing: .05em; }
+    #breadcrumb { position: fixed; top: 24px; left: 50%; z-index: 45; transform: translateX(-50%); color: var(--muted); font-size: .78rem; opacity: 0; transition: opacity .25s; }
+    #breadcrumb.show { opacity: 1; }
+    #breadcrumb strong { color: var(--text); }
+
+    #overlay {
+      position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column;
+      background: #010409; opacity: 0; pointer-events: none; transition: opacity .25s var(--ease);
+    }
+    #overlay.open { opacity: 1; pointer-events: auto; }
+    .ov-head { display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 10px 20px; background: var(--panel-2); border-bottom: 1px solid var(--border); }
+    .ov-head button, .ov-head a { border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--text); padding: 6px 11px; text-decoration: none; cursor: pointer; }
+    .ov-head a { margin-left: auto; color: var(--blue); }
+    #ov-path { color: var(--muted); font-size: .86rem; }
+    #ov-path strong { color: var(--text); }
+    #ov-body { flex: 1; overflow: auto; padding: 34px; }
+    .report { max-width: 1040px; margin: 0 auto; }
+    .report-kicker { color: var(--cyan); text-transform: uppercase; letter-spacing: .12em; font-size: .75rem; font-weight: 700; }
+    .report h2 { margin: 8px 0 12px; font-size: clamp(1.55rem, 3vw, 2.35rem); letter-spacing: -.025em; }
+    .report .lead { max-width: 780px; margin: 0 0 28px; color: #c9d1d9; font-size: 1.06rem; line-height: 1.7; }
+    .fact-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 12px; margin: 24px 0; }
+    .fact { min-height: 120px; padding: 18px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
+    .fact b { display: block; color: #fff; margin-bottom: 7px; }
+    .fact p { margin: 0; color: var(--muted); line-height: 1.55; font-size: .9rem; }
+    .fact.pass { border-top: 3px solid var(--green); }
+    .fact.stop { border-top: 3px solid var(--rose); }
+    .fact.wait { border-top: 3px solid var(--amber); }
+    .binding { margin: 24px 0; padding: 18px; overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: #0d1117; color: #a5d6ff; font-family: var(--mono); font-size: .86rem; line-height: 1.7; }
+    .callout { display: grid; grid-template-columns: 8px 1fr; gap: 16px; margin: 22px 0; padding: 18px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
+    .callout::before { content: ""; display: block; background: var(--violet); border-radius: 8px; }
+    .callout h3 { margin: 0 0 7px; }
+    .callout p { margin: 0; color: #c9d1d9; line-height: 1.6; }
+    .evidence-list { margin: 22px 0 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .evidence-list li { display: flex; align-items: baseline; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+    .evidence-list li:last-child { border-bottom: 0; }
+    .evidence-list span { color: var(--green); font-weight: 700; }
+    .evidence-list a { color: var(--blue); text-decoration: none; }
+    .case-flow { display: grid; grid-template-columns: minmax(160px,1fr) 36px minmax(230px,1.3fr); gap: 8px; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--border); }
+    .case-flow:last-child { border: 0; }
+    .case-flow .arrow { color: var(--subtle); text-align: center; }
+    .case-result { border-radius: 6px; padding: 10px 12px; background: var(--panel-2); color: #c9d1d9; }
+    .case-result.pass { border-left: 4px solid var(--green); }
+    .case-result.stop { border-left: 4px solid var(--rose); }
+    .case-result.wait { border-left: 4px solid var(--amber); }
+    .receipt-pair { display: grid; grid-template-columns: 1fr 60px 1fr; align-items: stretch; gap: 12px; margin-top: 24px; }
+    .receipt { padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+    .receipt h3 { margin: 0 0 8px; }
+    .receipt p { margin: 0; color: var(--muted); line-height: 1.55; }
+    .receipt-link { display: flex; align-items: center; justify-content: center; color: var(--subtle); font-size: 1.5rem; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+    @media (max-width: 720px) {
+      #title-overlay { top: 6%; }
+      #title-overlay .to-summary { font-size: .85rem; }
+      #ov-body { padding: 22px 16px; }
+      .receipt-pair { grid-template-columns: 1fr; }
+      .receipt-link { transform: rotate(90deg); min-height: 30px; }
+      .case-flow { grid-template-columns: 1fr; }
+      .case-flow .arrow { transform: rotate(90deg); }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; animation: none !important; } }
+  </style>
+</head>
+<body>
+  <svg id="universe" viewBox="0 760 5200 1500" role="img" aria-labelledby="map-title map-desc" xmlns="http://www.w3.org/2000/svg">
+    <title id="map-title">Fullsend Auto-Merge authority flow</title>
+    <desc id="map-desc">A left-to-right interactive map from isolated repository setup through deterministic gates, advisory model assessment, trusted postflight, exact-head merge, and durable receipts.</desc>
+    <defs>
+      <pattern id="stars" width="80" height="80" patternUnits="userSpaceOnUse">
+        <circle cx="10" cy="18" r="1.2" fill="#fff" opacity=".16"/><circle cx="55" cy="9" r=".8" fill="#fff" opacity=".11"/><circle cx="37" cy="61" r="1" fill="#fff" opacity=".09"/>
+      </pattern>
+      <filter id="bloom" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      <marker id="arrow" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="9" markerHeight="7" orient="auto"><path d="M0 0 10 3.5 0 7Z" fill="#8b949e" opacity=".65"/></marker>
+    </defs>
+    <rect width="5200" height="3000" fill="#060a12"/><rect width="5200" height="3000" fill="url(#stars)"/>
+    <g id="trust-bands" pointer-events="none">
+      <rect x="130" y="1070" width="2330" height="680" rx="60" fill="#22d3ee" opacity=".025" stroke="#22d3ee" stroke-opacity=".16" stroke-dasharray="14 12"/>
+      <text x="180" y="1720" fill="#22d3ee" opacity=".55" font-size="28" font-family="system-ui">REPOSITORY + READ-ONLY EVIDENCE</text>
+      <rect x="2470" y="1070" width="860" height="680" rx="60" fill="#a78bfa" opacity=".03" stroke="#a78bfa" stroke-opacity=".2" stroke-dasharray="14 12"/>
+      <text x="2520" y="1720" fill="#a78bfa" opacity=".65" font-size="28" font-family="system-ui">MODEL SANDBOX · NO MERGE CREDENTIAL</text>
+      <rect x="3340" y="1070" width="1730" height="680" rx="60" fill="#34d399" opacity=".025" stroke="#34d399" stroke-opacity=".18" stroke-dasharray="14 12"/>
+      <text x="3390" y="1720" fill="#34d399" opacity=".6" font-size="28" font-family="system-ui">TRUSTED RUNNER · MUTATION AUTHORITY</text>
+    </g>
+    <g id="connections"></g><g id="galaxies"></g><g id="children"></g>
+  </svg>
+
+  <div id="title-overlay">
+    <h1>Fullsend Auto-Merge<br><span>private lab report</span></h1>
+    <p class="to-summary">We built and proved a custom Fullsend agent that merges only one exact, eligible pull-request revision. The model advises; deterministic trusted code owns every gate, rechecks changing state, writes receipts, and alone holds merge authority.</p>
+    <p class="to-sources">
+      <a href="https://github.com/ascerra/auto-merge" target="_blank" rel="noopener">Private lab repo</a> ·
+      <a href="https://github.com/ascerra/auto-merge/issues/1" target="_blank" rel="noopener">Issue #1</a> ·
+      <a href="https://github.com/ascerra/auto-merge/pull/2" target="_blank" rel="noopener">PR #2</a> ·
+      <a href="https://github.com/ascerra/auto-merge/actions/runs/35216234955" target="_blank" rel="noopener">Successful run</a>
+    </p>
+    <p class="to-guide">Click a stage to explore → click an item for detail · Use “Example cases” for pass/fail paths</p>
+  </div>
+
+  <button id="back" class="chrome-button" type="button">← Overview</button>
+  <button id="cases" class="chrome-button" type="button">Example cases</button>
+  <div id="breadcrumb">Auto-Merge / <strong id="bc-name"></strong></div>
+  <div id="hint">Scroll to zoom · Drag to pan · Click to explore</div>
+
+  <div id="overlay" role="dialog" aria-modal="true" aria-labelledby="ov-path">
+    <div class="ov-head"><button id="ov-back" type="button">← Back</button><div id="ov-path"></div><a id="ov-link" href="#" target="_blank" rel="noopener">Open evidence ↗</a></div>
+    <div id="ov-body"></div>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const URLS = {
+      repo: "https://github.com/ascerra/auto-merge",
+      issue: "https://github.com/ascerra/auto-merge/issues/1",
+      pr: "https://github.com/ascerra/auto-merge/pull/2",
+      triage: "https://github.com/ascerra/auto-merge/actions/runs/35169161822",
+      code: "https://github.com/ascerra/auto-merge/actions/runs/35169615563",
+      fix: "https://github.com/ascerra/auto-merge/actions/runs/35171095208",
+      review: "https://github.com/ascerra/auto-merge/actions/runs/35214653637",
+      ci: "https://github.com/ascerra/auto-merge/actions/runs/35214655514",
+      firstAuto: "https://github.com/ascerra/auto-merge/actions/runs/35172951894",
+      auto: "https://github.com/ascerra/auto-merge/actions/runs/35216234955",
+      pending: "https://github.com/ascerra/auto-merge/pull/2#issuecomment-5713721773",
+      outcome: "https://github.com/ascerra/auto-merge/pull/2#issuecomment-5713723194"
+    };
+
+    const GALAXIES = [
+      { id:"isolate", label:"Isolate", subtitle:"private repo · repo-only trust", x:430, y:1410, color:"#22d3ee", domain:"security", desc:"Create a safe, bounded lab without changing the public mint.", children:[
+        {label:"Private fixture", kicker:"Scope", body:"Created ascerra/auto-merge as a private repository. Every test, app installation, and write target stayed inside this repo.", link:URLS.repo},
+        {label:"Per-repo Fullsend", kicker:"Install", body:"Installed current Fullsend in per-repository mode with triage, coder, review, fix, and the custom auto-merge harness.", link:URLS.repo},
+        {label:"Repository-only WIF", kicker:"Identity", body:"Used a dedicated workload-identity pool/provider restricted exactly to ascerra/auto-merge. The public mint was not changed.", link:URLS.repo}
+      ]},
+      { id:"loop", label:"Exercise", subtitle:"issue → code → review/fix → CI", x:1290, y:1410, color:"#60a5fa", domain:"pipeline", desc:"Prove the normal Fullsend lifecycle before granting any merge decision.", children:[
+        {label:"1. Triage issue", kicker:"Run", body:"/fs-triage classified Issue #1 and routed it into the normal code workflow.", link:URLS.triage},
+        {label:"2. Code opens PR", kicker:"Run", body:"The code agent implemented the small documentation change and opened PR #2.", link:URLS.code},
+        {label:"3. Review + Fix", kicker:"Loop", body:"Review requested a concrete semantic correction; Fix updated the branch. The generated role list had to be amended to enable fix.", link:URLS.fix},
+        {label:"4. Exact-head CI", kicker:"Checks", body:"The final head passed the fast contract check and the deliberate four-minute integration check.", link:URLS.ci}
+      ]},
+      { id:"gate", label:"Gate", subtitle:"fresh deterministic evidence", x:2150, y:1410, color:"#fbbf24", domain:"testing", desc:"Cheap, deterministic checks establish whether inference is even allowed.", children:[
+        {label:"Exact revision tuple", kicker:"Binding", body:"Bind repository, PR, head SHA, base ref, live base SHA, policy version, and evidence hash.", link:URLS.pr},
+        {label:"Required gates", kicker:"Preflight", body:"Open, non-draft, same repo, allowed author/path, green exact-head checks, current approval, DCO, no blockers, clean merge preview.", link:URLS.auto},
+        {label:"Bounded patch evidence", kicker:"Semantic input", body:"The API-sourced patch is included under strict size limits. Missing or oversized patches fail deterministic preflight.", link:URLS.firstAuto},
+        {label:"No legacy switch", kicker:"Policy", body:"The lab intentionally does not preserve CODE_AUTO_MERGE. There is one enablement path: the agent.", link:URLS.repo}
+      ]},
+      { id:"model", label:"Model", subtitle:"APPROVE · REJECT · ESCALATE", x:3010, y:1410, color:"#a78bfa", domain:"ai", desc:"The model performs only the non-deterministic judgment and has no merge credential.", children:[
+        {label:"APPROVE", kicker:"Semantic result", body:"Only when the bounded change matches intent, is routine and coherent, and no risk signal remains.", link:URLS.auto},
+        {label:"REJECT", kicker:"Semantic result", body:"Use for a concrete defect or policy mismatch. The trusted runner records it and never attempts a merge.", link:URLS.pr},
+        {label:"ESCALATE", kicker:"Semantic result", body:"Use when evidence is missing, ambiguous, suspicious, unusually risky, or requires human judgment.", link:URLS.firstAuto}
+      ]},
+      { id:"postflight", label:"Recheck + Merge", subtitle:"trusted runner · exact-head CAS", x:3870, y:1410, color:"#34d399", domain:"deploy", desc:"Authority is exercised only after a fresh postflight proves the decision is still valid.", children:[
+        {label:"Write-ahead receipt", kicker:"Before mutation", body:"Persist the bound decision before any merge attempt so even a later stale-state rejection is auditable.", link:URLS.pending},
+        {label:"Fresh postflight", kicker:"Reconcile", body:"Recollect every mutable gate and compare the new head/base tuple with the approved tuple.", link:URLS.auto},
+        {label:"Exact-head merge", kicker:"Mutation", body:"Call the forge merge endpoint with the expected head SHA and squash method. Never enable standing native auto-merge.", link:URLS.pr},
+        {label:"Fail closed on drift", kicker:"Race safety", body:"If head, base, checks, approval, labels, threads, or mergeability changed, record rejection and stop.", link:URLS.pr}
+      ]},
+      { id:"receipts", label:"Prove", subtitle:"decision + outcome receipts", x:4730, y:1410, color:"#fb7185", domain:"data", desc:"Append-only receipts distinguish intent from the actual result of privileged execution.", children:[
+        {label:"Decision receipt", kicker:"Event 1", body:"Recorded APPROVE and the immutable binding before mutation. This proves what was authorized.", link:URLS.pending},
+        {label:"Outcome receipt", kicker:"Event 2", body:"Recorded the successful exact-head merge and outcome after the forge mutation.", link:URLS.outcome},
+        {label:"Less duplication next", kicker:"UX improvement", body:"Keep both events, but make the outcome receipt reference the first receipt/evidence hash and include only outcome, merge SHA, and timestamp.", link:URLS.pr}
+      ]}
+    ];
+
+    const CONNECTIONS = [["isolate","loop"],["loop","gate"],["gate","model"],["model","postflight"],["postflight","receipts"]];
+    const svg = document.getElementById("universe");
+    const NS = "http://www.w3.org/2000/svg";
+    const OVERVIEW = "0 760 5200 1500";
+    const state = {view:"overview", galaxy:null, animating:false};
+    const esc = value => String(value ?? "").replace(/[&<>\"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+    const hex = c => c.slice(1);
+
+    function addGradients() {
+      const defs = svg.querySelector("defs");
+      [...new Set(GALAXIES.map(g => g.color))].forEach(color => {
+        const id = hex(color);
+        defs.insertAdjacentHTML("beforeend", `<radialGradient id="o-${id}"><stop offset="0" stop-color="${color}" stop-opacity=".22"/><stop offset=".65" stop-color="${color}" stop-opacity=".06"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></radialGradient><radialGradient id="c-${id}"><stop offset="0" stop-color="#fff" stop-opacity=".75"/><stop offset=".25" stop-color="${color}" stop-opacity=".68"/><stop offset="1" stop-color="${color}" stop-opacity=".05"/></radialGradient>`);
+      });
+    }
+
+    function icon(domain, x, y, s, c) {
+      const common = `fill="none" stroke="${c}" stroke-width="${s*.055}" stroke-linecap="round" stroke-linejoin="round" opacity=".62"`;
+      if (domain === "security") return `<path d="M${x} ${y-s*.55}L${x+s*.42} ${y-s*.33}V${y+s*.1}Q${x+s*.36} ${y+s*.5} ${x} ${y+s*.68}Q${x-s*.36} ${y+s*.5} ${x-s*.42} ${y+s*.1}V${y-s*.33}Z" ${common}/><path d="M${x-s*.17} ${y+s*.02}l${s*.13} ${s*.14} ${s*.28}-${s*.32}" ${common}/>`;
+      if (domain === "pipeline") return `<rect x="${x-s*.52}" y="${y-s*.44}" width="${s*1.04}" height="${s*.2}" rx="${s*.1}" ${common}/><rect x="${x-s*.38}" y="${y-s*.05}" width="${s*.76}" height="${s*.2}" rx="${s*.1}" ${common}/><rect x="${x-s*.24}" y="${y+s*.34}" width="${s*.48}" height="${s*.2}" rx="${s*.1}" ${common}/>`;
+      if (domain === "testing") return `<circle cx="${x}" cy="${y}" r="${s*.52}" ${common}/><path d="M${x-s*.25} ${y}l${s*.18} ${s*.2} ${s*.37}-${s*.43}" ${common}/>`;
+      if (domain === "ai") return `<g ${common}><circle cx="${x}" cy="${y}" r="${s*.11}"/><circle cx="${x-s*.42}" cy="${y-s*.3}" r="${s*.1}"/><circle cx="${x+s*.42}" cy="${y-s*.3}" r="${s*.1}"/><circle cx="${x-s*.4}" cy="${y+s*.36}" r="${s*.1}"/><circle cx="${x+s*.4}" cy="${y+s*.36}" r="${s*.1}"/><path d="M${x-s*.34} ${y-s*.24}L${x-s*.08} ${y-s*.05}M${x+s*.34} ${y-s*.24}L${x+s*.08} ${y-s*.05}M${x-s*.33} ${y+s*.29}L${x-s*.08} ${y+s*.05}M${x+s*.33} ${y+s*.29}L${x+s*.08} ${y+s*.05}"/></g>`;
+      if (domain === "deploy") return `<path d="M${x} ${y-s*.6}l${s*.3} ${s*.43}h-${s*.17}v${s*.55}h-${s*.26}v-${s*.55}h-${s*.17}Z" ${common}/><path d="M${x-s*.43} ${y+s*.5}h${s*.86}" ${common}/>`;
+      return `<g ${common}><path d="M${x-s*.5} ${y+s*.48}h${s}M${x-s*.38} ${y+s*.48}v-${s*.32}M${x-s*.12} ${y+s*.48}v-${s*.62}M${x+s*.14} ${y+s*.48}v-${s*.9}M${x+s*.4} ${y+s*.48}v-${s*1.12}"/></g>`;
+    }
+
+    function platform(g) {
+      const s=125, x=g.x, y=g.y+82, w=s*.95, h=s*.25;
+      return `<polygon points="${x-w},${y} ${x},${y-h} ${x+w},${y} ${x},${y+h}" fill="${g.color}" fill-opacity=".045" stroke="${g.color}" stroke-opacity=".28"/><polygon points="${x-w},${y} ${x},${y+h} ${x},${y+h+20} ${x-w},${y+20}" fill="${g.color}" fill-opacity=".025" stroke="${g.color}" stroke-opacity=".16"/><polygon points="${x},${y+h} ${x+w},${y} ${x+w},${y+20} ${x},${y+h+20}" fill="${g.color}" fill-opacity=".03" stroke="${g.color}" stroke-opacity=".16"/>`;
+    }
+
+    function renderConnections() {
+      const layer=document.getElementById("connections"), map=Object.fromEntries(GALAXIES.map(g=>[g.id,g]));
+      CONNECTIONS.forEach(([a,b])=>{ const from=map[a],to=map[b],p=document.createElementNS(NS,"path"); p.setAttribute("class","flow-line"); p.setAttribute("d",`M${from.x+130} ${from.y} C${from.x+300} ${from.y-180},${to.x-300} ${to.y-180},${to.x-130} ${to.y}`); p.setAttribute("fill","none"); p.setAttribute("stroke","#8b949e"); p.setAttribute("stroke-opacity",".4"); p.setAttribute("stroke-width","4"); p.setAttribute("stroke-dasharray","13 12"); p.setAttribute("marker-end","url(#arrow)"); layer.appendChild(p); });
+    }
+
+    function renderGalaxies() {
+      const layer=document.getElementById("galaxies");
+      GALAXIES.forEach((g,index)=>{
+        const el=document.createElementNS(NS,"g"); el.classList.add("galaxy"); el.dataset.id=g.id;
+        el.innerHTML=`${platform(g)}${icon(g.domain,g.x,g.y-15,100,g.color)}<circle cx="${g.x}" cy="${g.y}" r="150" fill="url(#o-${hex(g.color)})"/><circle class="core" cx="${g.x}" cy="${g.y}" r="52" fill="url(#c-${hex(g.color)})"/><circle class="hover-ring" cx="${g.x}" cy="${g.y}" r="74" fill="none" stroke="${g.color}" stroke-width="3" stroke-dasharray="9 7"/><circle cx="${g.x}" cy="${g.y-112}" r="25" fill="${g.color}" fill-opacity=".15"/><text x="${g.x}" y="${g.y-103}" text-anchor="middle" fill="${g.color}" font-family="system-ui" font-size="23" font-weight="750">${index+1}</text><text x="${g.x}" y="${g.y+165}" text-anchor="middle" fill="${g.color}" font-family="system-ui" font-size="46" font-weight="750">${esc(g.label)}</text><text x="${g.x}" y="${g.y+208}" text-anchor="middle" fill="${g.color}" opacity=".68" font-family="system-ui" font-size="32">${esc(g.subtitle)}</text>`;
+        el.addEventListener("click",e=>{e.stopPropagation(); openGalaxy(g);}); layer.appendChild(el);
+      });
+    }
+
+    function layoutChildren(g) {
+      const spacing=Math.max(320, 1600/g.children.length), start=g.y-(g.children.length-1)*spacing/2;
+      g.children.forEach((c,i)=>{c.cx=g.x-180;c.cy=start+i*spacing;});
+    }
+
+    function inlineCard(child) {
+      return `<div xmlns="http://www.w3.org/1999/xhtml" class="inline-card" style="border-left:3px solid ${child.color}"><div class="ic-head"><span class="ic-title">${esc(child.label)}</span><a class="ic-link" href="${esc(child.link)}" target="_blank" rel="noopener">Open ↗</a></div><div class="ic-kicker">${esc(child.kicker)}</div><div class="ic-body">${esc(child.body)}</div></div>`;
+    }
+
+    function renderChildren() {
+      const layer=document.getElementById("children");
+      GALAXIES.forEach(g=>{ layoutChildren(g); g.children.forEach((child,i)=>{
+        child.color=g.color; const el=document.createElementNS(NS,"g"); el.classList.add("child"); el.dataset.parent=g.id;
+        el.innerHTML=`<circle cx="${child.cx}" cy="${child.cy}" r="60" fill="url(#o-${hex(g.color)})"/><circle cx="${child.cx}" cy="${child.cy}" r="22" fill="url(#c-${hex(g.color)})"/><circle class="hover-ring" cx="${child.cx}" cy="${child.cy}" r="34" fill="none" stroke="${g.color}" stroke-width="2" stroke-dasharray="6 5"/><text x="${child.cx}" y="${child.cy-44}" text-anchor="middle" fill="${g.color}" font-family="system-ui" font-size="21" font-weight="650">${i+1}</text><foreignObject x="${child.cx+62}" y="${child.cy-110}" width="500" height="220">${inlineCard(child)}</foreignObject>`;
+        el.addEventListener("click",e=>{e.stopPropagation();openDetail(child,g);}); layer.appendChild(el);
+        if(i<g.children.length-1){const next=g.children[i+1],line=document.createElementNS(NS,"line");line.classList.add("internal");line.dataset.parent=g.id;line.setAttribute("x1",child.cx);line.setAttribute("y1",child.cy+34);line.setAttribute("x2",child.cx);line.setAttribute("y2",next.cy-34);line.setAttribute("stroke",g.color);line.setAttribute("stroke-width","2");line.setAttribute("stroke-dasharray","7 8");layer.insertBefore(line,el);}
+      });});
+    }
+
+    function parseVB(v){return v.split(" ").map(Number);}
+    function animateVB(target,duration=600){if(state.animating)return;state.animating=true;const from=parseVB(svg.getAttribute("viewBox")),to=parseVB(target),start=performance.now();function tick(now){const p=Math.min(1,(now-start)/duration),e=1-Math.pow(1-p,3);svg.setAttribute("viewBox",from.map((v,i)=>v+(to[i]-v)*e).join(" "));if(p<1)requestAnimationFrame(tick);else state.animating=false;}requestAnimationFrame(tick);}
+    function openGalaxy(g){
+      state.view="galaxy";state.galaxy=g.id;const n=g.children.length,padV=Math.max(600,n*200),padH=padV+500;animateVB(`${g.x-padH+120} ${g.y-padV} ${padH*2} ${padV*2}`);
+      document.querySelectorAll(".flow-line").forEach(x=>x.style.opacity="0");document.getElementById("trust-bands").style.opacity="0";document.querySelectorAll(".galaxy").forEach(x=>{x.style.opacity=x.dataset.id===g.id?"1":"0";if(x.dataset.id===g.id)x.querySelectorAll("text").forEach(t=>t.style.opacity=".16");});document.querySelectorAll(`.child[data-parent="${g.id}"]`).forEach(x=>x.classList.add("visible"));document.querySelectorAll(`.internal[data-parent="${g.id}"]`).forEach(x=>x.classList.add("visible"));
+      document.getElementById("back").classList.add("show");document.getElementById("breadcrumb").classList.add("show");document.getElementById("bc-name").textContent=g.label;document.getElementById("title-overlay").style.opacity="0";document.getElementById("hint").style.opacity="0";
+    }
+    function overview(){state.view="overview";state.galaxy=null;animateVB(OVERVIEW);document.querySelectorAll(".flow-line").forEach(x=>x.style.opacity="1");document.getElementById("trust-bands").style.opacity="1";document.querySelectorAll(".galaxy").forEach(x=>{x.style.opacity="1";x.querySelectorAll("text").forEach(t=>t.style.opacity="");});document.querySelectorAll(".child").forEach(x=>x.classList.remove("visible"));document.querySelectorAll(".internal").forEach(x=>x.classList.remove("visible"));document.getElementById("back").classList.remove("show");document.getElementById("breadcrumb").classList.remove("show");document.getElementById("title-overlay").style.opacity="1";document.getElementById("hint").style.opacity="1";closeOverlay();}
+
+    function openDetail(child,g){
+      document.getElementById("ov-path").innerHTML=`${esc(g.label)} / <strong>${esc(child.label)}</strong>`;document.getElementById("ov-link").href=child.link;document.getElementById("ov-link").textContent="Open evidence ↗";
+      const related=g.children.map(c=>`<div class="fact ${c===child?"pass":""}"><b>${esc(c.label)}</b><p>${esc(c.body)}</p></div>`).join("");
+      document.getElementById("ov-body").innerHTML=`<main class="report"><div class="report-kicker">${esc(child.kicker)}</div><h2>${esc(child.label)}</h2><p class="lead">${esc(child.body)}</p>${g.id==="gate"&&child.label==="Exact revision tuple"?`<div class="binding">(repository, pull_request_number, head_sha, base_ref,<br> live_base_sha, policy_version, evidence_sha256)</div>`:""}<div class="callout"><div><h3>${esc(g.label)} stage</h3><p>${esc(g.desc)}</p></div></div><div class="fact-grid">${related}</div></main>`;
+      document.getElementById("overlay").classList.add("open");
+    }
+    function closeOverlay(){document.getElementById("overlay").classList.remove("open");}
+
+    function showCases(){
+      document.getElementById("ov-path").innerHTML="Report / <strong>Example cases</strong>";document.getElementById("ov-link").href=URLS.auto;document.getElementById("ov-link").textContent="Open successful run ↗";
+      const cases=[
+        ["Happy path","All deterministic gates pass; model returns APPROVE; postflight tuple is unchanged.","Exact head is squash-merged; decision and outcome receipts remain.","pass"],
+        ["CI still running","The four-minute check is pending when reconciliation starts.","Stop before inference. No model spend and no merge attempt.","wait"],
+        ["Missing patch evidence","The first run checked out base, so the model could not inspect the PR change.","Model returned ESCALATE; trusted postflight recorded not merged.","wait"],
+        ["Stale head or base","A commit lands or main advances after semantic approval.","Fresh postflight binding differs; record stale-decision rejection.","stop"],
+        ["Unsigned commit","The code/fix policy omitted the DCO trailer.","Deterministic preflight rejects before model invocation.","stop"],
+        ["Semantic mismatch","Checks pass, but the patch does not match the issue or has hidden risk.","Model returns REJECT or ESCALATE; trusted runner never merges.","stop"],
+        ["Unresolved review","A latest CHANGES_REQUESTED review or unresolved thread remains.","Deterministic preflight rejects; the human/review loop must continue.","stop"]
+      ];
+      document.getElementById("ov-body").innerHTML=`<main class="report"><div class="report-kicker">Fail closed by default</div><h2>Example cases</h2><p class="lead">The agent is a reconciliation controller, not standing permission. Every event starts a fresh evaluation; most unsafe or incomplete states stop before the model or merge credential is involved.</p><div>${cases.map(c=>`<div class="case-flow"><strong>${esc(c[0])}</strong><div class="arrow">→</div><div class="case-result ${c[3]}"><b>${esc(c[1])}</b><br>${esc(c[2])}</div></div>`).join("")}</div><div class="receipt-pair"><section class="receipt"><h3>Receipt 1: decision</h3><p>Written before mutation. It proves the exact tuple and decision that were authorized—even if postflight later rejects stale state.</p></section><div class="receipt-link">→</div><section class="receipt"><h3>Receipt 2: outcome</h3><p>Written after the attempt. It proves merged, not merged, or stale decision. Keep both events, but make this second record compact.</p></section></div></main>`;
+      document.getElementById("overlay").classList.add("open");
+    }
+
+    let drag={on:false,moved:false,x:0,y:0,vb:parseVB(OVERVIEW)};
+    svg.addEventListener("mousedown",e=>{drag={on:true,moved:false,x:e.clientX,y:e.clientY,vb:parseVB(svg.getAttribute("viewBox"))};});
+    window.addEventListener("mousemove",e=>{if(!drag.on)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)>3||Math.abs(dy)>3)drag.moved=true;if(!drag.moved)return;const sx=drag.vb[2]/svg.clientWidth,sy=drag.vb[3]/svg.clientHeight;svg.setAttribute("viewBox",`${drag.vb[0]-dx*sx} ${drag.vb[1]-dy*sy} ${drag.vb[2]} ${drag.vb[3]}`);});
+    window.addEventListener("mouseup",()=>{drag.on=false;});
+    svg.addEventListener("wheel",e=>{let t=e.target;while(t&&t!==svg){if(t.tagName==="foreignObject"||t.namespaceURI==="http://www.w3.org/1999/xhtml")return;t=t.parentNode;}e.preventDefault();const vb=parseVB(svg.getAttribute("viewBox")),factor=e.deltaY>0?1.08:.92,mx=e.clientX/svg.clientWidth*vb[2]+vb[0],my=e.clientY/svg.clientHeight*vb[3]+vb[1],nw=Math.max(700,Math.min(8000,vb[2]*factor)),nh=Math.max(500,Math.min(6000,vb[3]*factor));svg.setAttribute("viewBox",`${mx-(mx-vb[0])*nw/vb[2]} ${my-(my-vb[1])*nh/vb[3]} ${nw} ${nh}`);},{passive:false});
+    document.getElementById("back").addEventListener("click",overview);document.getElementById("cases").addEventListener("click",showCases);document.getElementById("ov-back").addEventListener("click",closeOverlay);window.addEventListener("keydown",e=>{if(e.key==="Escape"){if(document.getElementById("overlay").classList.contains("open"))closeOverlay();else if(state.view==="galaxy")overview();}});
+    addGradients();renderConnections();renderGalaxies();renderChildren();svg.setAttribute("viewBox",OVERVIEW);
+  })();
+  </script>
+</body>
+</html>
