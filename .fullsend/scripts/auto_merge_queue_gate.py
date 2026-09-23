@@ -12,6 +12,7 @@ import sys
 from typing import Any
 
 from auto_merge_finalize import TRUSTED_RECEIPT_AUTHORS, idempotency_key, parse_receipt_header
+from auto_merge_gate import _latest_reviews
 
 
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -54,9 +55,11 @@ def evaluate_merge_group(
     event: dict[str, Any],
     pull_request: dict[str, Any],
     comments: list[dict[str, Any]],
+    reviews: list[dict[str, Any]],
     rulesets: list[dict[str, Any]],
     repository: str,
     allowed_risk_levels: set[str],
+    semantic_reviewer: str,
 ) -> dict[str, Any]:
     failures: list[str] = []
 
@@ -91,6 +94,15 @@ def evaluate_merge_group(
     require(risk_level in allowed_risk_levels, f"risk level {risk_level or '<missing>'} is not allowed")
 
     pr_head_sha = str((pull_request.get("head") or {}).get("sha") or "")
+    latest_reviews = _latest_reviews(reviews)
+    semantic_approvals = [
+        review
+        for review in latest_reviews
+        if str((review.get("user") or {}).get("login") or "").casefold() == semantic_reviewer.casefold()
+        and review.get("state") == "APPROVED"
+        and review.get("commit_id") == pr_head_sha
+    ]
+    require(bool(semantic_approvals), "semantic review-agent approval is not current for the pull-request head")
     trusted_queued_receipt = False
     for comment in comments:
         author = str((comment.get("user") or {}).get("login") or "")
@@ -148,10 +160,20 @@ def main() -> int:
     number = int(match.group("number"))
 
     pull_request = gh_json("api", f"repos/{repository}/pulls/{number}")
-    comments = gh_json("api", f"repos/{repository}/issues/{number}/comments?per_page=100")
+    comments = gh_json("api", "--paginate", "--slurp", f"repos/{repository}/issues/{number}/comments?per_page=100")
+    if not isinstance(comments, list) or not all(isinstance(page, list) for page in comments):
+        raise QueueGateError("GitHub comment query returned malformed pagination data")
+    comments = [comment for page in comments for comment in page]
+    review_pages = gh_json("api", "--paginate", "--slurp", f"repos/{repository}/pulls/{number}/reviews?per_page=100")
+    if not isinstance(review_pages, list) or not all(isinstance(page, list) for page in review_pages):
+        raise QueueGateError("GitHub review query returned malformed pagination data")
+    reviews = [review for page in review_pages for review in page]
     summaries = gh_json("api", f"repos/{repository}/rulesets?includes_parents=true")
     rulesets = [gh_json("api", f"repos/{repository}/rulesets/{item['id']}") for item in summaries if item.get("id") is not None]
-    result = evaluate_merge_group(event, pull_request, comments, rulesets, repository, allowed_risk_levels)
+    semantic_reviewer = os.environ.get("AUTO_MERGE_SEMANTIC_REVIEWER", "")
+    if not semantic_reviewer:
+        raise QueueGateError("semantic reviewer policy is missing")
+    result = evaluate_merge_group(event, pull_request, comments, reviews, rulesets, repository, allowed_risk_levels, semantic_reviewer)
     if not result["authorized"]:
         raise QueueGateError("; ".join(result["failures"]))
     print(json.dumps(result, sort_keys=True))

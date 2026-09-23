@@ -9,7 +9,7 @@
 # This agent handles GitHub only. To add GitLab or Jira, see
 # docs/guides/user/bring-your-own-agent.md.
 agent: agents/auto-merge.md
-description: Safely merge eligible pull requests after deterministic and semantic approval
+description: Verify the review-agent attestation and merge eligible pull requests
 role: coder
 privilege_levels:
   pre_script: read
@@ -43,6 +43,7 @@ env:
   runner:
     AUTO_MERGE_ALLOWED_AUTHORS: "ascerra,fullsend-ai-coder[bot]"
     AUTO_MERGE_ALLOWED_REVIEWERS: "ascerra,fullsend-ai-review[bot]"
+    AUTO_MERGE_SEMANTIC_REVIEWER: "fullsend-ai-review[bot]"
     AUTO_MERGE_ALLOWED_PATHS: "docs/example-feature.md"
     AUTO_MERGE_ALLOWED_REPO: "fullsend-ai/auto-merge"
     AUTO_MERGE_BASE_REF: "main"

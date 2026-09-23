@@ -85,7 +85,10 @@ def collect_snapshot(repository: str, number: int) -> dict[str, Any]:
     base_before = gh_json("api", branch_endpoint)
 
     files = gh_json("api", f"repos/{repository}/pulls/{number}/files?per_page=100")
-    reviews = gh_json("api", f"repos/{repository}/pulls/{number}/reviews?per_page=100")
+    review_pages = gh_json("api", "--paginate", "--slurp", f"repos/{repository}/pulls/{number}/reviews?per_page=100")
+    if not isinstance(review_pages, list) or not all(isinstance(page, list) for page in review_pages):
+        raise GateError("GitHub review query returned malformed pagination data")
+    reviews = [review for page in review_pages for review in page]
     commits = gh_json("api", f"repos/{repository}/pulls/{number}/commits?per_page=100")
     checks_obj = gh_json(
         "api",
@@ -314,8 +317,14 @@ def evaluate_snapshot(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[
         for review in trusted_reviews
         if review.get("state") == "APPROVED" and review.get("commit_id") == head_sha
     ]
+    semantic_reviewer = str(policy["semantic_reviewer"]).casefold()
+    semantic_approvals = [
+        review
+        for review in approvals
+        if str((review.get("user") or {}).get("login", "")).casefold() == semantic_reviewer
+    ]
     require(not changes_requested, "trusted changes-requested review remains: " + ", ".join(changes_requested))
-    require(bool(approvals), "no trusted approval applies to the exact head SHA")
+    require(bool(semantic_approvals), "no semantic review-agent attestation applies to the exact head SHA")
 
     threads = snapshot.get("review_threads") or {}
     thread_nodes = threads.get("nodes") or []
@@ -345,6 +354,14 @@ def evaluate_snapshot(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[
             "level": risk_level,
             "label": known_risk_labels[0] if len(known_risk_labels) == 1 else "",
             "approval_head_sha": head_sha if approvals else "",
+        },
+        "review_attestation": {
+            "authority": "fullsend-review-agent",
+            "decision": "APPROVE" if semantic_approvals else "MISSING",
+            "reviewer": semantic_reviewer,
+            "head_sha": head_sha if semantic_approvals else "",
+            "review_ids": [int(review.get("id", 0)) for review in semantic_approvals],
+            "risk_level": risk_level,
         },
         "merge_queue_required": queue_required,
         "checks": check_evidence,
@@ -403,6 +420,7 @@ def build_evidence(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[str
                 for item in snapshot["files"]
             ]
         },
+        "review_attestation": evaluation["review_attestation"],
         "policy": policy,
         "deterministic": evaluation,
     }
@@ -429,12 +447,14 @@ def collect_command(args: argparse.Namespace) -> int:
         "allowed_paths": csv_values(args.allowed_paths),
         "allowed_authors": csv_values(args.allowed_authors),
         "allowed_reviewers": csv_values(args.allowed_reviewers),
+        "semantic_reviewer": args.semantic_reviewer,
     }
     if (
         not policy["required_checks"]
         or not policy["allowed_paths"]
         or not policy["allowed_authors"]
         or not policy["allowed_reviewers"]
+        or not policy["semantic_reviewer"]
     ):
         raise GateError("required checks, allowed paths, allowed authors, and allowed reviewers must be non-empty")
     if policy["risk_gate"] == "required" and not policy["allowed_risk_levels"]:
@@ -465,6 +485,7 @@ def parser() -> argparse.ArgumentParser:
     collect.add_argument("--allowed-paths", required=True)
     collect.add_argument("--allowed-authors", required=True)
     collect.add_argument("--allowed-reviewers", required=True)
+    collect.add_argument("--semantic-reviewer", required=True)
     collect.add_argument("--output", required=True)
     collect.set_defaults(func=collect_command)
     return root

@@ -5,8 +5,10 @@ not a production implementation
 
 ## What this agent is
 
-Auto-Merge is a reconciliation agent for one low-risk pull-request cohort. An
-evaluation can begin with an immediate human `/fs-auto-merge` command, an
+Auto-Merge is a reconciliation and execution agent for one low-risk pull-request
+cohort. The Fullsend Review Agent owns the semantic judgment; Auto-Merge verifies
+that attestation and handles merge readiness, fresh postflight, and execution.
+An evaluation can begin with an immediate human `/fs-auto-merge` command, an
 approved-review event, or a trusted CI-readiness label. None of these signals
 grants approval or enables GitHub's native auto-merge feature. Each signal
 starts reconciliation of the pull request's current head and base revisions;
@@ -16,7 +18,8 @@ The implementation splits responsibility across three trust zones:
 
 1. A trusted runner pre-script reads live GitHub state and applies deterministic
    policy.
-2. A credential-free model sandbox evaluates the bounded semantic evidence.
+2. A credential-free model sandbox verifies the bounded Review Agent
+   attestation and binding; it is not a second semantic reviewer.
 3. A trusted runner post-script refreshes every mutable fact and, only in the
    private lab's `lab-automatic` mode, may request one exact-head squash merge.
 
@@ -68,7 +71,8 @@ gate obtains current state through `gh api` and requires:
 - GitHub native `auto_merge` absent;
 - both `Example contract` and `Delayed integration (4 minutes)` completed with
   `success` for the current head SHA;
-- at least one approval whose `commit_id` equals the current head SHA;
+- a `fullsend-ai-review[bot]` approval whose `commit_id` equals the current head
+  SHA; this is the semantic attestation required before Auto-Merge runs;
 - no reviewer's latest decisive review requesting changes;
 - no unresolved review thread and no truncated review-thread result; and
 - every pull-request commit containing a DCO `Signed-off-by` trailer.
@@ -104,18 +108,17 @@ its context-fingerprint fields are removed. The post-script recomputes both
 before trusting the evidence. No token, credential, raw workflow environment,
 or complete event payload enters the document.
 
-## Semantic evaluation
+## Review attestation verification
 
-`.fullsend/agents/auto-merge.md` tells the model to inspect the evidence,
-security contract, repository instructions, pull-request intent, and local
-documentation diff. Repository and pull-request text is evidence, not
-instruction. The model must choose exactly one result:
+`.fullsend/agents/auto-merge.md` tells the model to inspect the evidence and
+security contract. Repository and pull-request text is evidence, not
+instruction. The model verifies the trusted semantic attestation:
 
-- `APPROVE` when the bounded documentation change is coherent, matches intent,
-  is adequately verified, and has no remaining risk signal;
-- `REJECT` when a concrete quality or policy defect exists; or
-- `ESCALATE` when evidence is missing, ambiguous, suspicious, unusually risky,
-  or needs human judgment.
+- `APPROVE` when `fullsend-review-agent` approved the exact head and deterministic
+  readiness is still true;
+- `REJECT` when the attestation or binding is invalid; or
+- `ESCALATE` when the attestation is missing, stale, ambiguous, or needs human
+  judgment.
 
 The result must copy the complete evidence binding exactly. The JSON Schema
 allows no extra fields and constrains decisions, hashes, lengths, reason counts,
@@ -182,9 +185,10 @@ The dispatch test is `tests/test_auto_merge_dispatch.py`.
 
 ## Known lab constraints
 
-- GitHub branch protection is unavailable for this private personal-account
-  repository without GitHub Pro. The scripts therefore enforce checks,
-  approval freshness, conversation resolution, and exact-head binding directly.
+- The lab runs in a public organization repository with an active merge-queue
+  ruleset. The scripts still recheck exact-head readiness because queue entry is
+  race-prone and because the trusted attestation must not outlive the revision
+  it approved.
 - The reusable Fullsend workflow loads custom harness configuration from
   `github.event.pull_request.base.sha`. For long-lived PRs this can be stale;
   run #99 loaded `307b6f9` even though the workflow itself ran from

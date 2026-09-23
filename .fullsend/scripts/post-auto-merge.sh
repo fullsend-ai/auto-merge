@@ -53,6 +53,7 @@ python3 "${SCRIPT_DIR}/auto_merge_finalize.py" \
   --allowed-paths "${AUTO_MERGE_ALLOWED_PATHS}" \
   --allowed-authors "${AUTO_MERGE_ALLOWED_AUTHORS}" \
   --allowed-reviewers "${AUTO_MERGE_ALLOWED_REVIEWERS}" \
+  --semantic-reviewer "${AUTO_MERGE_SEMANTIC_REVIEWER}" \
   --evidence "${TARGET_REPO_DIR}/.fullsend-runtime/auto-merge-evidence.json" \
   --result "${RESULT_FILE}" \
   --gate-script "${SCRIPT_DIR}/auto_merge_gate.py"

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Point-in-time record of the Fullsend Auto-Merge merge-queue proof in fullsend-ai/auto-merge.">
+  <title>Auto-Merge Queue Proof · 2026-09-23</title>
+  <style>
+    :root {
+      --paper:#f4f1e8; --surface:#fffdf7; --ink:#15211d; --muted:#596660;
+      --line:#d8d5c9; --green:#167a5b; --green-soft:#dceee7; --blue:#235f89;
+      --blue-soft:#e1edf5; --amber:#9a6500; --amber-soft:#f5e9c8;
+      --red:#a13b3b; --red-soft:#f4dfdc; --mono:ui-monospace,"Cascadia Code",Consolas,monospace;
+      --sans:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    }
+    *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.55}
+    a{color:var(--blue);text-underline-offset:3px} code,.mono{font-family:var(--mono);font-size:.91em}
+    .shell{width:min(1120px,calc(100% - 36px));margin:0 auto} header{padding:20px 0;background:#14231e;color:#fff;border-bottom:1px solid #3c5149}
+    .top{display:flex;justify-content:space-between;gap:20px;align-items:center}.brand{font-weight:800;letter-spacing:-.02em}.top a{color:#c8d8d1;text-decoration:none;font-size:.88rem}
+    .hero{padding:70px 0 54px;background:#14231e;color:#fff}.eyebrow{margin:0 0 14px;color:#81c7ac;text-transform:uppercase;letter-spacing:.14em;font-size:.76rem;font-weight:800}
+    h1{max-width:880px;margin:0;font-size:clamp(2.6rem,7vw,5.5rem);line-height:1;letter-spacing:-.06em}.hero p{max-width:760px;color:#d0ddd8;font-size:1.12rem;margin:26px 0 0}.links{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}.links a{padding:8px 12px;border:1px solid #466158;border-radius:999px;color:#e6f4ee;text-decoration:none;font-size:.83rem}
+    .facts{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:48px;overflow:hidden;border:1px solid #3c5149;border-radius:12px;background:#3c5149}.fact{padding:18px;background:#192c25}.fact strong{display:block;color:#fff;font-size:1.35rem}.fact span{color:#aebfb8;font-size:.82rem}
+    main{padding:66px 0 90px} section{margin-bottom:74px;scroll-margin-top:22px}.section-head{display:grid;grid-template-columns:210px 1fr;gap:28px;margin-bottom:24px}.number{color:var(--green);font:800 .8rem var(--mono);letter-spacing:.08em}h2{margin:0;font-size:clamp(1.9rem,4vw,3rem);line-height:1.08;letter-spacing:-.045em}.intro{max-width:740px;margin:13px 0 0;color:var(--muted);font-size:1.04rem}
+    .diagram{padding:22px;overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--surface)}.diagram svg{display:block;width:100%;min-width:850px}.caption{margin:14px 2px 0;color:var(--muted);font-size:.84rem}
+    .callout{padding:20px 22px;border-left:5px solid var(--green);background:var(--green-soft)}.callout p{margin:0}.callout.warn{border-left-color:var(--amber);background:var(--amber-soft);color:#59491f}.callout.bad{border-left-color:var(--red);background:var(--red-soft);color:#632929}
+    .timeline{position:relative;padding-left:30px}.timeline:before{content:"";position:absolute;top:10px;bottom:10px;left:7px;width:2px;background:var(--line)}.event{position:relative;display:grid;grid-template-columns:140px 1fr;gap:22px;padding:0 0 26px}.event:last-child{padding-bottom:0}.event:before{content:"";position:absolute;left:-28px;top:7px;width:11px;height:11px;border:3px solid var(--paper);border-radius:50%;background:var(--green)}.event time{color:var(--green);font:800 .78rem var(--mono)}.event h3{margin:0 0 5px;font-size:1.08rem}.event p{margin:0;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}.card{padding:22px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}.card h3{margin:0 0 8px;font-size:1.08rem}.card p{margin:0;color:var(--muted)}.card.pass{border-top:4px solid var(--green)}.card.fail{border-top:4px solid var(--red)}.card.note{border-top:4px solid var(--amber)}
+    .proof{display:grid;grid-template-columns:1.05fr 1fr;gap:16px}.proof-list{margin:0;padding:0;list-style:none;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface)}.proof-list li{display:grid;grid-template-columns:170px 1fr;gap:14px;padding:13px 16px;border-bottom:1px solid var(--line)}.proof-list li:last-child{border-bottom:0}.proof-list b{font-size:.84rem}.proof-list span{color:var(--muted);font-family:var(--mono);font-size:.8rem;overflow-wrap:anywhere}
+    .links-list{display:grid;gap:11px}.links-list a{display:block;padding:13px 15px;border:1px solid var(--line);border-radius:9px;background:var(--surface);text-decoration:none}.links-list small{display:block;margin-top:3px;color:var(--muted);font-size:.8rem}
+    footer{padding:30px 0;border-top:1px solid var(--line);color:var(--muted);font-size:.84rem}.footer-row{display:flex;justify-content:space-between;gap:20px}
+    @media(max-width:760px){.facts,.grid,.proof{grid-template-columns:1fr}.section-head{grid-template-columns:1fr;gap:8px}.event,.proof-list li{grid-template-columns:1fr;gap:4px}.footer-row{display:block}.footer-row p{margin:8px 0}}
+  </style>
+</head>
+<body>
+  <header><div class="shell top"><div class="brand">Fullsend Auto-Merge · Evidence Record</div><a href="#evidence">Jump to evidence</a></div></header>
+  <div class="hero">
+    <div class="shell">
+      <p class="eyebrow">Point-in-time snapshot · 23 September 2026 · US/Eastern</p>
+      <h1>The queue path worked.</h1>
+      <p>This record captures exactly how the public <code>fullsend-ai/auto-merge</code> proof behaved after repository auto-merge was enabled. A fresh PR was reviewed, automatically authorized by the Auto-Merge agent, admitted to GitHub’s native merge queue, re-tested on a merge-group revision, and merged by the Fullsend bot.</p>
+      <div class="links">
+        <a href="https://github.com/fullsend-ai/auto-merge" target="_blank" rel="noopener">Repository ↗</a>
+        <a href="https://github.com/fullsend-ai/auto-merge/pull/5" target="_blank" rel="noopener">PR #5 ↗</a>
+        <a href="https://github.com/fullsend-ai/auto-merge/actions/runs/35887979281" target="_blank" rel="noopener">Auto-Merge run ↗</a>
+        <a href="https://github.com/fullsend-ai/auto-merge/actions/runs/35888838240" target="_blank" rel="noopener">Merge-group run ↗</a>
+      </div>
+      <div class="facts" aria-label="Outcome facts">
+        <div class="fact"><strong>PASS</strong><span>Automatic trigger and agent approval</span></div>
+        <div class="fact"><strong>QUEUED</strong><span>Exact approved head accepted by GitHub</span></div>
+        <div class="fact"><strong>4m 5s</strong><span>Queue integration check rerun</span></div>
+        <div class="fact"><strong>MERGED</strong><span>By fullsend-ai-coder[bot]</span></div>
+      </div>
+    </div>
+  </div>
+
+  <main class="shell">
+    <section id="flow">
+      <div class="section-head"><div class="number">01 / FLOW</div><div><h2>What happened, in one view.</h2><p class="intro">The model made the recommendation, trusted code bound it to the exact revision, and GitHub’s queue supplied the final merge-group proof.</p></div></div>
+      <figure class="diagram">
+        <svg viewBox="0 0 1080 300" role="img" aria-labelledby="flow-title flow-desc" xmlns="http://www.w3.org/2000/svg">
+          <title id="flow-title">Successful Auto-Merge queue flow</title>
+          <desc id="flow-desc">A pull request passes deterministic checks and review, the agent approves the exact head, trusted postflight queues it, merge-group checks pass, and GitHub merges it.</desc>
+          <defs><marker id="arrow" viewBox="0 0 10 8" refX="9" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 10 4 0 8Z" fill="#167a5b"/></marker></defs>
+          <rect x="18" y="92" width="150" height="104" rx="12" fill="#e1edf5" stroke="#235f89"/><text x="93" y="125" text-anchor="middle" font-family="sans-serif" font-weight="700" fill="#15211d">PR #5</text><text x="93" y="151" text-anchor="middle" font-family="monospace" font-size="12" fill="#596660">fa41c9c</text><text x="93" y="174" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#596660">exact head</text>
+          <path d="M168 144H215" stroke="#167a5b" stroke-width="3" marker-end="url(#arrow)"/>
+          <rect x="215" y="70" width="188" height="148" rx="12" fill="#dceee7" stroke="#167a5b"/><text x="309" y="104" text-anchor="middle" font-family="sans-serif" font-weight="700" fill="#15211d">Deterministic gates</text><text x="309" y="132" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#596660">CI · DCO · risk · review</text><text x="309" y="156" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#596660">base/head · policy</text><text x="309" y="190" text-anchor="middle" font-family="monospace" font-size="12" fill="#167a5b">all pass</text>
+          <path d="M403 144H450" stroke="#167a5b" stroke-width="3" marker-end="url(#arrow)"/>
+          <rect x="450" y="70" width="178" height="148" rx="12" fill="#ebe4f3" stroke="#684c8c"/><text x="539" y="104" text-anchor="middle" font-family="sans-serif" font-weight="700" fill="#15211d">Auto-Merge agent</text><text x="539" y="137" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#596660">semantic assessment</text><text x="539" y="163" text-anchor="middle" font-family="monospace" font-size="12" fill="#684c8c">APPROVE</text><text x="539" y="190" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#596660">receipt written</text>
+          <path d="M628 144H675" stroke="#167a5b" stroke-width="3" marker-end="url(#arrow)"/>
+          <rect x="675" y="70" width="165" height="148" rx="12" fill="#f5e9c8" stroke="#9a6500"/><text x="757" y="104" text-anchor="middle" font-family="sans-serif" font-weight="700" fill="#15211d">Trusted postflight</text><text x="757" y="137" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#59491f">fresh recheck</text><text x="757" y="163" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#59491f">queue enrollment</text><text x="757" y="190" text-anchor="middle" font-family="monospace" font-size="12" fill="#9a6500">QUEUED</text>
+          <path d="M840 144H887" stroke="#167a5b" stroke-width="3" marker-end="url(#arrow)"/>
+          <rect x="887" y="70" width="175" height="148" rx="12" fill="#dceee7" stroke="#167a5b"/><text x="974" y="104" text-anchor="middle" font-family="sans-serif" font-weight="700" fill="#15211d">Merge group</text><text x="974" y="137" text-anchor="middle" font-family="monospace" font-size="12" fill="#596660">dee832e</text><text x="974" y="163" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#596660">fresh checks pass</text><text x="974" y="190" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#167a5b">MERGED</text>
+        </svg>
+        <figcaption class="caption">Evidence window: PR #5 opened at 16:10 UTC; queue merge completed at 16:32 UTC on 2026-09-23.</figcaption>
+      </figure>
+    </section>
+
+    <section id="timeline">
+      <div class="section-head"><div class="number">02 / TIMELINE</div><div><h2>The observed sequence.</h2><p class="intro">The timestamps below are from the hosted PR, workflow runs, receipts, and merge record.</p></div></div>
+      <div class="timeline">
+        <div class="event"><time>16:10 UTC</time><div><h3>Fresh signed PR opened</h3><p>PR #5 changed only <code>docs/example-feature.md</code>. Commit <code>fa41c9c1df3b809f5a172b686fe65e1ce356b9eb</code> carried a valid DCO sign-off.</p></div></div>
+        <div class="event"><time>16:10–16:14</time><div><h3>PR checks passed</h3><p><code>Example contract</code> passed quickly. <code>Delayed integration (4 minutes)</code> passed after 4m 5s on the PR head.</p></div></div>
+        <div class="event"><time>16:10–16:19</time><div><h3>Review agent completed</h3><p>The review approved the exact head and assigned <code>risk/low</code> with a 1/5 assessment. The readiness labels were applied automatically.</p></div></div>
+        <div class="event"><time>16:19–16:26</time><div><h3>Automatic Auto-Merge trigger selected one run</h3><p>Several review/label events arrived close together. Two duplicate paths completed without running the agent; one path ran the Auto-Merge harness, demonstrating idempotent convergence.</p></div></div>
+        <div class="event"><time>16:26:52</time><div><h3>Trusted queue receipt written</h3><p>The post-script recorded <code>pending</code>, then GitHub accepted the exact approved head and the bot recorded <code>queued</code>.</p></div></div>
+        <div class="event"><time>16:27–16:32</time><div><h3>Merge-group revision passed and merged</h3><p>GitHub generated merge-group SHA <code>dee832e51bf8e66f13becc98836577fcfb817d81</code>. Both CI checks and <code>Auto-Merge queue authorization</code> passed. GitHub merged it at 16:32:25 UTC.</p></div></div>
+      </div>
+    </section>
+
+    <section id="proof">
+      <div class="section-head"><div class="number">03 / PROOF</div><div><h2>What was actually proven.</h2><p class="intro">This was a hosted behavior proof, not a simulated local merge.</p></div></div>
+      <div class="proof">
+        <ul class="proof-list">
+          <li><b>Trigger</b><span>automatic pull_request_review / label events</span></li>
+          <li><b>Review</b><span>fullsend-ai-review[bot] · APPROVED · fa41c9c</span></li>
+          <li><b>Risk</b><span>risk/low · 1/5</span></li>
+          <li><b>Strategy</b><span>queue · squash · main</span></li>
+          <li><b>Agent decision</b><span>APPROVE · exact binding</span></li>
+          <li><b>Merge actor</b><span>fullsend-ai-coder[bot]</span></li>
+          <li><b>Merge commit</b><span>dee832e51bf8e66f13becc98836577fcfb817d81</span></li>
+        </ul>
+        <div class="grid">
+          <article class="card pass"><h3>Fresh queue validation</h3><p>GitHub reran the contract and delayed integration checks on the generated merge-group revision, then ran the repository’s queue-authorization check.</p></article>
+          <article class="card pass"><h3>Exact-head binding</h3><p>The receipts bound repository, PR, head, base, policy fingerprint, context fingerprint, and idempotency key before queue enrollment.</p></article>
+          <article class="card pass"><h3>Automatic behavior</h3><p>No human <code>/fs-auto-merge</code> command was needed. The review event drove the successful Auto-Merge run.</p></article>
+          <article class="card note"><h3>Repository setting matters</h3><p>Enabling repository auto-merge allowed the existing <code>gh pr merge</code> queue path to succeed after PR #4 had failed closed.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="contrast">
+      <div class="section-head"><div class="number">04 / CONTRAST</div><div><h2>The failed attempt explains the fix.</h2><p class="intro">PR #4 was not unsafe; it exposed a configuration and tooling boundary before any merge mutation happened.</p></div></div>
+      <div class="grid">
+        <article class="card fail"><h3>PR #4 · first queue attempt</h3><p>The agent reached <code>APPROVE</code>, wrote a pending receipt, and attempted queue enrollment. GitHub rejected the request while repository <code>allow_auto_merge</code> was false. The post-script failed closed and wrote <code>not-queued</code>; PR #4 remained open.</p><p style="margin-top:12px"><a href="https://github.com/fullsend-ai/auto-merge/actions/runs/35883368181" target="_blank" rel="noopener">Failed run ↗</a> · <a href="https://github.com/fullsend-ai/auto-merge/pull/4#issuecomment-5797980001" target="_blank" rel="noopener">not-queued receipt ↗</a></p></article>
+        <article class="card pass"><h3>PR #5 · corrected queue attempt</h3><p>After repository auto-merge was enabled, a fresh exact-head PR followed the same policy. Automatic review-triggered Auto-Merge wrote a queued receipt, merge-group checks passed, and GitHub merged through the queue.</p><p style="margin-top:12px"><a href="https://github.com/fullsend-ai/auto-merge/pull/5#issuecomment-5798585905" target="_blank" rel="noopener">queued receipt ↗</a> · <a href="https://github.com/fullsend-ai/auto-merge/actions/runs/35888838240" target="_blank" rel="noopener">merge-group run ↗</a></p></article>
+      </div>
+      <div class="callout warn" style="margin-top:18px"><p><strong>Important interpretation:</strong> enabling repository auto-merge did not replace Fullsend authorization. The agent still had to pass deterministic gates, semantic approval, exact binding, fresh postflight, queue authorization, and merge-group checks. It enabled the forge operation that the existing post-script uses to enter the queue.</p></div>
+    </section>
+
+    <section id="security">
+      <div class="section-head"><div class="number">05 / SECURITY</div><div><h2>Public-surface review.</h2><p class="intro">The hosted result and its public artifacts were checked for accidental credential exposure.</p></div></div>
+      <div class="grid">
+        <article class="card pass"><h3>Artifacts scanned</h3><p>20 files totaling approximately 1.4 MB from the PR #5 review and Auto-Merge artifacts were downloaded and scanned.</p></article>
+        <article class="card pass"><h3>Workflow logs scanned</h3><p>Review, automatic Auto-Merge, and merge-group logs had no high-confidence private-key, GitHub-token, cloud-key, bearer-token, or secret-value patterns.</p></article>
+        <article class="card pass"><h3>GitHub secret scanning</h3><p>The repository reported zero open secret-scanning alerts at the time of this snapshot.</p></article>
+        <article class="card note"><h3>What remains public</h3><p>Run IDs, commit hashes, fingerprints, receipt metadata, model cost, and operational workflow details remain visible. They are evidence, not credentials, but should still be treated as public operational data.</p></article>
+      </div>
+    </section>
+
+    <section id="evidence">
+      <div class="section-head"><div class="number">06 / EVIDENCE</div><div><h2>Reopen the exact record.</h2><p class="intro">These links are the durable hosted sources for this snapshot.</p></div></div>
+      <div class="links-list">
+        <a href="https://github.com/fullsend-ai/auto-merge/pull/5" target="_blank" rel="noopener">PR #5 · merged through queue<small>Head fa41c9c · merge commit dee832e · merged by fullsend-ai-coder[bot]</small></a>
+        <a href="https://github.com/fullsend-ai/auto-merge/actions/runs/35886871493" target="_blank" rel="noopener">PR CI run · 35886871493<small>Example contract and Delayed integration (4 minutes) passed</small></a>
+        <a href="https://github.com/fullsend-ai/auto-merge/actions/runs/35886872415" target="_blank" rel="noopener">Review run · 35886872415<small>Review agent approved the exact head; risk/low was recorded</small></a>
+        <a href="https://github.com/fullsend-ai/auto-merge/actions/runs/35887979281" target="_blank" rel="noopener">Automatic Auto-Merge run · 35887979281<small>Review-triggered agent run; queued receipt recorded</small></a>
+        <a href="https://github.com/fullsend-ai/auto-merge/actions/runs/35888838240" target="_blank" rel="noopener">Merge-group CI run · 35888838240<small>Fresh merge-group checks and Auto-Merge queue authorization passed</small></a>
+        <a href="https://github.com/fullsend-ai/auto-merge/pull/5#issuecomment-5798585905" target="_blank" rel="noopener">Queued receipt · PR #5<small>Exact-head, base, policy, context, and idempotency binding</small></a>
+      </div>
+    </section>
+
+    <section id="limits">
+      <div class="section-head"><div class="number">07 / LIMITS</div><div><h2>What this snapshot does not claim.</h2><p class="intro">This is a strong POC result, with boundaries that still matter.</p></div></div>
+      <div class="callout bad"><p><strong>Not production completion:</strong> this proves one public repository, one low-risk documentation change, one queue configuration, and one successful merge-group cycle. It does not prove policy portability across every repository, concurrency under a busy queue, recovery from an ambiguous forge response, or the final production API design.</p></div>
+    </section>
+  </main>
+  <footer><div class="shell footer-row"><p>Captured 2026-09-23 from hosted GitHub state and downloaded public artifacts.</p><p><a href="auto-merge-lab-report-standard.html">Open the broader lab report ↗</a></p></div></footer>
+</body>
+</html>
