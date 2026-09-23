@@ -25,6 +25,7 @@ from auto_merge_finalize import (  # noqa: E402
     GateError,
     existing_receipt_phases,
     finalize,
+    gh,
     parse_receipt_header,
     receipt_markdown,
     validate_result,
@@ -293,6 +294,17 @@ class BindingAndFinalizerTests(unittest.TestCase):
         self.result["blocking_signals"] = ["Active human veto"]
         with self.assertRaisesRegex(GateError, "cannot contain blocking"):
             validate_result(self.result, self.evidence)
+
+    def test_duplicate_evidence_comment_ids_are_rejected(self) -> None:
+        self.result["evidence_comment_ids"] = [101, 101]
+        with self.assertRaisesRegex(GateError, "evidence_comment_ids are invalid"):
+            validate_result(self.result, self.evidence)
+
+    def test_github_operations_require_host_token(self) -> None:
+        with mock.patch.dict(os.environ, {}, clear=True), mock.patch("subprocess.run") as run:
+            with self.assertRaisesRegex(GateError, "GH_TOKEN is required"):
+                gh("api", "user")
+            run.assert_not_called()
 
     def test_observe_mode_revalidates_without_scm_mutation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

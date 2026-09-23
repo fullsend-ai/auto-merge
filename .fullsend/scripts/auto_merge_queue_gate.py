@@ -77,7 +77,7 @@ def evaluate_merge_group(
             receipt["phase"] == "submitted"
             and receipt["decision"] == "AUTHORIZE"
             and receipt["key"] == expected_key
-            and receipt["marker_key"] == expected_key
+            and receipt["body_key"] == expected_key
             and receipt["head"] == pr_head_sha
             and receipt["base_ref"] == base_ref
             and receipt["base_sha"] == queue_base_sha

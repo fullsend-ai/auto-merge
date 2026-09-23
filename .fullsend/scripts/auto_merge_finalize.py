@@ -15,7 +15,7 @@ import sys
 import tempfile
 from typing import Any
 
-from auto_merge_gate import ISSUE_URL_RE, canonical_hash, policy_fingerprint
+from auto_merge_gate import GateError, ISSUE_URL_RE, canonical_hash, csv_values, policy_fingerprint
 
 
 DECISIONS = {"AUTHORIZE", "DEFER", "ESCALATE"}
@@ -33,7 +33,7 @@ BINDING_KEYS = {
     "context_fingerprint",
 }
 RECEIPT_RE = re.compile(
-    r"^<!-- fullsend:auto-merge-receipt:(?P<key>[0-9a-f]{64}):(?P<phase>[a-z-]+) -->\n"
+    r"\A<!-- fullsend:auto-merge-receipt:(?P<key>[0-9a-f]{64}):(?P<phase>[a-z-]+) -->\n"
     r"### Auto-Merge: (?P=phase)\n\n"
     r"- Decision: `(?P<decision>AUTHORIZE|DEFER|ESCALATE)`\n"
     r"- Head: `(?P<head>[0-9a-f]{40})`\n"
@@ -41,20 +41,13 @@ RECEIPT_RE = re.compile(
     r"- Policy: `(?P<policy>[0-9a-f]{64})`\n"
     r"- Semantic context: `(?P<semantic>[0-9a-f]{64})`\n"
     r"- Context: `(?P<context>[0-9a-f]{64})`\n"
-    r"- Idempotency key: `(?P<marker_key>[0-9a-f]{64})`\n",
-    re.MULTILINE,
+    r"- Idempotency key: `(?P<body_key>[0-9a-f]{64})`\n",
 )
 
 
-class GateError(RuntimeError):
-    """Trusted postflight rejected the model result or current context."""
-
-
-def csv_values(value: str) -> list[str]:
-    return [item.strip() for item in value.split(",") if item.strip()]
-
-
 def gh(*args: str) -> str:
+    if not os.environ.get("GH_TOKEN"):
+        raise GateError("GH_TOKEN is required for trusted GitHub operations")
     proc = subprocess.run(
         ["gh", *args],
         check=False,
@@ -99,7 +92,12 @@ def validate_result(result: dict[str, Any], evidence: dict[str, Any]) -> None:
         raise GateError("model reasons are invalid")
     if not isinstance(blockers, list) or len(blockers) > 10 or not all(isinstance(x, str) and x for x in blockers):
         raise GateError("model blocking_signals are invalid")
-    if not isinstance(comment_ids, list) or len(comment_ids) > 100 or not all(isinstance(x, int) and x > 0 for x in comment_ids):
+    if (
+        not isinstance(comment_ids, list)
+        or len(comment_ids) > 100
+        or len(comment_ids) != len(set(comment_ids))
+        or not all(isinstance(x, int) and x > 0 for x in comment_ids)
+    ):
         raise GateError("model evidence_comment_ids are invalid")
     if decision == "AUTHORIZE" and blockers:
         raise GateError("AUTHORIZE cannot contain blocking signals")
@@ -242,7 +240,7 @@ def existing_receipt_phases(repository: str, number: int, request_key: str) -> s
             if str((comment.get("user") or {}).get("login") or "") not in TRUSTED_RECEIPT_AUTHORS:
                 continue
             parsed = parse_receipt_header(str(comment.get("body") or ""))
-            if parsed and parsed["key"] == request_key and parsed["marker_key"] == request_key:
+            if parsed and parsed["key"] == request_key and parsed["body_key"] == request_key:
                 phases.add(parsed["phase"])
     return phases
 
