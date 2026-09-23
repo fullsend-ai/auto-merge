@@ -85,7 +85,10 @@ def collect_snapshot(repository: str, number: int) -> dict[str, Any]:
     base_before = gh_json("api", branch_endpoint)
 
     files = gh_json("api", f"repos/{repository}/pulls/{number}/files?per_page=100")
-    reviews = gh_json("api", f"repos/{repository}/pulls/{number}/reviews?per_page=100")
+    review_pages = gh_json("api", "--paginate", "--slurp", f"repos/{repository}/pulls/{number}/reviews?per_page=100")
+    if not isinstance(review_pages, list) or not all(isinstance(page, list) for page in review_pages):
+        raise GateError("GitHub review query returned malformed pagination data")
+    reviews = [review for page in review_pages for review in page]
     commits = gh_json("api", f"repos/{repository}/pulls/{number}/commits?per_page=100")
     checks_obj = gh_json(
         "api",

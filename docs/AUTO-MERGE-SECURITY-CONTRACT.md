@@ -140,7 +140,9 @@ a later head cannot inherit an earlier CI wake-up signal.
 ## Explicit non-goals
 
 - Replacing branch protection or repository rulesets.
-- Treating a forge approval as sufficient semantic evidence.
+- Treating an arbitrary forge approval as semantic evidence. The configured
+  Fullsend Review Agent's exact-head approval is accepted only after trusted
+  identity, freshness, and postflight validation.
 - Merging code from forks or untrusted cohorts in this initial lab.
 - Auto-merging changes to workflows, Fullsend configuration, agent prompts,
   security policy, ownership files, or the merge implementation itself.

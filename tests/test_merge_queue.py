@@ -46,6 +46,18 @@ def queued_receipt() -> str:
     return receipt_markdown(result, evidence, "queued", "GitHub accepted queue enrollment.", request_key)
 
 
+def reviews() -> list[dict]:
+    return [
+        {
+            "id": 1,
+            "state": "APPROVED",
+            "commit_id": HEAD,
+            "submitted_at": "2026-09-16T20:00:00Z",
+            "user": {"login": "fullsend-ai-review[bot]"},
+        }
+    ]
+
+
 def pull_request() -> dict:
     return {
         "number": 7,
@@ -66,9 +78,11 @@ def evaluate(comments: list[dict], **overrides: object) -> dict:
         "event": queue_event(),
         "pull_request": pull_request(),
         "comments": comments,
+        "reviews": reviews(),
         "rulesets": rulesets(),
         "repository": "fullsend-ai/auto-merge",
         "allowed_risk_levels": {"low", "moderate"},
+        "semantic_reviewer": "fullsend-ai-review[bot]",
     }
     inputs.update(overrides)
     return evaluate_merge_group(**inputs)
@@ -128,6 +142,19 @@ class MergeQueueAuthorizationTests(unittest.TestCase):
         pr["labels"] = [{"name": "risk/high"}]
         comments = [{"body": queued_receipt(), "user": {"login": "fullsend-ai-coder[bot]"}}]
         self.assertFalse(evaluate(comments, pull_request=pr)["authorized"])
+
+    def test_withdrawn_semantic_approval_is_rejected(self) -> None:
+        comments = [{"body": queued_receipt(), "user": {"login": "fullsend-ai-coder[bot]"}}]
+        withdrawn = reviews() + [
+            {
+                "id": 2,
+                "state": "DISMISSED",
+                "commit_id": HEAD,
+                "submitted_at": "2026-09-16T20:01:00Z",
+                "user": {"login": "fullsend-ai-review[bot]"},
+            }
+        ]
+        self.assertFalse(evaluate(comments, reviews=withdrawn)["authorized"])
 
 
 if __name__ == "__main__":
