@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Collect and evaluate exact-head GitHub pull-request merge evidence."""
+"""Collect semantic Auto-Merge evidence without reimplementing SCM policy."""
 
 from __future__ import annotations
 
@@ -21,12 +21,23 @@ ISSUE_URL_RE = re.compile(
     r"^https://github\.com/(?P<repo>[A-Za-z0-9._-]+/[A-Za-z0-9._-]+)/"
     r"(?:pull|issues)/(?P<number>[1-9][0-9]*)$"
 )
-SIGNOFF_RE = re.compile(r"(?im)^Signed-off-by:\s+[^<\n]+<[^>\n]+>\s*$")
-DENY_LABELS = {"do-not-merge", "hold", "fullsend-no-merge", "security-review-required"}
+RISK_RE = re.compile(
+    r"\*\*Risk Assessment:\s*(?P<level>low|moderate|elevated|high|critical)\s*"
+    r"\((?P<score>[1-5])/5\)\*\*",
+    re.IGNORECASE,
+)
+RISK_MARKER = "<!-- fullsend:risk-assessment -->"
+CONTROL_PREFIXES = ("/fs-",)
+IGNORED_MARKERS = (
+    "<!-- fullsend:agent-status:",
+    "<!-- fullsend:auto-merge-receipt:",
+    "<!-- fullsend:risk-assessment -->",
+    "<!-- fullsend:review-agent -->",
+)
+MAX_COMMENT_CHARS = 4_000
+MAX_HUMAN_SIGNALS = 100
+QUALITY_MODES = {"off", "observe", "enforce"}
 RISK_LEVELS = {"low": 1, "moderate": 2, "elevated": 3, "high": 4, "critical": 5}
-RISK_LABEL_PREFIX = "risk/"
-MAX_PATCH_CHARS = 12_000
-MAX_TOTAL_PATCH_CHARS = 24_000
 
 
 class GateError(RuntimeError):
@@ -42,13 +53,27 @@ def canonical_hash(document: dict[str, Any]) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
-def policy_fingerprint(policy: dict[str, Any]) -> str:
-    payload = json.dumps(policy, sort_keys=True, separators=(",", ":")).encode()
+def stable_hash(document: dict[str, Any]) -> str:
+    payload = json.dumps(document, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(payload).hexdigest()
+
+
+def policy_fingerprint(policy: dict[str, Any]) -> str:
+    return stable_hash(policy)
 
 
 def csv_values(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def parse_time(value: str) -> dt.datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=dt.timezone.utc)
 
 
 def gh_json(*args: str) -> Any:
@@ -73,430 +98,390 @@ def gh_json(*args: str) -> Any:
         raise GateError("GitHub query returned invalid JSON") from exc
 
 
-def collect_snapshot(repository: str, number: int) -> dict[str, Any]:
-    pr = gh_json("api", f"repos/{repository}/pulls/{number}")
-    head_sha = pr.get("head", {}).get("sha", "")
-    if not SHA_RE.fullmatch(head_sha):
-        raise GateError("pull request returned an invalid head SHA")
-    base_ref = str((pr.get("base") or {}).get("ref", ""))
-    if not base_ref:
-        raise GateError("pull request returned an empty base ref")
+def gh_pages(endpoint: str) -> list[dict[str, Any]]:
+    pages = gh_json("api", "--paginate", "--slurp", endpoint)
+    if not isinstance(pages, list) or not all(isinstance(page, list) for page in pages):
+        raise GateError(f"GitHub query returned malformed pagination data for {endpoint}")
+    return [item for page in pages for item in page if isinstance(item, dict)]
+
+
+def collect_snapshot(repository: str, number: int, quality: dict[str, Any] | None = None) -> dict[str, Any]:
+    pr_before = gh_json("api", f"repos/{repository}/pulls/{number}")
+    head_sha = str((pr_before.get("head") or {}).get("sha") or "")
+    base_ref = str((pr_before.get("base") or {}).get("ref") or "")
+    if not SHA_RE.fullmatch(head_sha) or not base_ref:
+        raise GateError("pull request returned an invalid head SHA or base ref")
     branch_endpoint = f"repos/{repository}/branches/{quote(base_ref, safe='')}"
     base_before = gh_json("api", branch_endpoint)
 
-    files = gh_json("api", f"repos/{repository}/pulls/{number}/files?per_page=100")
-    review_pages = gh_json("api", "--paginate", "--slurp", f"repos/{repository}/pulls/{number}/reviews?per_page=100")
-    if not isinstance(review_pages, list) or not all(isinstance(page, list) for page in review_pages):
-        raise GateError("GitHub review query returned malformed pagination data")
-    reviews = [review for page in review_pages for review in page]
-    commits = gh_json("api", f"repos/{repository}/pulls/{number}/commits?per_page=100")
-    checks_obj = gh_json(
-        "api",
-        "-H",
-        "Accept: application/vnd.github+json",
-        f"repos/{repository}/commits/{head_sha}/check-runs?per_page=100",
-    )
-    owner, name = repository.split("/", 1)
-    threads_obj = gh_json(
-        "api",
-        "graphql",
-        "-f",
-        f"owner={owner}",
-        "-f",
-        f"name={name}",
-        "-F",
-        f"number={number}",
-        "-f",
-        "query=query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved} pageInfo{hasNextPage}}}}}",
-    )
-    threads = (
-        threads_obj.get("data", {})
-        .get("repository", {})
-        .get("pullRequest", {})
-        .get("reviewThreads", {})
-    )
-
-    ruleset_summaries = gh_json("api", f"repos/{repository}/rulesets?includes_parents=true")
-    rulesets = []
-    for summary in ruleset_summaries if isinstance(ruleset_summaries, list) else []:
-        ruleset_id = summary.get("id")
-        if ruleset_id is not None:
-            rulesets.append(gh_json("api", f"repos/{repository}/rulesets/{ruleset_id}"))
+    comments = gh_pages(f"repos/{repository}/issues/{number}/comments?per_page=100")
+    reviews = gh_pages(f"repos/{repository}/pulls/{number}/reviews?per_page=100")
+    review_comments = gh_pages(f"repos/{repository}/pulls/{number}/comments?per_page=100")
 
     pr_after = gh_json("api", f"repos/{repository}/pulls/{number}")
     base_after = gh_json("api", branch_endpoint)
     if (pr_after.get("head") or {}).get("sha") != head_sha:
-        raise GateError("pull-request head changed while evidence was collected")
+        raise GateError("pull-request head changed while semantic evidence was collected")
     if (pr_after.get("base") or {}).get("ref") != base_ref:
-        raise GateError("pull-request base ref changed while evidence was collected")
+        raise GateError("pull-request base ref changed while semantic evidence was collected")
     if (base_before.get("commit") or {}).get("sha") != (base_after.get("commit") or {}).get("sha"):
-        raise GateError("base branch changed while evidence was collected")
-
-    merge_preview: dict[str, Any] = {}
-    merge_commit_sha = str(pr_after.get("merge_commit_sha") or "")
-    if SHA_RE.fullmatch(merge_commit_sha):
-        merge_preview = gh_json("api", f"repos/{repository}/git/commits/{merge_commit_sha}")
+        raise GateError("base branch changed while semantic evidence was collected")
 
     return {
         "pull_request": pr_after,
         "base_branch": base_after,
-        "merge_preview": merge_preview,
-        "files": files,
+        "comments": comments,
         "reviews": reviews,
-        "commits": commits,
-        "check_runs": checks_obj.get("check_runs", []),
-        "review_threads": threads,
-        "rulesets": rulesets,
+        "review_comments": review_comments,
+        "review_quality": quality or {},
     }
-
-
-def active_merge_queue_required(rulesets: list[dict[str, Any]]) -> bool:
-    return any(
-        ruleset.get("enforcement") == "active"
-        and any(rule.get("type") == "merge_queue" for rule in ruleset.get("rules", []))
-        for ruleset in rulesets
-    )
 
 
 def _latest_reviews(reviews: list[dict[str, Any]]) -> list[dict[str, Any]]:
     latest: dict[str, dict[str, Any]] = {}
     for review in reviews:
-        state = str(review.get("state", "")).upper()
+        state = str(review.get("state") or "").upper()
         if state not in {"APPROVED", "CHANGES_REQUESTED", "DISMISSED"}:
             continue
-        login = str((review.get("user") or {}).get("login", ""))
+        login = str((review.get("user") or {}).get("login") or "")
         if not login:
             continue
         prior = latest.get(login)
         key = (str(review.get("submitted_at") or ""), int(review.get("id") or 0))
-        prior_key = (
-            str((prior or {}).get("submitted_at") or ""),
-            int((prior or {}).get("id") or 0),
-        )
+        prior_key = (str((prior or {}).get("submitted_at") or ""), int((prior or {}).get("id") or 0))
         if prior is None or key > prior_key:
             latest[login] = review
     return list(latest.values())
 
 
-def _latest_checks(checks: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    latest: dict[str, dict[str, Any]] = {}
-    for check in checks:
-        name = str(check.get("name", ""))
-        if not name:
-            continue
-        prior = latest.get(name)
-        key = (str(check.get("completed_at") or check.get("started_at") or ""), int(check.get("id") or 0))
-        prior_key = (
-            str((prior or {}).get("completed_at") or (prior or {}).get("started_at") or ""),
-            int((prior or {}).get("id") or 0),
-        )
-        if prior is None or key > prior_key:
-            latest[name] = check
-    return latest
+def review_attestation(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[str, Any]:
+    head_sha = str((snapshot["pull_request"].get("head") or {}).get("sha") or "")
+    reviewer = str(policy["semantic_reviewer"]).casefold()
+    matches = [
+        review
+        for review in _latest_reviews(snapshot["reviews"])
+        if str((review.get("user") or {}).get("login") or "").casefold() == reviewer
+        and str(review.get("state") or "").upper() == "APPROVED"
+        and review.get("commit_id") == head_sha
+    ]
+    if not matches:
+        return {
+            "authority": "fullsend-review-agent",
+            "decision": "MISSING",
+            "reviewer": reviewer,
+            "head_sha": "",
+            "review_id": 0,
+            "submitted_at": "",
+        }
+    match = max(matches, key=lambda item: (str(item.get("submitted_at") or ""), int(item.get("id") or 0)))
+    return {
+        "authority": "fullsend-review-agent",
+        "decision": "APPROVE",
+        "reviewer": reviewer,
+        "head_sha": head_sha,
+        "review_id": int(match.get("id") or 0),
+        "submitted_at": str(match.get("submitted_at") or ""),
+    }
+
+
+def risk_assessment(snapshot: dict[str, Any], policy: dict[str, Any], attestation: dict[str, Any]) -> dict[str, Any]:
+    producer = str(policy["risk_assessment_producer"]).casefold()
+    candidates: list[tuple[dict[str, Any], re.Match[str]]] = []
+    for comment in snapshot["comments"]:
+        body = str(comment.get("body") or "")
+        author = str((comment.get("user") or {}).get("login") or "").casefold()
+        match = RISK_RE.search(body)
+        if author == producer and RISK_MARKER in body and match is not None:
+            candidates.append((comment, match))
+    if not candidates:
+        return {
+            "authority": "fullsend-risk-assessment",
+            "producer": producer,
+            "status": "MISSING",
+            "head_sha": "",
+            "level": "",
+            "score": 0,
+            "comment_id": 0,
+            "updated_at": "",
+            "summary": "",
+        }
+    comment, match = max(
+        candidates,
+        key=lambda item: (str(item[0].get("updated_at") or item[0].get("created_at") or ""), int(item[0].get("id") or 0)),
+    )
+    risk_time = parse_time(str(comment.get("updated_at") or comment.get("created_at") or ""))
+    review_time = parse_time(str(attestation.get("submitted_at") or ""))
+    correlation_seconds = abs((risk_time - review_time).total_seconds()) if risk_time and review_time else None
+    correlated = (
+        attestation.get("decision") == "APPROVE"
+        and correlation_seconds is not None
+        and correlation_seconds <= int(policy["artifact_correlation_minutes"]) * 60
+    )
+    body = str(comment.get("body") or "")
+    return {
+        "authority": "fullsend-risk-assessment",
+        "producer": producer,
+        "status": "CURRENT" if correlated else "UNBOUND",
+        "head_sha": attestation.get("head_sha", "") if correlated else "",
+        "level": match.group("level").lower(),
+        "score": int(match.group("score")),
+        "comment_id": int(comment.get("id") or 0),
+        "updated_at": str(comment.get("updated_at") or comment.get("created_at") or ""),
+        "correlated_review_id": int(attestation.get("review_id") or 0),
+        "correlation_seconds": int(correlation_seconds) if correlation_seconds is not None else None,
+        "summary": body[:MAX_COMMENT_CHARS],
+    }
+
+
+def _is_human(user: dict[str, Any]) -> bool:
+    login = str(user.get("login") or "")
+    return bool(login) and str(user.get("type") or "User").casefold() != "bot" and not login.endswith("[bot]")
+
+
+def _human_signal(item: dict[str, Any], channel: str) -> dict[str, Any] | None:
+    user = item.get("user") or {}
+    body = str(item.get("body") or "").strip()
+    if not _is_human(user) or not body or body.startswith(CONTROL_PREFIXES) or any(marker in body for marker in IGNORED_MARKERS):
+        return None
+    return {
+        "channel": channel,
+        "id": int(item.get("id") or 0),
+        "author": str(user.get("login") or ""),
+        "author_association": str(item.get("author_association") or "NONE").upper(),
+        "created_at": str(item.get("created_at") or item.get("submitted_at") or ""),
+        "updated_at": str(item.get("updated_at") or item.get("submitted_at") or item.get("created_at") or ""),
+        "body": body[:MAX_COMMENT_CHARS],
+    }
+
+
+def human_signals(snapshot: dict[str, Any], policy: dict[str, Any]) -> list[dict[str, Any]]:
+    allowed = {item.upper() for item in policy["human_signal_associations"]}
+    pr_author = str((snapshot["pull_request"].get("user") or {}).get("login") or "").casefold()
+    signals: list[dict[str, Any]] = []
+    sources = (
+        (snapshot["comments"], "conversation"),
+        (snapshot["review_comments"], "inline_review"),
+        (snapshot["reviews"], "review"),
+    )
+    for items, channel in sources:
+        for item in items:
+            signal = _human_signal(item, channel)
+            if signal is None:
+                continue
+            trusted_actor = signal["author_association"] in allowed or signal["author"].casefold() == pr_author
+            signal["trusted_actor"] = trusted_actor
+            signals.append(signal)
+    signals.sort(key=lambda item: (item["updated_at"], item["channel"], item["id"]))
+    return signals[-MAX_HUMAN_SIGNALS:]
+
+
+def normalize_quality(raw: dict[str, Any]) -> dict[str, Any]:
+    if not raw:
+        return {"status": "UNAVAILABLE"}
+    try:
+        score = float(raw["score"])
+        sample_count = int(raw["sample_count"])
+    except (KeyError, TypeError, ValueError):
+        return {"status": "MALFORMED"}
+    if not 0 <= score <= 1 or sample_count < 0:
+        return {"status": "MALFORMED"}
+    return {
+        "status": "AVAILABLE",
+        "metric": str(raw.get("metric") or "review_correctly_approved"),
+        "score": score,
+        "sample_count": sample_count,
+        "measured_at": str(raw.get("measured_at") or ""),
+        "scope": str(raw.get("scope") or ""),
+        "reviewer_version": str(raw.get("reviewer_version") or ""),
+        "judge_version": str(raw.get("judge_version") or ""),
+    }
+
+
+def semantic_context(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[str, Any]:
+    attestation = review_attestation(snapshot, policy)
+    return {
+        "review_attestation": attestation,
+        "risk_assessment": risk_assessment(snapshot, policy, attestation),
+        "human_signals": human_signals(snapshot, policy),
+        "review_quality": normalize_quality(snapshot.get("review_quality") or {}),
+        "repository_policy": {
+            "maximum_unattended_risk": policy["maximum_unattended_risk"],
+            "custom_instructions": policy["custom_instructions"],
+            "review_quality_mode": policy["review_quality_mode"],
+            "review_quality_minimum_score": policy["review_quality_minimum_score"],
+            "review_quality_minimum_samples": policy["review_quality_minimum_samples"],
+        },
+    }
 
 
 def evaluate_snapshot(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[str, Any]:
     pr = snapshot["pull_request"]
     repository = policy["repository"]
-    head_sha = str((pr.get("head") or {}).get("sha", ""))
-    reported_base_sha = str((pr.get("base") or {}).get("sha", ""))
-    live_base_sha = str((snapshot.get("base_branch") or {}).get("commit", {}).get("sha", ""))
+    head_sha = str((pr.get("head") or {}).get("sha") or "")
+    live_base_sha = str((snapshot.get("base_branch") or {}).get("commit", {}).get("sha") or "")
+    context = semantic_context(snapshot, policy)
     failures: list[str] = []
 
     def require(condition: bool, reason: str) -> None:
         if not condition:
             failures.append(reason)
 
-    require(policy.get("mode") in {"observe", "lab-automatic"}, "POC policy mode is unsupported")
-    require(policy.get("execution_strategy") in {"direct", "queue"}, "execution strategy is unsupported")
-    require(policy.get("risk_gate") in {"informational", "required"}, "risk gate is unsupported")
+    require(policy.get("mode") in {"observe", "lab-automatic"}, "POC mode is unsupported")
+    require(policy.get("review_quality_mode") in QUALITY_MODES, "review quality mode is unsupported")
     require(pr.get("state") == "open", "pull request is not open")
     require(pr.get("draft") is False, "pull request is a draft")
     require(SHA_RE.fullmatch(head_sha) is not None, "head SHA is invalid")
-    require(SHA_RE.fullmatch(reported_base_sha) is not None, "reported base SHA is invalid")
     require(SHA_RE.fullmatch(live_base_sha) is not None, "live base SHA is invalid")
-    require((pr.get("base") or {}).get("ref") == policy["base_ref"], "base ref is not allowed")
+    require((pr.get("base") or {}).get("ref") == policy["base_ref"], "base ref is outside the configured scope")
     require((pr.get("base") or {}).get("repo", {}).get("full_name") == repository, "base repository mismatch")
-    require((pr.get("head") or {}).get("repo", {}).get("full_name") == repository, "fork pull requests are not allowed")
-    require(pr.get("mergeable") is True, "mergeability is false or unknown")
-    # GitHub reports `unstable` while this Auto-Merge check is itself pending.
-    # That state is safe only because the policy independently requires each
-    # named merge check to have succeeded for the exact head below. States
-    # such as `behind`, `dirty`, `blocked`, and unknown still fail closed.
-    require(
-        pr.get("mergeable_state") in {"clean", "unstable"},
-        "mergeable state is neither clean nor unstable",
-    )
-    require(pr.get("auto_merge") is None, "native standing auto-merge is enabled")
-    require(reported_base_sha == live_base_sha, "pull request is not bound to the live base SHA")
-
-    merge_preview = snapshot.get("merge_preview") or {}
-    merge_preview_sha = str(merge_preview.get("sha", ""))
-    merge_preview_parents = [str(parent.get("sha", "")) for parent in merge_preview.get("parents", [])]
-    require(SHA_RE.fullmatch(merge_preview_sha) is not None, "merge preview SHA is unavailable")
-    require(
-        merge_preview_parents == [live_base_sha, head_sha],
-        "merge preview is not bound to the live base and exact head",
-    )
-
-    author = str((pr.get("user") or {}).get("login", ""))
-    require(author in policy["allowed_authors"], f"author {author or '<unknown>'} is not allowed")
-    labels = sorted(str(label.get("name", "")) for label in pr.get("labels", []))
-    blocked = sorted({label.lower() for label in labels} & DENY_LABELS)
-    require(not blocked, "hold label present: " + ", ".join(blocked))
-
-    risk_labels = [label for label in labels if label.startswith(RISK_LABEL_PREFIX)]
-    known_risk_labels = [label for label in risk_labels if label.removeprefix(RISK_LABEL_PREFIX) in RISK_LEVELS]
-    risk_level = known_risk_labels[0].removeprefix(RISK_LABEL_PREFIX) if len(known_risk_labels) == 1 else ""
-    require(len(risk_labels) <= 1, "multiple PR risk assessments are present")
-    require(len(risk_labels) == len(known_risk_labels), "PR risk assessment label is malformed")
-    if policy["risk_gate"] == "required":
-        require(bool(risk_level), "required PR risk assessment is missing")
-        require(risk_level in policy["allowed_risk_levels"], f"PR risk level {risk_level or '<missing>'} is not allowed")
-
-    queue_required = active_merge_queue_required(snapshot.get("rulesets") or [])
-    require(
-        (policy["execution_strategy"] == "queue") == queue_required,
-        "configured execution strategy does not match repository merge-queue policy",
-    )
-
-    files = snapshot["files"]
-    changed_paths = sorted(str(item.get("filename", "")) for item in files)
-    require(0 < len(changed_paths) <= 3, "changed file count is outside the 1-3 file cohort")
-    disallowed = [path for path in changed_paths if path not in policy["allowed_paths"]]
-    require(not disallowed, "disallowed changed path: " + ", ".join(disallowed))
-    require(len(files) < 100, "changed-file result may be truncated")
-    total_patch_chars = 0
-    for item in files:
-        path = str(item.get("filename", ""))
-        patch = item.get("patch")
-        has_patch = isinstance(patch, str) and bool(patch.strip())
-        require(has_patch, f"patch evidence is missing for: {path}")
-        if has_patch:
-            total_patch_chars += len(patch)
-            require(len(patch) <= MAX_PATCH_CHARS, f"patch evidence exceeds per-file bound for: {path}")
-    require(total_patch_chars <= MAX_TOTAL_PATCH_CHARS, "patch evidence exceeds total bound")
-
-    latest_checks = _latest_checks(snapshot["check_runs"])
-    check_evidence: list[dict[str, Any]] = []
-    for name in policy["required_checks"]:
-        check = latest_checks.get(name)
-        check_evidence.append(
-            {
-                "name": name,
-                "status": (check or {}).get("status", "missing"),
-                "conclusion": (check or {}).get("conclusion", "missing"),
-                "head_sha": (check or {}).get("head_sha", ""),
-            }
+    require((pr.get("head") or {}).get("repo", {}).get("full_name") == repository, "fork pull requests are outside this lab's security scope")
+    require(context["review_attestation"]["decision"] == "APPROVE", "exact-head Review Agent attestation is missing")
+    require(context["risk_assessment"]["status"] == "CURRENT", "exact-head risk assessment is missing or cannot be bound to the Review run")
+    risk_level = context["risk_assessment"].get("level")
+    maximum_risk = policy.get("maximum_unattended_risk")
+    require(maximum_risk in RISK_LEVELS, "maximum unattended risk policy is invalid")
+    if context["risk_assessment"]["status"] == "CURRENT" and maximum_risk in RISK_LEVELS:
+        require(
+            risk_level in RISK_LEVELS and RISK_LEVELS[risk_level] <= RISK_LEVELS[maximum_risk],
+            f"risk assessment {risk_level or 'unknown'} exceeds unattended policy {maximum_risk}",
         )
-        require(check is not None, f"required check is missing: {name}")
-        if check is not None:
-            require(check.get("head_sha") == head_sha, f"required check is stale: {name}")
-            require(check.get("status") == "completed", f"required check is pending: {name}")
-            require(check.get("conclusion") == "success", f"required check did not succeed: {name}")
 
-    latest_reviews = _latest_reviews(snapshot["reviews"])
-    allowed_reviewers = {login.casefold() for login in policy["allowed_reviewers"]}
-    trusted_reviews = [
-        review
-        for review in latest_reviews
-        if str((review.get("user") or {}).get("login", "")).casefold() in allowed_reviewers
-    ]
-    ignored_reviewers = sorted(
-        str((review.get("user") or {}).get("login", ""))
-        for review in latest_reviews
-        if str((review.get("user") or {}).get("login", "")).casefold() not in allowed_reviewers
-    )
-    changes_requested = [
-        (review.get("user") or {}).get("login", "unknown")
-        for review in trusted_reviews
-        if review.get("state") == "CHANGES_REQUESTED"
-    ]
-    approvals = [
-        review
-        for review in trusted_reviews
-        if review.get("state") == "APPROVED" and review.get("commit_id") == head_sha
-    ]
-    semantic_reviewer = str(policy["semantic_reviewer"]).casefold()
-    semantic_approvals = [
-        review
-        for review in approvals
-        if str((review.get("user") or {}).get("login", "")).casefold() == semantic_reviewer
-    ]
-    require(not changes_requested, "trusted changes-requested review remains: " + ", ".join(changes_requested))
-    require(bool(semantic_approvals), "no semantic review-agent attestation applies to the exact head SHA")
-
-    threads = snapshot.get("review_threads") or {}
-    thread_nodes = threads.get("nodes") or []
-    unresolved_count = sum(1 for thread in thread_nodes if not thread.get("isResolved"))
-    require(not (threads.get("pageInfo") or {}).get("hasNextPage", False), "review-thread result is truncated")
-    require(unresolved_count == 0, f"{unresolved_count} unresolved review thread(s) remain")
-
-    commits = snapshot["commits"]
-    require(0 < len(commits) < 100, "commit list is empty or may be truncated")
-    unsigned = []
-    commit_evidence = []
-    for commit in commits:
-        sha = str(commit.get("sha", ""))
-        signed = SIGNOFF_RE.search(str((commit.get("commit") or {}).get("message", ""))) is not None
-        commit_evidence.append({"sha": sha, "dco_signed_off": signed})
-        if not signed:
-            unsigned.append(sha[:12] or "unknown")
-    require(not unsigned, "commit lacks DCO sign-off: " + ", ".join(unsigned))
+    quality = context["review_quality"]
+    if policy["review_quality_mode"] == "enforce":
+        require(quality.get("status") == "AVAILABLE", "required Review quality evidence is unavailable")
+        if quality.get("status") == "AVAILABLE":
+            require(quality["sample_count"] >= policy["review_quality_minimum_samples"], "Review quality evidence has too few samples")
+            require(quality["score"] >= policy["review_quality_minimum_score"], "Review quality score is below repository policy")
 
     return {
-        "eligible": not failures,
+        "ready_for_semantic_evaluation": not failures,
         "failures": failures,
-        "changed_paths": changed_paths,
-        "labels": labels,
-        "risk_assessment": {
-            "gate": policy["risk_gate"],
-            "level": risk_level,
-            "label": known_risk_labels[0] if len(known_risk_labels) == 1 else "",
-            "approval_head_sha": head_sha if approvals else "",
-        },
-        "review_attestation": {
-            "authority": "fullsend-review-agent",
-            "decision": "APPROVE" if semantic_approvals else "MISSING",
-            "reviewer": semantic_reviewer,
-            "head_sha": head_sha if semantic_approvals else "",
-            "review_ids": [int(review.get("id", 0)) for review in semantic_approvals],
-            "risk_level": risk_level,
-        },
-        "merge_queue_required": queue_required,
-        "checks": check_evidence,
-        "approvals": [
-            {"login": (review.get("user") or {}).get("login", ""), "commit_id": review.get("commit_id", "")}
-            for review in approvals
-        ],
-        "changes_requested_by": changes_requested,
-        "ignored_untrusted_reviewers": ignored_reviewers,
-        "unresolved_review_threads": unresolved_count,
-        "commits": commit_evidence,
-        "live_base_sha": live_base_sha,
-        "merge_preview_sha": merge_preview_sha,
-        "merge_preview_parents": merge_preview_parents,
+        "scm_policy_checked": False,
+        "note": "SCM owns checks, review counts, conversations, mergeability, branch freshness, and queue policy.",
+        "semantic_context": context,
     }
+
+
+def semantic_fingerprint(binding_seed: dict[str, Any], context: dict[str, Any], policy: dict[str, Any]) -> str:
+    return stable_hash(
+        {
+            "repository": binding_seed["repository"],
+            "pull_request_number": binding_seed["pull_request_number"],
+            "head_sha": binding_seed["head_sha"],
+            "base_ref": binding_seed["base_ref"],
+            "base_sha": binding_seed["base_sha"],
+            "policy_fingerprint": policy_fingerprint(policy),
+            "semantic_context": context,
+        }
+    )
 
 
 def build_evidence(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[str, Any]:
     pr = snapshot["pull_request"]
     evaluation = evaluate_snapshot(snapshot, policy)
+    binding_seed = {
+        "repository": policy["repository"],
+        "pull_request_number": int(pr["number"]),
+        "head_sha": str((pr.get("head") or {}).get("sha") or ""),
+        "base_ref": str((pr.get("base") or {}).get("ref") or ""),
+        "base_sha": str((snapshot.get("base_branch") or {}).get("commit", {}).get("sha") or ""),
+    }
     document: dict[str, Any] = {
-        "schema_version": "1",
+        "schema_version": "2",
         "captured_at": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
         "binding": {
-            "repository": policy["repository"],
-            "pull_request_number": int(pr["number"]),
-            "head_sha": pr["head"]["sha"],
-            "base_ref": pr["base"]["ref"],
-            "base_sha": snapshot["base_branch"]["commit"]["sha"],
+            **binding_seed,
             "policy_fingerprint": policy_fingerprint(policy),
+            "semantic_fingerprint": semantic_fingerprint(binding_seed, evaluation["semantic_context"], policy),
         },
         "pull_request": {
-            "url": pr.get("html_url", ""),
-            "title": str(pr.get("title", ""))[:500],
-            "body": str(pr.get("body") or "")[:8000],
-            "author": (pr.get("user") or {}).get("login", ""),
-            "additions": pr.get("additions", 0),
-            "deletions": pr.get("deletions", 0),
-            "changed_files": pr.get("changed_files", 0),
-            "mergeable": pr.get("mergeable"),
-            "mergeable_state": pr.get("mergeable_state"),
-            "reported_base_sha": (pr.get("base") or {}).get("sha", ""),
-            "merge_preview_sha": (snapshot.get("merge_preview") or {}).get("sha", ""),
-            "native_auto_merge_enabled": pr.get("auto_merge") is not None,
+            "url": str(pr.get("html_url") or ""),
+            "title": str(pr.get("title") or "")[:500],
+            "body": str(pr.get("body") or "")[:8_000],
+            "author": str((pr.get("user") or {}).get("login") or ""),
         },
-        "semantic": {
-            "changed_files": [
-                {
-                    "path": str(item.get("filename", "")),
-                    "status": str(item.get("status", "")),
-                    "additions": int(item.get("additions", 0)),
-                    "deletions": int(item.get("deletions", 0)),
-                    "changes": int(item.get("changes", 0)),
-                    "patch": str(item.get("patch", ""))[:MAX_PATCH_CHARS],
-                }
-                for item in snapshot["files"]
-            ]
-        },
-        "review_attestation": evaluation["review_attestation"],
         "policy": policy,
-        "deterministic": evaluation,
+        "prerequisites": evaluation,
+        "semantic_context": evaluation["semantic_context"],
     }
     document["context_fingerprint"] = canonical_hash(document)
     document["binding"]["context_fingerprint"] = document["context_fingerprint"]
     return document
 
 
-def collect_command(args: argparse.Namespace) -> int:
-    match = ISSUE_URL_RE.fullmatch(args.issue_url)
-    if not match:
-        raise GateError("ISSUE_URL must be a GitHub pull-request URL")
-    if match.group("repo") != args.repository:
-        raise GateError("ISSUE_URL repository does not match the configured repository")
-    policy = {
+def read_quality(path: str) -> dict[str, Any]:
+    if not path:
+        return {}
+    try:
+        value = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise GateError("Review quality evidence file is unreadable or invalid") from exc
+    if not isinstance(value, dict):
+        raise GateError("Review quality evidence must be a JSON object")
+    return value
+
+
+def policy_from_args(args: argparse.Namespace) -> dict[str, Any]:
+    return {
         "repository": args.repository,
         "base_ref": args.base_ref,
         "policy_version": args.policy_version,
         "mode": args.mode,
-        "execution_strategy": args.execution_strategy,
-        "risk_gate": args.risk_gate,
-        "allowed_risk_levels": csv_values(args.allowed_risk_levels),
-        "required_checks": csv_values(args.required_checks),
-        "allowed_paths": csv_values(args.allowed_paths),
-        "allowed_authors": csv_values(args.allowed_authors),
-        "allowed_reviewers": csv_values(args.allowed_reviewers),
         "semantic_reviewer": args.semantic_reviewer,
+        "risk_assessment_producer": args.risk_assessment_producer,
+        "artifact_correlation_minutes": args.artifact_correlation_minutes,
+        "maximum_unattended_risk": args.maximum_unattended_risk,
+        "human_signal_associations": sorted(csv_values(args.human_signal_associations)),
+        "review_quality_mode": args.review_quality_mode,
+        "review_quality_minimum_score": args.review_quality_minimum_score,
+        "review_quality_minimum_samples": args.review_quality_minimum_samples,
+        "custom_instructions": args.custom_instructions,
     }
-    if (
-        not policy["required_checks"]
-        or not policy["allowed_paths"]
-        or not policy["allowed_authors"]
-        or not policy["allowed_reviewers"]
-        or not policy["semantic_reviewer"]
-    ):
-        raise GateError("required checks, allowed paths, allowed authors, and allowed reviewers must be non-empty")
-    if policy["risk_gate"] == "required" and not policy["allowed_risk_levels"]:
-        raise GateError("required risk gate must define allowed risk levels")
-    if any(level not in RISK_LEVELS for level in policy["allowed_risk_levels"]):
-        raise GateError("allowed risk levels contain an unsupported value")
-    snapshot = collect_snapshot(args.repository, int(match.group("number")))
-    document = build_evidence(snapshot, policy)
-    output = Path(args.output)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def collect_command(args: argparse.Namespace) -> int:
+    match = ISSUE_URL_RE.fullmatch(args.issue_url)
+    if not match or match.group("repo") != args.repository:
+        raise GateError("ISSUE_URL must identify a pull request in the configured repository")
+    policy = policy_from_args(args)
+    snapshot = collect_snapshot(args.repository, int(match.group("number")), read_quality(args.review_quality_file))
+    evidence = build_evidence(snapshot, policy)
+    destination = Path(args.output)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return 0
 
 
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser()
-    commands = root.add_subparsers(dest="command", required=True)
-    collect = commands.add_parser("collect")
+    sub = root.add_subparsers(dest="command", required=True)
+    collect = sub.add_parser("collect")
     collect.add_argument("--issue-url", required=True)
     collect.add_argument("--repository", required=True)
     collect.add_argument("--base-ref", required=True)
     collect.add_argument("--policy-version", required=True)
     collect.add_argument("--mode", required=True, choices=["observe", "lab-automatic"])
-    collect.add_argument("--execution-strategy", required=True, choices=["direct", "queue"])
-    collect.add_argument("--risk-gate", required=True, choices=["informational", "required"])
-    collect.add_argument("--allowed-risk-levels", required=True)
-    collect.add_argument("--required-checks", required=True)
-    collect.add_argument("--allowed-paths", required=True)
-    collect.add_argument("--allowed-authors", required=True)
-    collect.add_argument("--allowed-reviewers", required=True)
     collect.add_argument("--semantic-reviewer", required=True)
+    collect.add_argument("--risk-assessment-producer", required=True)
+    collect.add_argument("--artifact-correlation-minutes", required=True, type=int)
+    collect.add_argument("--maximum-unattended-risk", required=True, choices=["low", "moderate", "elevated", "high", "critical"])
+    collect.add_argument("--human-signal-associations", required=True)
+    collect.add_argument("--review-quality-mode", required=True, choices=sorted(QUALITY_MODES))
+    collect.add_argument("--review-quality-minimum-score", required=True, type=float)
+    collect.add_argument("--review-quality-minimum-samples", required=True, type=int)
+    collect.add_argument("--review-quality-file", default="")
+    collect.add_argument("--custom-instructions", required=True)
     collect.add_argument("--output", required=True)
     collect.set_defaults(func=collect_command)
     return root
 
 
 def main() -> int:
-    args = parser().parse_args()
     try:
-        return int(args.func(args))
+        args = parser().parse_args()
+        return args.func(args)
     except (GateError, KeyError, TypeError, ValueError, subprocess.TimeoutExpired) as exc:
-        print(f"auto-merge gate failed closed: {exc}", file=sys.stderr)
+        print(f"auto-merge semantic preflight failed closed: {exc}", file=sys.stderr)
         return 1
 
 

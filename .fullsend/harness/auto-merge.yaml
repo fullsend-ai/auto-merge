@@ -9,7 +9,7 @@
 # This agent handles GitHub only. To add GitLab or Jira, see
 # docs/guides/user/bring-your-own-agent.md.
 agent: agents/auto-merge.md
-description: Verify the review-agent attestation and merge eligible pull requests
+description: Decide whether current semantic context permits unattended merge
 role: coder
 privilege_levels:
   pre_script: read
@@ -41,18 +41,19 @@ validation_loop:
   preflight_check: python3 -c "import jsonschema"
 env:
   runner:
-    AUTO_MERGE_ALLOWED_AUTHORS: "ascerra,fullsend-ai-coder[bot]"
-    AUTO_MERGE_ALLOWED_REVIEWERS: "ascerra,fullsend-ai-review[bot]"
     AUTO_MERGE_SEMANTIC_REVIEWER: "fullsend-ai-review[bot]"
-    AUTO_MERGE_ALLOWED_PATHS: "docs/example-feature.md"
+    AUTO_MERGE_RISK_ASSESSMENT_PRODUCER: "fullsend-ai-review[bot]"
     AUTO_MERGE_ALLOWED_REPO: "fullsend-ai/auto-merge"
     AUTO_MERGE_BASE_REF: "main"
-    AUTO_MERGE_ALLOWED_RISK_LEVELS: "low,moderate"
-    AUTO_MERGE_EXECUTION_STRATEGY: "queue"
-    AUTO_MERGE_POLICY_VERSION: "lab-v2"
-    AUTO_MERGE_RISK_GATE: "required"
+    AUTO_MERGE_POLICY_VERSION: "lab-v3-scm-native"
     AUTO_MERGE_MODE: "lab-automatic"
-    AUTO_MERGE_REQUIRED_CHECKS: "Example contract,Delayed integration (4 minutes)"
+    AUTO_MERGE_ARTIFACT_CORRELATION_MINUTES: "15"
+    AUTO_MERGE_MAXIMUM_UNATTENDED_RISK: "moderate"
+    AUTO_MERGE_HUMAN_SIGNAL_ASSOCIATIONS: "OWNER,MEMBER,COLLABORATOR"
+    AUTO_MERGE_REVIEW_QUALITY_MODE: "off"
+    AUTO_MERGE_REVIEW_QUALITY_MINIMUM_SCORE: "0.98"
+    AUTO_MERGE_REVIEW_QUALITY_MINIMUM_SAMPLES: "50"
+    AUTO_MERGE_CUSTOM_INSTRUCTIONS: "Authorize only when no active trusted-human veto, coordination dependency, sequencing requirement, or unresolved contradiction makes unattended merge inappropriate. Never reinterpret SCM checks or branch policy."
     FULLSEND_FORGE: github
     GH_TOKEN: ${GH_TOKEN}
     ISSUE_URL: ${GITHUB_ISSUE_URL}
@@ -77,6 +78,17 @@ trigger: |
       && event.actor.role in ["admin", "maintain", "write"]
   )
   || (
+    event.transition.kind == "comment_added"
+      && (event.entity.kind == "change_proposal"
+          || (event.entity.kind == "work_item" && has(event.entity.linked_change_proposal)))
+      && has(event.state.change_proposal)
+      && !event.state.change_proposal.is_fork
+      && event.actor.kind == "human"
+      && event.actor.role in ["admin", "maintain", "write"]
+      && (!has(event.transition.comment.command)
+          || event.transition.comment.command == "")
+  )
+  || (
     event.transition.kind == "review_submitted"
       && (event.entity.kind == "change_proposal"
           || (event.entity.kind == "work_item" && has(event.entity.linked_change_proposal)))
@@ -88,20 +100,5 @@ trigger: |
         event.actor.id == "fullsend-ai-review[bot]"
         || (event.actor.kind == "human"
             && event.actor.role in ["admin", "maintain", "write"])
-      )
-  )
-  || (
-    event.transition.kind == "label_changed"
-      && (event.entity.kind == "change_proposal"
-          || (event.entity.kind == "work_item" && has(event.entity.linked_change_proposal)))
-      && has(event.transition.label.name)
-      && event.transition.label.name == "fullsend-auto-merge-ready"
-      && has(event.transition.label.action)
-      && event.transition.label.action == "added"
-      && has(event.state.change_proposal)
-      && !event.state.change_proposal.is_fork
-      && (
-        event.actor.id == "github-actions[bot]"
-        || event.actor.role in ["admin", "maintain", "write", "triage"]
       )
   )

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Collect deterministic, secret-free merge evidence on the trusted runner.
+# Collect secret-free semantic evidence on the trusted runner.
 
 set -euo pipefail
 
@@ -19,23 +19,25 @@ python3 "${SCRIPT_DIR}/auto_merge_gate.py" collect \
   --base-ref "${AUTO_MERGE_BASE_REF:-main}" \
   --policy-version "${AUTO_MERGE_POLICY_VERSION:-lab-v1}" \
   --mode "${AUTO_MERGE_MODE:-observe}" \
-  --execution-strategy "${AUTO_MERGE_EXECUTION_STRATEGY:-direct}" \
-  --risk-gate "${AUTO_MERGE_RISK_GATE:-informational}" \
-  --allowed-risk-levels "${AUTO_MERGE_ALLOWED_RISK_LEVELS:-low,moderate}" \
-  --required-checks "${AUTO_MERGE_REQUIRED_CHECKS:-}" \
-  --allowed-paths "${AUTO_MERGE_ALLOWED_PATHS:-}" \
-  --allowed-authors "${AUTO_MERGE_ALLOWED_AUTHORS:-}" \
-  --allowed-reviewers "${AUTO_MERGE_ALLOWED_REVIEWERS:-}" \
   --semantic-reviewer "${AUTO_MERGE_SEMANTIC_REVIEWER:-}" \
+  --risk-assessment-producer "${AUTO_MERGE_RISK_ASSESSMENT_PRODUCER:-}" \
+  --artifact-correlation-minutes "${AUTO_MERGE_ARTIFACT_CORRELATION_MINUTES:-15}" \
+  --maximum-unattended-risk "${AUTO_MERGE_MAXIMUM_UNATTENDED_RISK:-moderate}" \
+  --human-signal-associations "${AUTO_MERGE_HUMAN_SIGNAL_ASSOCIATIONS:-OWNER,MEMBER,COLLABORATOR}" \
+  --review-quality-mode "${AUTO_MERGE_REVIEW_QUALITY_MODE:-off}" \
+  --review-quality-minimum-score "${AUTO_MERGE_REVIEW_QUALITY_MINIMUM_SCORE:-0.98}" \
+  --review-quality-minimum-samples "${AUTO_MERGE_REVIEW_QUALITY_MINIMUM_SAMPLES:-50}" \
+  --review-quality-file "${AUTO_MERGE_REVIEW_QUALITY_FILE:-}" \
+  --custom-instructions "${AUTO_MERGE_CUSTOM_INSTRUCTIONS:-}" \
   --output "${EVIDENCE_FILE}"
 
-if ! jq -e '.deterministic.eligible == true' "${EVIDENCE_FILE}" >/dev/null; then
-  reason=$(jq -r '.deterministic.failures | join("; ")' "${EVIDENCE_FILE}")
+if ! jq -e '.prerequisites.ready_for_semantic_evaluation == true' "${EVIDENCE_FILE}" >/dev/null; then
+  reason=$(jq -r '.prerequisites.failures | join("; ")' "${EVIDENCE_FILE}")
   if [[ -n "${FULLSEND_PRESCRIPT_OUTPUT:-}" ]]; then
     {
       printf 'skipped=true\n'
       printf 'reason=%s\n' "${reason:0:1000}"
     } >> "${FULLSEND_PRESCRIPT_OUTPUT}"
   fi
-  printf 'auto-merge preflight ineligible: %s\n' "${reason}" >&2
+  printf 'auto-merge semantic prerequisites not ready: %s\n' "${reason}" >&2
 fi

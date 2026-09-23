@@ -1,149 +1,187 @@
 # Auto-Merge security contract
 
-Status: normative for this mutation-capable private lab; the Fullsend v1
-contract remains authoritative for production
+Status: normative for this public lab; production Fullsend requires a separate
+implementation review.
 
 ## Purpose
 
-The Fullsend Review Agent is the semantic authority for whether a change is
-acceptable. The Auto-Merge agent verifies that exact-head attestation, checks
-fresh merge readiness, and invokes the repository's configured direct or queue
-operation. In the private lab's `lab-automatic` mode only, that one revision
-may be merged.
+Auto-Merge adds a semantic authorization policy that an SCM cannot derive from
+branch settings alone. It does not decide whether GitHub's mechanical merge
+requirements passed.
+
+The question it answers is:
+
+> Given the Review Agent's decision, assessed risk, current human context, and
+> repository instructions, is unattended merge appropriate for this exact
+> revision now?
+
+## Separation of responsibilities
+
+GitHub exclusively owns:
+
+- required status checks and their conclusions;
+- required approving reviews and code-owner rules;
+- conversation-resolution requirements;
+- branch freshness, conflicts, and mergeability;
+- merge method, native auto-merge, and merge-queue execution; and
+- the final decision to accept, wait, queue, reject, or merge a request.
+
+Fullsend exclusively adds:
+
+- an exact-head Review Agent attestation;
+- the Review Agent's structured risk assessment and rationale;
+- interpretation of ordinary human context, including an informal request to
+  pause, coordinate, sequence, or follow up;
+- optional repository-scoped Review quality evidence;
+- repository-specific semantic instructions; and
+- a revision-bound authorization receipt that can be invalidated when any of
+  that semantic context changes.
+
+The collector and queue gate intentionally do not fetch check runs, required
+reviews, rulesets, unresolved-thread state, mergeability, or native auto-merge
+state. Those facts remain GitHub's job.
 
 ## Authority boundary
 
-The model is advisory. It may return `APPROVE`, `REJECT`, or `ESCALATE`, but it
-never receives the credential or network authority that performs a merge.
-Only trusted postflight may mutate the pull request; `observe` never mutates.
+The Auto-Merge model has no GitHub credential and no mutation authority. The
+trusted pre-script collects evidence outside the sandbox. The model returns
+`AUTHORIZE`, `DEFER`, or `ESCALATE`. The trusted post-script validates the
+result and may submit an exact-head native auto-merge request.
 
-An approval applies to one tuple:
-
-```text
-(repository, pull_request_number, head_sha, base_ref, base_sha, policy_fingerprint)
-```
-
-Changing any member invalidates the decision.
-
-## State machine
+An authorization is bound to:
 
 ```text
-event -> deterministic merge-readiness preflight
-      -> ineligible: record SKIP/REJECT and stop
-      -> eligible: assemble bounded evidence including Review attestation
-                  -> Auto-Merge verifies attestation and binding
-                  -> authoritative postflight
-                  -> durable pending receipt
-                  -> final authoritative recheck
-                     -> unchanged and eligible: merge exact head in lab mode
-                     -> otherwise: reject stale decision and stop
+(repository, pull_request_number, head_sha, base_ref, base_sha,
+ policy_fingerprint, semantic_fingerprint, context_fingerprint)
 ```
 
-The workflow is event-driven, but model invocation is readiness-driven. Early
-events may cheaply reconcile and stop; they must not spend inference when CI,
-reviews, or mergeability are still pending.
+The `semantic_fingerprint` covers the Review attestation, risk assessment,
+human signals, quality evidence, and repository semantic policy. The broader
+`context_fingerprint` detects any evidence-document tampering. A changed head,
+base, policy, comment, risk artifact, or quality input makes the prior decision
+stale.
 
-## Deterministic preflight
+## Flow
 
-Before invoking Auto-Merge, the trusted pre-script must establish all of the following:
+```text
+Review approval or trusted human context event
+  -> trusted pre-script collects semantic evidence
+     -> missing/stale/out-of-policy semantic input: skip model
+     -> otherwise: run Auto-Merge in a read-only sandbox
+        -> DEFER / ESCALATE: record outcome; do not contact SCM merge API
+        -> AUTHORIZE: trusted post-script recollects semantic evidence
+           -> changed: abort
+           -> unchanged: write pending receipt
+              -> recollect once more
+                 -> changed: abort
+                 -> unchanged: request GitHub native auto-merge for exact head
+                    -> GitHub enforces its rules and direct-or-queue path
+```
 
-1. The target is an open, non-draft pull request in the configured repository.
-2. The current head SHA and base ref/SHA are recorded from fresh forge state.
-   The base SHA comes from the live base branch, not only the pull-request
-   payload. The payload's reported base SHA and the synthetic merge preview's
-   ordered parents must match that live base SHA and exact head SHA.
-3. The author and changed paths fit the configured low-risk cohort.
-4. No hold label, changes-requested review, unresolved review blocker, or
-   policy-denied path is present.
-5. Required checks for the exact head SHA have completed successfully. Pending,
-   skipped where required, neutral where disallowed, cancelled, timed-out, or
-   missing checks are ineligible.
-6. The trusted Fullsend Review Agent has approved the exact head SHA. An
-   approval for an older revision is stale, and a human or other bot approval
-   cannot substitute for this semantic attestation.
-7. Mergeability is known and the pull request is not conflicted or behind under
-   the repository's policy.
-8. The repository's native standing auto-merge feature is not enabled for this
-   pull request.
+"Preflight" in this lab means the trusted pre-script's semantic prerequisite
+check. It is not a second implementation of SCM policy.
 
-The pre-script emits a compact, secret-free evidence document and a canonical
-hash over the bound state. It does not merge and does not enable auto-merge.
+## Semantic prerequisites
 
-## Review attestation and execution decision
+The pre-script may skip model invocation only for facts needed to create a
+safe, meaningful semantic decision:
 
-The Review Agent receives the change and decides whether it achieves its intent,
-has acceptable scope and risk, and needs human judgment. Auto-Merge receives
-only a bounded, trusted attestation of that decision. It must not perform a
-second semantic review or infer missing facts.
+1. The target is an open, non-draft, same-repository pull request within the
+   configured repository and base branch.
+2. The Review Agent approved the exact head SHA.
+3. A trusted risk artifact can be correlated to that Review run and is within
+   the repository's configured unattended-risk ceiling.
+4. When Review quality mode is `enforce`, the supplied metric meets the
+   configured score and sample-size threshold.
 
-- `APPROVE`: the Review Agent approved the exact revision and readiness is
-  still valid.
-- `REJECT`: the attestation or deterministic evidence is invalid.
-- `ESCALATE`: the attestation is missing, stale, ambiguous, or requires a
-  human decision.
+It does not wait for CI or inspect branch policy. Running before CI finishes is
+safe because `gh pr merge --auto` delegates waiting and queue admission to
+GitHub.
 
-The output must conform to the result schema and include the complete tuple,
-context fingerprint, decision, concise reasons, and risk signals. Invalid or
-incomplete output fails closed.
+## Semantic decision
 
-## Pending and outcome receipts
+- `AUTHORIZE`: the current semantic context permits unattended merge.
+- `DEFER`: a human pause, timing dependency, sequencing need, or follow-up can
+  be resolved without changing the patch.
+- `ESCALATE`: evidence is contradictory, risky, suspicious, or requires human
+  judgment.
 
-Observe mode writes a secret-free preview to the workflow log. Live lab mode
-persists a pending PR comment after postflight and before the forge request,
-including the tuple, policy/context fingerprints, workflow identity, and
-idempotency key. It then records merged, rejected, aborted, reconciled, or
-unknown outcome state.
+The model accepts the Review Agent's approval as the code-review decision. It
+does not inspect the patch or repeat code review. It interprets context that
+SCM configuration cannot understand, such as “please do not merge until the
+release owner confirms the rollout.”
 
-## Authoritative postflight
+## Human context
 
-After semantic evaluation, the post-script obtains fresh forge state and
-repeats every mutable gate. It must verify at least:
+Ordinary PR, review, and inline-review comments are bounded and passed as
+untrusted evidence. A PR author, owner, member, or collaborator can express an
+informal veto or coordination requirement without knowing how to file a formal
+changes-requested review. A later explicit clearance can resolve it.
 
-- repository and pull request identity;
-- exact head SHA, base ref, live base SHA, and merge-preview parent tuple;
-- required check conclusions for that head;
-- review decision and approval revision;
-- draft/open state, labels, unresolved blockers, mergeability, and policy
-  cohort;
-- policy/context integrity and an `APPROVE` semantic result.
+Untrusted outsiders cannot unilaterally veto a merge. Their text remains
+visible to the agent so a concrete safety concern can be escalated. Control
+commands and Fullsend machine comments are excluded from this context.
 
-Any mismatch, lookup error, unknown state, or race fails closed. The script
-must never fall back to a less precise merge command.
+## Optional Review quality evidence
 
-## Lab mutation boundary
+Repositories may configure quality evidence as:
 
-This POC accepts only `observe` and `lab-automatic`. Live lab mode uses GitHub's
-expected-head merge API, squash only, after a second complete gate following the
-pending receipt. Duplicate keys do not issue another request. An uncertain
-response is reconciled against current PR state and is not retried. Production
-must additionally implement the Fullsend v1 per-PR lease, persistent receipt
-store, startup reconciliation, merge queue, and purpose-built forge driver.
+- `off`: no external quality source is required;
+- `observe`: expose available evidence to the agent without a hard gate; or
+- `enforce`: skip authorization unless score and sample thresholds pass.
 
-## Evaluation triggers
+This POC defines and tests the contract but does not yet fetch MLflow itself.
+Production should use a trusted adapter that emits a signed or otherwise
+authenticated repository/reviewer/version/time-window aggregate. No MLflow
+credential belongs in the sandbox or evidence document.
 
-`/fs-auto-merge` follows the same preflight, semantic decision, receipt, and
-postflight path. A human command requests immediate evaluation; it does not
-bypass any gate and is not itself an approval.
+## GitHub submission and merge queue
 
-The harness may also request evaluation when:
+After fresh semantic revalidation, trusted host code runs:
 
-- a non-fork pull request receives an approved review; or
-- the trusted `auto-merge-ready` workflow adds
-  `fullsend-auto-merge-ready` after the exact required CI workflow succeeds.
+```text
+gh pr merge <number> --auto --squash --match-head-commit <head_sha>
+```
 
-These automatic events are wake-up signals, not eligibility evidence. The
-pre-script must stop before model invocation when the other readiness condition
-is missing, and it must recollect every mutable fact before any merge attempt.
-The readiness label is removed when the PR receives new commits or closes, so
-a later head cannot inherit an earlier CI wake-up signal.
+This requests native auto-merge; it does not perform a privileged bypass. If
+the repository requires a merge queue, GitHub enrolls the PR. If direct merge
+is permitted, GitHub follows that path. If SCM policy is unsatisfied, GitHub
+waits or rejects the request.
+
+For a queue-generated revision, the required Fullsend status check only proves
+that a trusted `AUTHORIZE` receipt still matches the PR head, queue base,
+semantic policy, and current semantic fingerprint. It does not repeat GitHub's
+other queue checks.
+
+## Fail-closed behavior
+
+No SCM request is made when:
+
+- the model output is invalid or does not exactly copy the binding;
+- the Review approval or risk assessment is missing or stale;
+- risk or enforced Review quality exceeds repository policy;
+- semantic context changes after the model decision;
+- a trusted authorization receipt does not match queue context;
+- the target is a fork or outside the configured lab repository; or
+- GitHub rejects the exact-head native auto-merge request.
+
+## Known POC limitations
+
+- The current Review risk comment lacks a structured head SHA, so this lab
+  correlates it to the exact-head Review approval by trusted producer and a
+  short time window. Production should emit one structured Review attestation
+  containing the head SHA, review decision, risk fields, and run identity.
+- Durable lease, receipt storage, crash reconciliation, and dedicated GitHub
+  App identity remain production work.
+- The optional Review quality adapter is specified but not connected.
+- The context rerun workflow is GitHub-specific and should become a forge
+  driver event in Fullsend.
 
 ## Explicit non-goals
 
-- Replacing branch protection or repository rulesets.
-- Treating an arbitrary forge approval as semantic evidence. The configured
-  Fullsend Review Agent's exact-head approval is accepted only after trusted
-  identity, freshness, and postflight validation.
-- Merging code from forks or untrusted cohorts in this initial lab.
-- Auto-merging changes to workflows, Fullsend configuration, agent prompts,
-  security policy, ownership files, or the merge implementation itself.
-- Preserving or supporting the legacy `CODE_AUTO_MERGE` path.
+- Reimplementing or imposing SCM branch policy.
+- Treating the absence of repository protections as an Auto-Merge error.
+- Parsing CI results, required-review counts, rulesets, or mergeability in the
+  Auto-Merge agent.
+- Giving a model forge credentials or mutation tools.
+- Supporting the legacy `CODE_AUTO_MERGE` path.

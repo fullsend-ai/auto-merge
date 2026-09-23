@@ -1,0 +1,91 @@
+name: Auto-Merge semantic context
+
+# SCM remains responsible for CI, reviews, conversations, branch freshness,
+# mergeability, and queue policy. This workflow only asks Auto-Merge to
+# reconsider unstructured human context added after Review approval.
+on:
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+jobs:
+  prepare:
+    if: >-
+      github.event.issue.pull_request
+      && github.event.comment.user.type != 'Bot'
+      && !startsWith(github.event.comment.body, '/fs-')
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.context.outputs.matrix }}
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Authorize semantic-context actor and prepare dispatch
+        id: context
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_USER: ${{ github.event.comment.user.login }}
+          PR_AUTHOR: ${{ github.event.issue.user.login }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          set -euo pipefail
+          echo 'matrix={"include":[]}' >>"${GITHUB_OUTPUT}"
+
+          authorized=false
+          if [[ "${COMMENT_USER}" == "${PR_AUTHOR}" ]]; then
+            authorized=true
+          elif role=$(gh api "repos/${REPO}/collaborators/${COMMENT_USER}/permission" --jq '.role_name' 2>/dev/null); then
+            case "${role}" in
+              admin|maintain|write) authorized=true ;;
+            esac
+          fi
+          [[ "${authorized}" == 'true' ]] || exit 0
+
+          pr=$(gh pr view "${PR_NUMBER}" --repo "${REPO}" --json headRefOid,headRepository,isDraft,state)
+          head_sha=$(jq -r '.headRefOid' <<<"${pr}")
+          [[ "$(jq -r '.state' <<<"${pr}")" == 'OPEN' ]] || exit 0
+          [[ "$(jq -r '.isDraft' <<<"${pr}")" == 'false' ]] || exit 0
+          [[ "$(jq -r '.headRepository.nameWithOwner' <<<"${pr}")" == "${REPO}" ]] || exit 0
+
+          event_payload=$(jq -cn \
+            --arg repo "${REPO}" \
+            --argjson number "${PR_NUMBER}" \
+            --arg sha "${head_sha}" \
+            --arg actor "${COMMENT_USER}" \
+            --argjson comment_id "${COMMENT_ID}" \
+            --arg body "${COMMENT_BODY}" \
+            '{action:"semantic_context_changed",repository:{full_name:$repo},pull_request:{number:$number,html_url:("https://github.com/"+$repo+"/pull/"+($number|tostring)),head:{sha:$sha}},issue:{number:$number,html_url:("https://github.com/"+$repo+"/pull/"+($number|tostring))},sender:{login:$actor,type:"User"},comment:{id:$comment_id,body:$body,user:{login:$actor,type:"User"}}}')
+          matrix=$(jq -cn \
+            --arg repo "${REPO}" \
+            --argjson number "${PR_NUMBER}" \
+            --arg payload "${event_payload}" \
+            '{include:[{agent:"auto-merge",source_repo:$repo,role:"coder",event_payload:$payload,status_repo:$repo,status_number:$number}]}')
+          echo "matrix=${matrix}" >>"${GITHUB_OUTPUT}"
+
+  dispatch:
+    needs: prepare
+    if: ${{ needs.prepare.outputs.matrix != '{"include":[]}' }}
+    permissions:
+      actions: write
+      contents: write
+      id-token: write
+      issues: write
+      packages: read
+      pull-requests: write
+    uses: fullsend-ai/fullsend/.github/workflows/reusable-dispatch.yml@5e6f41157a2163af1df290d2e01db827b38a7d8f
+    with:
+      matrix: ${{ needs.prepare.outputs.matrix }}
+      install_mode: per-repo
+      mint_url: ${{ vars.FULLSEND_MINT_URL }}
+      gcp_region: ${{ vars.FULLSEND_GCP_REGION }}
+      runner_image: ubuntu-24.04
+    secrets:
+      FULLSEND_GCP_WIF_PROVIDER: ${{ secrets.FULLSEND_GCP_WIF_PROVIDER }}
+      FULLSEND_GCP_PROJECT_ID: ${{ secrets.FULLSEND_GCP_PROJECT_ID }}
+      OTEL_EXPORTER_OTLP_TRACES_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_TRACES_HEADERS }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Trusted Auto-Merge postflight and lab-scoped exact-head mutation."""
+"""Validate semantic authorization and ask the SCM to use its configured merge path."""
 
 from __future__ import annotations
 
@@ -15,37 +15,13 @@ import sys
 import tempfile
 from typing import Any
 
-from auto_merge_gate import GateError, ISSUE_URL_RE, canonical_hash, csv_values, policy_fingerprint
+from auto_merge_gate import ISSUE_URL_RE, canonical_hash, policy_fingerprint
 
 
-DECISIONS = {"APPROVE", "REJECT", "ESCALATE"}
+DECISIONS = {"AUTHORIZE", "DEFER", "ESCALATE"}
 MODES = {"observe", "lab-automatic"}
-EXECUTION_STRATEGIES = {"direct", "queue"}
-RISK_LEVELS = {"low", "moderate", "elevated", "high", "critical"}
+SCM_OPERATION = "native-auto-merge"
 TRUSTED_RECEIPT_AUTHORS = {"fullsend-ai-coder[bot]"}
-RECEIPT_PHASES = {
-    "aborted",
-    "merged",
-    "not-merged",
-    "not-queued",
-    "observe-preview",
-    "outcome-unknown",
-    "pending",
-    "queued",
-    "reconciled-merged",
-    "stale-decision-rejected",
-}
-RECEIPT_HEADER_RE = re.compile(
-    r"\A<!-- fullsend:auto-merge-receipt:(?P<marker_key>[0-9a-f]{64}|observation):"
-    r"(?P<phase>[a-z][a-z-]*) -->\n"
-    r"### Auto-Merge: (?P<title>[^\n]+)\n\n"
-    r"- Decision: `(?P<decision>APPROVE|REJECT|ESCALATE)`\n"
-    r"- Head: `(?P<head>[0-9a-f]{40})`\n"
-    r"- Base: `(?P<base_ref>[A-Za-z0-9._/-]+)@(?P<base_sha>[0-9a-f]{40})`\n"
-    r"- Policy: `(?P<policy>[0-9a-f]{64})`\n"
-    r"- Context: `(?P<context>[0-9a-f]{64})`\n"
-    r"- Idempotency key: `(?P<idempotency>[0-9a-f]{64}|not-applicable)`\n"
-)
 BINDING_KEYS = {
     "repository",
     "pull_request_number",
@@ -53,26 +29,44 @@ BINDING_KEYS = {
     "base_ref",
     "base_sha",
     "policy_fingerprint",
+    "semantic_fingerprint",
     "context_fingerprint",
 }
+RECEIPT_RE = re.compile(
+    r"^<!-- fullsend:auto-merge-receipt:(?P<key>[0-9a-f]{64}):(?P<phase>[a-z-]+) -->\n"
+    r"### Auto-Merge: (?P=phase)\n\n"
+    r"- Decision: `(?P<decision>AUTHORIZE|DEFER|ESCALATE)`\n"
+    r"- Head: `(?P<head>[0-9a-f]{40})`\n"
+    r"- Base: `(?P<base_ref>[^`@\n]+)@(?P<base_sha>[0-9a-f]{40})`\n"
+    r"- Policy: `(?P<policy>[0-9a-f]{64})`\n"
+    r"- Semantic context: `(?P<semantic>[0-9a-f]{64})`\n"
+    r"- Context: `(?P<context>[0-9a-f]{64})`\n"
+    r"- Idempotency key: `(?P<marker_key>[0-9a-f]{64})`\n",
+    re.MULTILINE,
+)
 
 
-def gh(*args: str, input_text: str | None = None) -> str:
-    if not os.environ.get("GH_TOKEN"):
-        raise GateError("GH_TOKEN is not set")
+class GateError(RuntimeError):
+    """Trusted postflight rejected the model result or current context."""
+
+
+def csv_values(value: str) -> list[str]:
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def gh(*args: str) -> str:
     proc = subprocess.run(
         ["gh", *args],
-        input=input_text,
+        check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        check=False,
-        timeout=45,
+        timeout=60,
         env=os.environ.copy(),
     )
     if proc.returncode != 0:
         detail = proc.stderr.strip().splitlines()[-1] if proc.stderr.strip() else "unknown gh error"
-        raise GateError(f"GitHub request failed: {detail[:500]}")
+        raise GateError(f"GitHub command failed: {detail[:500]}")
     return proc.stdout
 
 
@@ -94,171 +88,52 @@ def validate_result(result: dict[str, Any], evidence: dict[str, Any]) -> None:
     if not isinstance(binding, dict) or set(binding) != BINDING_KEYS:
         raise GateError("model binding has missing or extra fields")
     if binding != evidence.get("binding"):
-        raise GateError("model binding does not exactly match preflight evidence")
-    attestation = evidence.get("review_attestation")
-    if not isinstance(attestation, dict):
-        raise GateError("review-agent attestation is missing")
-    if (
-        attestation.get("authority") != "fullsend-review-agent"
-        or attestation.get("decision") != "APPROVE"
-        or attestation.get("head_sha") != binding.get("head_sha")
-    ):
-        raise GateError("review-agent attestation is not an exact-head approval")
+        raise GateError("model binding does not exactly match semantic evidence")
     reasons = result.get("reasons")
-    risks = result.get("risk_signals")
+    blockers = result.get("blocking_signals")
     summary = result.get("summary")
-    if not isinstance(summary, str) or not summary or "\n" in summary or len(summary) > 200:
+    comment_ids = result.get("evidence_comment_ids")
+    if not isinstance(summary, str) or not summary or "\n" in summary or len(summary) > 240:
         raise GateError("model summary is invalid")
-    if not isinstance(reasons, list) or not 1 <= len(reasons) <= 5 or not all(isinstance(x, str) and x for x in reasons):
+    if not isinstance(reasons, list) or not 1 <= len(reasons) <= 8 or not all(isinstance(x, str) and x for x in reasons):
         raise GateError("model reasons are invalid")
-    if not isinstance(risks, list) or len(risks) > 10 or not all(isinstance(x, str) and x for x in risks):
-        raise GateError("model risk_signals are invalid")
-    if decision == "APPROVE" and risks:
-        raise GateError("APPROVE cannot contain risk signals")
+    if not isinstance(blockers, list) or len(blockers) > 10 or not all(isinstance(x, str) and x for x in blockers):
+        raise GateError("model blocking_signals are invalid")
+    if not isinstance(comment_ids, list) or len(comment_ids) > 100 or not all(isinstance(x, int) and x > 0 for x in comment_ids):
+        raise GateError("model evidence_comment_ids are invalid")
+    if decision == "AUTHORIZE" and blockers:
+        raise GateError("AUTHORIZE cannot contain blocking signals")
+    if evidence.get("prerequisites", {}).get("ready_for_semantic_evaluation") is not True:
+        raise GateError("trusted semantic prerequisites are not satisfied")
 
 
 def trusted_policy(args: argparse.Namespace) -> dict[str, Any]:
-    """Build policy only from trusted runner arguments, never model-visible evidence."""
     policy = {
         "repository": args.allowed_repository,
         "base_ref": args.base_ref,
         "policy_version": args.policy_version,
         "mode": args.mode,
-        "execution_strategy": args.execution_strategy,
-        "risk_gate": args.risk_gate,
-        "allowed_risk_levels": csv_values(args.allowed_risk_levels),
-        "required_checks": csv_values(args.required_checks),
-        "allowed_paths": csv_values(args.allowed_paths),
-        "allowed_authors": csv_values(args.allowed_authors),
-        "allowed_reviewers": csv_values(args.allowed_reviewers),
         "semantic_reviewer": args.semantic_reviewer,
+        "risk_assessment_producer": args.risk_assessment_producer,
+        "artifact_correlation_minutes": args.artifact_correlation_minutes,
+        "maximum_unattended_risk": args.maximum_unattended_risk,
+        "human_signal_associations": sorted(csv_values(args.human_signal_associations)),
+        "review_quality_mode": args.review_quality_mode,
+        "review_quality_minimum_score": args.review_quality_minimum_score,
+        "review_quality_minimum_samples": args.review_quality_minimum_samples,
+        "custom_instructions": args.custom_instructions,
     }
-    if (
-        not policy["required_checks"]
-        or not policy["allowed_paths"]
-        or not policy["allowed_authors"]
-        or not policy["allowed_reviewers"]
-        or not policy["semantic_reviewer"]
-    ):
-        raise GateError("trusted policy inputs must be non-empty")
     if policy["mode"] not in MODES:
-        raise GateError("trusted policy mode is unsupported")
-    if policy["execution_strategy"] not in EXECUTION_STRATEGIES:
-        raise GateError("trusted execution strategy is unsupported")
-    if policy["risk_gate"] not in {"informational", "required"}:
-        raise GateError("trusted risk gate is unsupported")
-    if policy["risk_gate"] == "required" and not policy["allowed_risk_levels"]:
-        raise GateError("trusted risk gate requires allowed levels")
-    if any(level not in RISK_LEVELS for level in policy["allowed_risk_levels"]):
-        raise GateError("trusted allowed risk levels contain an unsupported value")
-    if policy["semantic_reviewer"].casefold() not in {item.casefold() for item in policy["allowed_reviewers"]}:
-        raise GateError("semantic reviewer must be in the trusted reviewer allowlist")
+        raise GateError("trusted mode is unsupported")
+    if not policy["semantic_reviewer"] or not policy["risk_assessment_producer"] or not policy["human_signal_associations"]:
+        raise GateError("trusted semantic policy is incomplete")
     return policy
-
-
-def idempotency_key(binding: dict[str, Any], execution_strategy: str) -> str:
-    request = {
-        "binding": {key: value for key, value in binding.items() if key != "context_fingerprint"},
-        "operation": f"{execution_strategy}-merge",
-    }
-    payload = json.dumps(request, sort_keys=True, separators=(",", ":")).encode()
-    return hashlib.sha256(payload).hexdigest()
-
-
-def receipt_markdown(
-    result: dict[str, Any],
-    evidence: dict[str, Any],
-    phase: str,
-    detail: str,
-    request_key: str = "",
-) -> str:
-    binding = evidence["binding"]
-    reasons = "\n".join(f"- {reason}" for reason in result["reasons"])
-    run_url = ""
-    if os.environ.get("GITHUB_RUN_ID") and os.environ.get("GITHUB_REPOSITORY"):
-        run_url = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
-    return (
-        f"<!-- fullsend:auto-merge-receipt:{request_key or 'observation'}:{phase.lower().replace(' ', '-')} -->\n"
-        f"### Auto-Merge: {phase}\n\n"
-        f"- Decision: `{result['decision']}`\n"
-        f"- Head: `{binding['head_sha']}`\n"
-        f"- Base: `{binding['base_ref']}@{binding['base_sha']}`\n"
-        f"- Policy: `{binding['policy_fingerprint']}`\n"
-        f"- Context: `{binding['context_fingerprint']}`\n"
-        f"- Idempotency key: `{request_key or 'not-applicable'}`\n"
-        f"- Workflow: {run_url or 'local dry run'}\n"
-        f"- Recorded: `{dt.datetime.now(dt.timezone.utc).isoformat().replace('+00:00', 'Z')}`\n\n"
-        f"{detail}\n\n{reasons}\n"
-    )
-
-
-def post_receipt(repository: str, number: int, body: str) -> None:
-    gh(
-        "api",
-        "--method",
-        "POST",
-        f"repos/{repository}/issues/{number}/comments",
-        "--input",
-        "-",
-        input_text=json.dumps({"body": body}),
-    )
-
-
-def parse_receipt_header(body: str) -> dict[str, str] | None:
-    """Parse only canonical receipts emitted at the start of a trusted comment."""
-    match = RECEIPT_HEADER_RE.match(body)
-    if match is None:
-        return None
-    receipt = match.groupdict()
-    if receipt["phase"] not in RECEIPT_PHASES:
-        return None
-    if receipt["title"].lower().replace(" ", "-") != receipt["phase"]:
-        return None
-    if receipt["marker_key"] == "observation":
-        if receipt["idempotency"] != "not-applicable":
-            return None
-    elif receipt["marker_key"] != receipt["idempotency"]:
-        return None
-    return receipt
-
-
-def existing_receipt_phases(repository: str, number: int, request_key: str) -> set[str]:
-    raw = gh(
-        "api",
-        "--paginate",
-        "--slurp",
-        f"repos/{repository}/issues/{number}/comments?per_page=100",
-    )
-    try:
-        pages = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise GateError("GitHub comments query returned invalid JSON") from exc
-    phases: set[str] = set()
-    for page in pages:
-        for comment in page if isinstance(page, list) else []:
-            author = str((comment.get("user") or {}).get("login") or "")
-            if author not in TRUSTED_RECEIPT_AUTHORS:
-                continue
-            receipt = parse_receipt_header(str(comment.get("body") or ""))
-            if receipt is not None and receipt["marker_key"] == request_key:
-                phases.add(receipt["phase"])
-    return phases
-
-
-def pull_request_state(repository: str, number: int) -> dict[str, Any]:
-    try:
-        value = json.loads(gh("api", f"repos/{repository}/pulls/{number}"))
-    except json.JSONDecodeError as exc:
-        raise GateError("GitHub pull-request query returned invalid JSON") from exc
-    if not isinstance(value, dict):
-        raise GateError("GitHub pull-request query returned an invalid object")
-    return value
 
 
 def collect_fresh(args: argparse.Namespace, destination: Path) -> dict[str, Any]:
     policy = trusted_policy(args)
     command = [
-        "python3",
+        sys.executable,
         args.gate_script,
         "collect",
         "--issue-url",
@@ -271,65 +146,123 @@ def collect_fresh(args: argparse.Namespace, destination: Path) -> dict[str, Any]
         policy["policy_version"],
         "--mode",
         policy["mode"],
-        "--execution-strategy",
-        policy["execution_strategy"],
-        "--risk-gate",
-        policy["risk_gate"],
-        "--allowed-risk-levels",
-        ",".join(policy["allowed_risk_levels"]),
-        "--required-checks",
-        ",".join(policy["required_checks"]),
-        "--allowed-paths",
-        ",".join(policy["allowed_paths"]),
-        "--allowed-authors",
-        ",".join(policy["allowed_authors"]),
-        "--allowed-reviewers",
-        ",".join(policy["allowed_reviewers"]),
         "--semantic-reviewer",
         policy["semantic_reviewer"],
+        "--risk-assessment-producer",
+        policy["risk_assessment_producer"],
+        "--artifact-correlation-minutes",
+        str(policy["artifact_correlation_minutes"]),
+        "--maximum-unattended-risk",
+        policy["maximum_unattended_risk"],
+        "--human-signal-associations",
+        ",".join(policy["human_signal_associations"]),
+        "--review-quality-mode",
+        policy["review_quality_mode"],
+        "--review-quality-minimum-score",
+        str(policy["review_quality_minimum_score"]),
+        "--review-quality-minimum-samples",
+        str(policy["review_quality_minimum_samples"]),
+        "--custom-instructions",
+        policy["custom_instructions"],
         "--output",
         str(destination),
     ]
-    proc = subprocess.run(command, check=False, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90)
+    if args.review_quality_file:
+        command.extend(["--review-quality-file", args.review_quality_file])
+    proc = subprocess.run(command, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=90, env=os.environ.copy())
     if proc.returncode != 0:
-        raise GateError("postflight evidence collection failed: " + proc.stderr.strip()[-500:])
-    return read_object(destination, "postflight evidence")
+        detail = proc.stderr.strip().splitlines()[-1] if proc.stderr.strip() else "unknown collector error"
+        raise GateError(f"fresh semantic evidence collection failed: {detail[:500]}")
+    return read_object(destination, "fresh semantic evidence")
 
 
 def comparable_binding(binding: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in binding.items() if key != "context_fingerprint"}
 
 
-def finalize(args: argparse.Namespace) -> int:
-    evidence = read_object(Path(args.evidence), "preflight evidence")
-    if evidence.get("context_fingerprint") != canonical_hash(evidence):
-        raise GateError("preflight context fingerprint is invalid")
-    if evidence.get("binding", {}).get("context_fingerprint") != evidence.get("context_fingerprint"):
-        raise GateError("preflight binding context fingerprint is invalid")
-    if evidence.get("deterministic", {}).get("eligible") is not True:
-        raise GateError("preflight evidence was not eligible")
-    policy = trusted_policy(args)
-    if evidence.get("policy") != policy:
-        raise GateError("preflight policy does not exactly match trusted runner policy")
-    if evidence.get("binding", {}).get("policy_fingerprint") != policy_fingerprint(policy):
-        raise GateError("preflight policy fingerprint does not match trusted runner policy")
+def idempotency_key(binding: dict[str, Any], strategy: str) -> str:
+    payload = {
+        "repository": binding["repository"],
+        "pull_request_number": binding["pull_request_number"],
+        "head_sha": binding["head_sha"],
+        "base_ref": binding["base_ref"],
+        "base_sha": binding["base_sha"],
+        "policy_fingerprint": binding["policy_fingerprint"],
+        "semantic_fingerprint": binding["semantic_fingerprint"],
+        "strategy": strategy,
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
+
+def receipt_markdown(
+    result: dict[str, Any],
+    evidence: dict[str, Any],
+    phase: str,
+    detail: str,
+    request_key: str | None = None,
+) -> str:
+    binding = result["binding"]
+    key = request_key or idempotency_key(binding, SCM_OPERATION)
+    workflow = os.environ.get("GITHUB_SERVER_URL", "https://github.com") + "/" + os.environ.get("GITHUB_REPOSITORY", binding["repository"])
+    run_id = os.environ.get("GITHUB_RUN_ID", "local")
+    reasons = "\n".join(f"- {reason}" for reason in result["reasons"])
+    blockers = "\n".join(f"- Blocking: {signal}" for signal in result["blocking_signals"])
+    return (
+        f"<!-- fullsend:auto-merge-receipt:{key}:{phase} -->\n"
+        f"### Auto-Merge: {phase}\n\n"
+        f"- Decision: `{result['decision']}`\n"
+        f"- Head: `{binding['head_sha']}`\n"
+        f"- Base: `{binding['base_ref']}@{binding['base_sha']}`\n"
+        f"- Policy: `{binding['policy_fingerprint']}`\n"
+        f"- Semantic context: `{binding['semantic_fingerprint']}`\n"
+        f"- Context: `{binding['context_fingerprint']}`\n"
+        f"- Idempotency key: `{key}`\n"
+        f"- Workflow: {workflow}/actions/runs/{run_id}\n"
+        f"- Recorded: `{dt.datetime.now(dt.timezone.utc).isoformat().replace('+00:00', 'Z')}`\n\n"
+        f"{detail}\n\n{reasons}\n{blockers}\n"
+    )
+
+
+def parse_receipt_header(body: str) -> dict[str, str] | None:
+    match = RECEIPT_RE.match(body)
+    return match.groupdict() if match else None
+
+
+def post_receipt(repository: str, number: int, body: str) -> None:
+    gh("pr", "comment", str(number), "--repo", repository, "--body", body)
+
+
+def existing_receipt_phases(repository: str, number: int, request_key: str) -> set[str]:
+    payload = json.loads(gh("api", f"repos/{repository}/issues/{number}/comments?per_page=100"))
+    phases: set[str] = set()
+    for comment in payload if isinstance(payload, list) else []:
+        if str((comment.get("user") or {}).get("login") or "") not in TRUSTED_RECEIPT_AUTHORS:
+            continue
+        parsed = parse_receipt_header(str(comment.get("body") or ""))
+        if parsed and parsed["key"] == request_key and parsed["marker_key"] == request_key:
+            phases.add(parsed["phase"])
+    return phases
+
+
+def finalize(args: argparse.Namespace) -> int:
+    evidence = read_object(Path(args.evidence), "semantic evidence")
+    if evidence.get("context_fingerprint") != canonical_hash(evidence):
+        raise GateError("semantic evidence context fingerprint is invalid")
+    policy = trusted_policy(args)
+    if evidence.get("policy") != policy or evidence.get("binding", {}).get("policy_fingerprint") != policy_fingerprint(policy):
+        raise GateError("semantic evidence policy does not match trusted runner policy")
     result = read_object(Path(args.result), "model result")
     validate_result(result, evidence)
     binding = evidence["binding"]
     repository = binding["repository"]
     number = int(binding["pull_request_number"])
     issue_match = ISSUE_URL_RE.fullmatch(args.issue_url)
-    if (
-        issue_match is None
-        or issue_match.group("repo") != args.allowed_repository
-        or int(issue_match.group("number")) != number
-        or repository != args.allowed_repository
-    ):
-        raise GateError("preflight binding does not match the trusted repository and pull request URL")
+    if issue_match is None or issue_match.group("repo") != repository or int(issue_match.group("number")) != number:
+        raise GateError("semantic binding does not match the trusted pull request URL")
 
-    if result["decision"] != "APPROVE":
-        body = receipt_markdown(result, evidence, "not merged", "The semantic decision did not authorize merge.")
+    if result["decision"] != "AUTHORIZE":
+        phase = "deferred" if result["decision"] == "DEFER" else "escalated"
+        body = receipt_markdown(result, evidence, phase, "No SCM merge request was made; semantic context requires human attention.")
         if policy["mode"] == "observe":
             print(body)
         else:
@@ -338,19 +271,18 @@ def finalize(args: argparse.Namespace) -> int:
 
     with tempfile.TemporaryDirectory(prefix="auto-merge-postflight-") as tmp:
         fresh = collect_fresh(args, Path(tmp) / "evidence.json")
-
     if fresh.get("context_fingerprint") != canonical_hash(fresh):
-        raise GateError("postflight context fingerprint is invalid")
-    if fresh.get("deterministic", {}).get("eligible") is not True:
-        failures = fresh.get("deterministic", {}).get("failures", [])
-        body = receipt_markdown(result, evidence, "stale decision rejected", "Postflight failed: " + "; ".join(failures))
+        raise GateError("fresh semantic context fingerprint is invalid")
+    if fresh.get("prerequisites", {}).get("ready_for_semantic_evaluation") is not True:
+        failures = fresh.get("prerequisites", {}).get("failures", [])
+        body = receipt_markdown(result, evidence, "stale", "Fresh semantic prerequisites failed: " + "; ".join(failures))
         if policy["mode"] == "observe":
             print(body)
         else:
             post_receipt(repository, number, body)
         return 0
     if comparable_binding(fresh["binding"]) != comparable_binding(binding):
-        body = receipt_markdown(result, evidence, "stale decision rejected", "The head, base, or policy binding changed before mutation.")
+        body = receipt_markdown(result, evidence, "stale", "The exact revision, base, policy, or semantic context changed before SCM submission.")
         if policy["mode"] == "observe":
             print(body)
         else:
@@ -358,23 +290,38 @@ def finalize(args: argparse.Namespace) -> int:
         return 0
 
     if policy["mode"] == "observe":
-        print(receipt_markdown(result, evidence, "observe preview", "All final gates passed. Observe mode did not attempt a merge."))
+        print(receipt_markdown(result, evidence, "observed", "Semantic authorization passed. Observe mode made no SCM request."))
         return 0
 
-    request_key = idempotency_key(binding, policy["execution_strategy"])
+    request_key = idempotency_key(binding, SCM_OPERATION)
     phases = existing_receipt_phases(repository, number, request_key)
-    if phases:
-        pr_state = pull_request_state(repository, number)
-        if pr_state.get("merged") is True:
-            if "merged" not in phases and "reconciled-merged" not in phases:
-                post_receipt(
-                    repository,
-                    number,
-                    receipt_markdown(result, evidence, "reconciled merged", "A prior request already merged this pull request; no second request was issued.", request_key),
-                )
-            return 0
-        print(f"auto-merge: request {request_key} already has receipt phases {sorted(phases)}; no duplicate request issued")
+    if phases & {"pending", "submitted"}:
+        print(f"auto-merge: request {request_key} already has phases {sorted(phases)}; no duplicate SCM request issued")
         return 0
+
+    post_receipt(repository, number, receipt_markdown(result, evidence, "pending", "Semantic authorization passed; SCM submission is pending.", request_key))
+
+    with tempfile.TemporaryDirectory(prefix="auto-merge-final-context-") as tmp:
+        final = collect_fresh(args, Path(tmp) / "evidence.json")
+    if final.get("context_fingerprint") != canonical_hash(final) or comparable_binding(final["binding"]) != comparable_binding(binding):
+        post_receipt(repository, number, receipt_markdown(result, evidence, "aborted", "Semantic context changed after the pending receipt; no SCM request was made.", request_key))
+        return 0
+
+    try:
+        gh(
+            "pr",
+            "merge",
+            str(number),
+            "--repo",
+            repository,
+            "--auto",
+            "--squash",
+            "--match-head-commit",
+            binding["head_sha"],
+        )
+    except GateError as exc:
+        post_receipt(repository, number, receipt_markdown(result, evidence, "scm-rejected", "GitHub rejected the request; no policy was bypassed.", request_key))
+        raise GateError("SCM submission failed closed") from exc
 
     post_receipt(
         repository,
@@ -382,102 +329,10 @@ def finalize(args: argparse.Namespace) -> int:
         receipt_markdown(
             result,
             evidence,
-            "pending",
-            "Final authorization passed; a queue enrollment is pending."
-            if policy["execution_strategy"] == "queue"
-            else "Final authorization passed; an exact-head squash merge request is pending.",
+            "submitted",
+            "Semantic authorization was submitted. GitHub now exclusively controls checks, reviews, branch policy, queueing, and final merge.",
             request_key,
         ),
-    )
-
-    # Re-run every mutable gate after the durable pending receipt and before the
-    # forge request. The lab has no cross-run lease, so any mismatch stops here.
-    with tempfile.TemporaryDirectory(prefix="auto-merge-final-authorization-") as tmp:
-        final = collect_fresh(args, Path(tmp) / "evidence.json")
-    if final.get("context_fingerprint") != canonical_hash(final):
-        raise GateError("final authorization context fingerprint is invalid")
-    if final.get("deterministic", {}).get("eligible") is not True or comparable_binding(final["binding"]) != comparable_binding(binding):
-        failures = final.get("deterministic", {}).get("failures", [])
-        post_receipt(
-            repository,
-            number,
-            receipt_markdown(result, evidence, "aborted", "Final authorization changed after the pending receipt: " + "; ".join(failures), request_key),
-        )
-        return 0
-
-    if policy["execution_strategy"] == "queue":
-        try:
-            gh(
-                "pr",
-                "merge",
-                str(number),
-                "--repo",
-                repository,
-                "--match-head-commit",
-                binding["head_sha"],
-            )
-        except GateError as exc:
-            post_receipt(
-                repository,
-                number,
-                receipt_markdown(result, evidence, "not queued", "GitHub rejected merge-queue enrollment.", request_key),
-            )
-            raise GateError("merge-queue enrollment failed closed") from exc
-        post_receipt(
-            repository,
-            number,
-            receipt_markdown(
-                result,
-                evidence,
-                "queued",
-                "GitHub accepted the exact approved head for merge-queue processing. The queue-generated revision still requires fresh authorization.",
-                request_key,
-            ),
-        )
-        return 0
-
-    try:
-        response_text = gh(
-            "api",
-            "--method",
-            "PUT",
-            f"repos/{repository}/pulls/{number}/merge",
-            "-f",
-            f"sha={binding['head_sha']}",
-            "-f",
-            "merge_method=squash",
-            "-f",
-            f"commit_title=Auto-merge PR #{number}",
-        )
-        response = json.loads(response_text)
-    except (GateError, json.JSONDecodeError) as exc:
-        pr_state = pull_request_state(repository, number)
-        if pr_state.get("merged") is True:
-            post_receipt(
-                repository,
-                number,
-                receipt_markdown(result, evidence, "reconciled merged", "The forge response was uncertain, but fresh state proves the pull request merged.", request_key),
-            )
-            return 0
-        post_receipt(
-            repository,
-            number,
-            receipt_markdown(result, evidence, "outcome unknown", "The forge request outcome could not be proven; no retry was issued. Operator reconciliation is required.", request_key),
-        )
-        raise GateError("merge outcome is unknown; operator reconciliation required") from exc
-
-    if response.get("merged") is not True:
-        post_receipt(
-            repository,
-            number,
-            receipt_markdown(result, evidence, "not merged", "GitHub rejected the exact-head request: " + str(response.get("message", "unknown reason"))[:500], request_key),
-        )
-        return 0
-
-    post_receipt(
-        repository,
-        number,
-        receipt_markdown(result, evidence, "merged", f"GitHub accepted the exact-head squash merge for `{binding['head_sha']}`.", request_key),
     )
     return 0
 
@@ -489,14 +344,16 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--base-ref", required=True)
     result.add_argument("--policy-version", required=True)
     result.add_argument("--mode", required=True, choices=sorted(MODES))
-    result.add_argument("--execution-strategy", required=True, choices=sorted(EXECUTION_STRATEGIES))
-    result.add_argument("--risk-gate", required=True, choices=["informational", "required"])
-    result.add_argument("--allowed-risk-levels", required=True)
-    result.add_argument("--required-checks", required=True)
-    result.add_argument("--allowed-paths", required=True)
-    result.add_argument("--allowed-authors", required=True)
-    result.add_argument("--allowed-reviewers", required=True)
     result.add_argument("--semantic-reviewer", required=True)
+    result.add_argument("--risk-assessment-producer", required=True)
+    result.add_argument("--artifact-correlation-minutes", required=True, type=int)
+    result.add_argument("--maximum-unattended-risk", required=True)
+    result.add_argument("--human-signal-associations", required=True)
+    result.add_argument("--review-quality-mode", required=True)
+    result.add_argument("--review-quality-minimum-score", required=True, type=float)
+    result.add_argument("--review-quality-minimum-samples", required=True, type=int)
+    result.add_argument("--review-quality-file", default="")
+    result.add_argument("--custom-instructions", required=True)
     result.add_argument("--evidence", required=True)
     result.add_argument("--result", required=True)
     result.add_argument("--gate-script", required=True)
