@@ -11,7 +11,9 @@ artifact for agent-authored changes.
 
 In lab-automatic mode, Auto-Merge writes a pending receipt, repeats every gate,
 and requests an exact-head squash merge only after review, required CI, and the
-configured policy all pass for the same revision.
+configured policy all pass for the same revision. Before completing the merge,
+the merge queue retests the queue-generated revision to confirm it still passes
+all required checks.
 
 ## Verification
 
