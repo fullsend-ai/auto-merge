@@ -48,6 +48,7 @@ def policy() -> dict:
         "allowed_paths": ["docs/example-feature.md"],
         "allowed_authors": ["fullsend-ai-coder[bot]"],
         "allowed_reviewers": ["ascerra", "fullsend-ai-review[bot]"],
+        "semantic_reviewer": "fullsend-ai-review[bot]",
     }
 
 
@@ -125,7 +126,18 @@ class GateTests(unittest.TestCase):
     def test_untrusted_approval_is_rejected(self) -> None:
         snapshot = eligible_snapshot()
         snapshot["reviews"][0]["user"]["login"] = "untrusted-public-user"
-        self.assert_ineligible(snapshot, "trusted approval")
+        self.assert_ineligible(snapshot, "semantic review-agent attestation")
+
+    def test_human_approval_alone_is_not_the_semantic_attestation(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["reviews"][0]["user"]["login"] = "ascerra"
+        self.assert_ineligible(snapshot, "semantic review-agent attestation")
+
+    def test_evidence_records_review_agent_attestation(self) -> None:
+        evidence = build_evidence(eligible_snapshot(), policy())
+        self.assertEqual(evidence["review_attestation"]["authority"], "fullsend-review-agent")
+        self.assertEqual(evidence["review_attestation"]["decision"], "APPROVE")
+        self.assertEqual(evidence["review_attestation"]["head_sha"], HEAD)
 
     def test_untrusted_approval_does_not_override_trusted_approval(self) -> None:
         snapshot = eligible_snapshot()
@@ -387,6 +399,11 @@ class BindingTests(unittest.TestCase):
         with self.assertRaisesRegex(GateError, "cannot contain risk"):
             validate_result(self.result, self.evidence)
 
+    def test_result_cannot_authorize_without_review_attestation(self) -> None:
+        self.evidence["review_attestation"]["decision"] = "MISSING"
+        with self.assertRaisesRegex(GateError, "review-agent attestation"):
+            validate_result(self.result, self.evidence)
+
     def test_invalid_decision_is_rejected(self) -> None:
         self.result["decision"] = "MERGE"
         with self.assertRaisesRegex(GateError, "decision is invalid"):
@@ -410,6 +427,7 @@ class BindingTests(unittest.TestCase):
             allowed_paths="docs/example-feature.md",
             allowed_authors="fullsend-ai-coder[bot]",
             allowed_reviewers="ascerra,fullsend-ai-review[bot]",
+            semantic_reviewer="fullsend-ai-review[bot]",
             evidence=str(evidence_path),
             result=str(result_path),
             gate_script=str(SCRIPTS / "auto_merge_gate.py"),

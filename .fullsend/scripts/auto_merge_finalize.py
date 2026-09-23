@@ -95,6 +95,15 @@ def validate_result(result: dict[str, Any], evidence: dict[str, Any]) -> None:
         raise GateError("model binding has missing or extra fields")
     if binding != evidence.get("binding"):
         raise GateError("model binding does not exactly match preflight evidence")
+    attestation = evidence.get("review_attestation")
+    if not isinstance(attestation, dict):
+        raise GateError("review-agent attestation is missing")
+    if (
+        attestation.get("authority") != "fullsend-review-agent"
+        or attestation.get("decision") != "APPROVE"
+        or attestation.get("head_sha") != binding.get("head_sha")
+    ):
+        raise GateError("review-agent attestation is not an exact-head approval")
     reasons = result.get("reasons")
     risks = result.get("risk_signals")
     summary = result.get("summary")
@@ -122,12 +131,14 @@ def trusted_policy(args: argparse.Namespace) -> dict[str, Any]:
         "allowed_paths": csv_values(args.allowed_paths),
         "allowed_authors": csv_values(args.allowed_authors),
         "allowed_reviewers": csv_values(args.allowed_reviewers),
+        "semantic_reviewer": args.semantic_reviewer,
     }
     if (
         not policy["required_checks"]
         or not policy["allowed_paths"]
         or not policy["allowed_authors"]
         or not policy["allowed_reviewers"]
+        or not policy["semantic_reviewer"]
     ):
         raise GateError("trusted policy inputs must be non-empty")
     if policy["mode"] not in MODES:
@@ -140,6 +151,8 @@ def trusted_policy(args: argparse.Namespace) -> dict[str, Any]:
         raise GateError("trusted risk gate requires allowed levels")
     if any(level not in RISK_LEVELS for level in policy["allowed_risk_levels"]):
         raise GateError("trusted allowed risk levels contain an unsupported value")
+    if policy["semantic_reviewer"].casefold() not in {item.casefold() for item in policy["allowed_reviewers"]}:
+        raise GateError("semantic reviewer must be in the trusted reviewer allowlist")
     return policy
 
 
@@ -272,6 +285,8 @@ def collect_fresh(args: argparse.Namespace, destination: Path) -> dict[str, Any]
         ",".join(policy["allowed_authors"]),
         "--allowed-reviewers",
         ",".join(policy["allowed_reviewers"]),
+        "--semantic-reviewer",
+        policy["semantic_reviewer"],
         "--output",
         str(destination),
     ]
@@ -481,6 +496,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--allowed-paths", required=True)
     result.add_argument("--allowed-authors", required=True)
     result.add_argument("--allowed-reviewers", required=True)
+    result.add_argument("--semantic-reviewer", required=True)
     result.add_argument("--evidence", required=True)
     result.add_argument("--result", required=True)
     result.add_argument("--gate-script", required=True)

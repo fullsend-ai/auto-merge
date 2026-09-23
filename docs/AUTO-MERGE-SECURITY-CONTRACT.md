@@ -5,9 +5,11 @@ contract remains authoritative for production
 
 ## Purpose
 
-The Auto-Merge agent evaluates whether deterministic forge state and a bounded
-semantic assessment agree that the exact current revision is eligible. In the
-private lab's `lab-automatic` mode only, that one revision may be merged.
+The Fullsend Review Agent is the semantic authority for whether a change is
+acceptable. The Auto-Merge agent verifies that exact-head attestation, checks
+fresh merge readiness, and invokes the repository's configured direct or queue
+operation. In the private lab's `lab-automatic` mode only, that one revision
+may be merged.
 
 ## Authority boundary
 
@@ -26,10 +28,10 @@ Changing any member invalidates the decision.
 ## State machine
 
 ```text
-event -> deterministic preflight
+event -> deterministic merge-readiness preflight
       -> ineligible: record SKIP/REJECT and stop
-      -> eligible: assemble bounded evidence
-                  -> model APPROVE/REJECT/ESCALATE
+      -> eligible: assemble bounded evidence including Review attestation
+                  -> Auto-Merge verifies attestation and binding
                   -> authoritative postflight
                   -> durable pending receipt
                   -> final authoritative recheck
@@ -43,7 +45,7 @@ reviews, or mergeability are still pending.
 
 ## Deterministic preflight
 
-Before inference, the trusted pre-script must establish all of the following:
+Before invoking Auto-Merge, the trusted pre-script must establish all of the following:
 
 1. The target is an open, non-draft pull request in the configured repository.
 2. The current head SHA and base ref/SHA are recorded from fresh forge state.
@@ -56,8 +58,9 @@ Before inference, the trusted pre-script must establish all of the following:
 5. Required checks for the exact head SHA have completed successfully. Pending,
    skipped where required, neutral where disallowed, cancelled, timed-out, or
    missing checks are ineligible.
-6. Required review approval applies to the exact head SHA. An approval for an
-   older revision is stale.
+6. The trusted Fullsend Review Agent has approved the exact head SHA. An
+   approval for an older revision is stale, and a human or other bot approval
+   cannot substitute for this semantic attestation.
 7. Mergeability is known and the pull request is not conflicted or behind under
    the repository's policy.
 8. The repository's native standing auto-merge feature is not enabled for this
@@ -66,16 +69,18 @@ Before inference, the trusted pre-script must establish all of the following:
 The pre-script emits a compact, secret-free evidence document and a canonical
 hash over the bound state. It does not merge and does not enable auto-merge.
 
-## Semantic decision
+## Review attestation and execution decision
 
-The model receives only the bounded evidence needed to decide whether the
-change is routine, internally consistent, adequately verified, and free of
-signals that require human judgment. It must not infer missing facts.
+The Review Agent receives the change and decides whether it achieves its intent,
+has acceptable scope and risk, and needs human judgment. Auto-Merge receives
+only a bounded, trusted attestation of that decision. It must not perform a
+second semantic review or infer missing facts.
 
-- `APPROVE`: the exact revision is semantically eligible.
-- `REJECT`: a concrete policy or quality defect makes it ineligible.
-- `ESCALATE`: evidence is ambiguous, unusually risky, or requires a human
-  decision.
+- `APPROVE`: the Review Agent approved the exact revision and readiness is
+  still valid.
+- `REJECT`: the attestation or deterministic evidence is invalid.
+- `ESCALATE`: the attestation is missing, stale, ambiguous, or requires a
+  human decision.
 
 The output must conform to the result schema and include the complete tuple,
 context fingerprint, decision, concise reasons, and risk signals. Invalid or

@@ -26,6 +26,7 @@ python3 "${SCRIPT_DIR}/auto_merge_gate.py" collect \
   --allowed-paths "${AUTO_MERGE_ALLOWED_PATHS:-}" \
   --allowed-authors "${AUTO_MERGE_ALLOWED_AUTHORS:-}" \
   --allowed-reviewers "${AUTO_MERGE_ALLOWED_REVIEWERS:-}" \
+  --semantic-reviewer "${AUTO_MERGE_SEMANTIC_REVIEWER:-}" \
   --output "${EVIDENCE_FILE}"
 
 if ! jq -e '.deterministic.eligible == true' "${EVIDENCE_FILE}" >/dev/null; then
