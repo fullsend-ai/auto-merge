@@ -27,6 +27,8 @@ RISK_RE = re.compile(
     re.IGNORECASE,
 )
 RISK_MARKER = "<!-- fullsend:risk-assessment -->"
+REVIEW_MARKER = "<!-- fullsend:review-agent -->"
+REVIEW_HEAD_RE = re.compile(r"<!-- \*\*Head SHA:\*\* (?P<head>[0-9a-f]{40}) -->")
 CONTROL_PREFIXES = ("/fs-",)
 IGNORED_MARKERS = (
     "<!-- fullsend:agent-status:",
@@ -35,7 +37,8 @@ IGNORED_MARKERS = (
     "<!-- fullsend:review-agent -->",
 )
 MAX_COMMENT_CHARS = 4_000
-MAX_HUMAN_SIGNALS = 100
+MAX_TRUSTED_HUMAN_SIGNALS = 100
+MAX_UNTRUSTED_HUMAN_SIGNALS = 20
 QUALITY_MODES = {"off", "observe", "enforce"}
 RISK_LEVELS = {"low": 1, "moderate": 2, "elevated": 3, "high": 4, "critical": 5}
 
@@ -116,7 +119,6 @@ def collect_snapshot(repository: str, number: int, quality: dict[str, Any] | Non
 
     comments = gh_pages(f"repos/{repository}/issues/{number}/comments?per_page=100")
     reviews = gh_pages(f"repos/{repository}/pulls/{number}/reviews?per_page=100")
-    review_comments = gh_pages(f"repos/{repository}/pulls/{number}/comments?per_page=100")
 
     pr_after = gh_json("api", f"repos/{repository}/pulls/{number}")
     base_after = gh_json("api", branch_endpoint)
@@ -132,7 +134,6 @@ def collect_snapshot(repository: str, number: int, quality: dict[str, Any] | Non
         "base_branch": base_after,
         "comments": comments,
         "reviews": reviews,
-        "review_comments": review_comments,
         "review_quality": quality or {},
     }
 
@@ -184,7 +185,42 @@ def review_attestation(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict
     }
 
 
-def risk_assessment(snapshot: dict[str, Any], policy: dict[str, Any], attestation: dict[str, Any]) -> dict[str, Any]:
+def review_summary(snapshot: dict[str, Any], policy: dict[str, Any], attestation: dict[str, Any]) -> dict[str, Any]:
+    producer = str(policy["semantic_reviewer"]).casefold()
+    expected_head = str(attestation.get("head_sha") or "")
+    candidates: list[tuple[dict[str, Any], re.Match[str]]] = []
+    for comment in snapshot["comments"]:
+        body = str(comment.get("body") or "")
+        author = str((comment.get("user") or {}).get("login") or "").casefold()
+        head_match = REVIEW_HEAD_RE.search(body)
+        if author == producer and REVIEW_MARKER in body and head_match is not None:
+            candidates.append((comment, head_match))
+    matching = [item for item in candidates if item[1].group("head") == expected_head]
+    if not matching:
+        return {"status": "MISSING", "head_sha": "", "comment_id": 0, "updated_at": ""}
+    comment, match = max(
+        matching,
+        key=lambda item: (str(item[0].get("updated_at") or item[0].get("created_at") or ""), int(item[0].get("id") or 0)),
+    )
+    summary_time = parse_time(str(comment.get("updated_at") or comment.get("created_at") or ""))
+    review_time = parse_time(str(attestation.get("submitted_at") or ""))
+    correlation_seconds = (review_time - summary_time).total_seconds() if summary_time and review_time else None
+    current = correlation_seconds is not None and 0 <= correlation_seconds <= int(policy["artifact_correlation_minutes"]) * 60
+    return {
+        "status": "CURRENT" if current else "UNBOUND",
+        "head_sha": match.group("head"),
+        "comment_id": int(comment.get("id") or 0),
+        "updated_at": str(comment.get("updated_at") or comment.get("created_at") or ""),
+        "correlation_seconds": int(correlation_seconds) if correlation_seconds is not None else None,
+    }
+
+
+def risk_assessment(
+    snapshot: dict[str, Any],
+    policy: dict[str, Any],
+    attestation: dict[str, Any],
+    summary: dict[str, Any],
+) -> dict[str, Any]:
     producer = str(policy["risk_assessment_producer"]).casefold()
     candidates: list[tuple[dict[str, Any], re.Match[str]]] = []
     for comment in snapshot["comments"]:
@@ -210,12 +246,14 @@ def risk_assessment(snapshot: dict[str, Any], policy: dict[str, Any], attestatio
         key=lambda item: (str(item[0].get("updated_at") or item[0].get("created_at") or ""), int(item[0].get("id") or 0)),
     )
     risk_time = parse_time(str(comment.get("updated_at") or comment.get("created_at") or ""))
-    review_time = parse_time(str(attestation.get("submitted_at") or ""))
-    correlation_seconds = abs((risk_time - review_time).total_seconds()) if risk_time and review_time else None
+    summary_time = parse_time(str(summary.get("updated_at") or ""))
+    correlation_seconds = (summary_time - risk_time).total_seconds() if risk_time and summary_time else None
     correlated = (
         attestation.get("decision") == "APPROVE"
+        and summary.get("status") == "CURRENT"
+        and summary.get("head_sha") == attestation.get("head_sha")
         and correlation_seconds is not None
-        and correlation_seconds <= int(policy["artifact_correlation_minutes"]) * 60
+        and 0 <= correlation_seconds <= int(policy["artifact_correlation_minutes"]) * 60
     )
     body = str(comment.get("body") or "")
     return {
@@ -228,6 +266,7 @@ def risk_assessment(snapshot: dict[str, Any], policy: dict[str, Any], attestatio
         "comment_id": int(comment.get("id") or 0),
         "updated_at": str(comment.get("updated_at") or comment.get("created_at") or ""),
         "correlated_review_id": int(attestation.get("review_id") or 0),
+        "correlated_review_summary_comment_id": int(summary.get("comment_id") or 0),
         "correlation_seconds": int(correlation_seconds) if correlation_seconds is not None else None,
         "summary": body[:MAX_COMMENT_CHARS],
     }
@@ -254,25 +293,29 @@ def _human_signal(item: dict[str, Any], channel: str) -> dict[str, Any] | None:
     }
 
 
-def human_signals(snapshot: dict[str, Any], policy: dict[str, Any]) -> list[dict[str, Any]]:
+def human_context(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[str, Any]:
     allowed = {item.upper() for item in policy["human_signal_associations"]}
     pr_author = str((snapshot["pull_request"].get("user") or {}).get("login") or "").casefold()
     signals: list[dict[str, Any]] = []
-    sources = (
-        (snapshot["comments"], "conversation"),
-        (snapshot["review_comments"], "inline_review"),
-        (snapshot["reviews"], "review"),
-    )
-    for items, channel in sources:
-        for item in items:
-            signal = _human_signal(item, channel)
-            if signal is None:
-                continue
-            trusted_actor = signal["author_association"] in allowed or signal["author"].casefold() == pr_author
-            signal["trusted_actor"] = trusted_actor
-            signals.append(signal)
+    for item in snapshot["comments"]:
+        signal = _human_signal(item, "conversation")
+        if signal is None:
+            continue
+        trusted_actor = signal["author_association"] in allowed or signal["author"].casefold() == pr_author
+        signal["trusted_actor"] = trusted_actor
+        signals.append(signal)
     signals.sort(key=lambda item: (item["updated_at"], item["channel"], item["id"]))
-    return signals[-MAX_HUMAN_SIGNALS:]
+    trusted = [signal for signal in signals if signal["trusted_actor"]]
+    untrusted = [signal for signal in signals if not signal["trusted_actor"]]
+    retained = trusted[-MAX_TRUSTED_HUMAN_SIGNALS:] + untrusted[-MAX_UNTRUSTED_HUMAN_SIGNALS:]
+    retained.sort(key=lambda item: (item["updated_at"], item["channel"], item["id"]))
+    return {
+        "signals": retained,
+        "trusted_total": len(trusted),
+        "untrusted_total": len(untrusted),
+        "trusted_truncated": len(trusted) > MAX_TRUSTED_HUMAN_SIGNALS,
+        "untrusted_truncated": len(untrusted) > MAX_UNTRUSTED_HUMAN_SIGNALS,
+    }
 
 
 def normalize_quality(raw: dict[str, Any]) -> dict[str, Any]:
@@ -299,10 +342,14 @@ def normalize_quality(raw: dict[str, Any]) -> dict[str, Any]:
 
 def semantic_context(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[str, Any]:
     attestation = review_attestation(snapshot, policy)
+    summary = review_summary(snapshot, policy, attestation)
+    humans = human_context(snapshot, policy)
     return {
         "review_attestation": attestation,
-        "risk_assessment": risk_assessment(snapshot, policy, attestation),
-        "human_signals": human_signals(snapshot, policy),
+        "review_summary": summary,
+        "risk_assessment": risk_assessment(snapshot, policy, attestation, summary),
+        "human_signals": humans["signals"],
+        "human_signal_integrity": {key: value for key, value in humans.items() if key != "signals"},
         "review_quality": normalize_quality(snapshot.get("review_quality") or {}),
         "repository_policy": {
             "maximum_unattended_risk": policy["maximum_unattended_risk"],
@@ -336,7 +383,9 @@ def evaluate_snapshot(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[
     require((pr.get("base") or {}).get("repo", {}).get("full_name") == repository, "base repository mismatch")
     require((pr.get("head") or {}).get("repo", {}).get("full_name") == repository, "fork pull requests are outside this lab's security scope")
     require(context["review_attestation"]["decision"] == "APPROVE", "exact-head Review Agent attestation is missing")
+    require(context["review_summary"]["status"] == "CURRENT", "exact-head Review summary is missing or stale")
     require(context["risk_assessment"]["status"] == "CURRENT", "exact-head risk assessment is missing or cannot be bound to the Review run")
+    require(not context["human_signal_integrity"]["trusted_truncated"], "trusted human context exceeds the safe evidence bound")
     risk_level = context["risk_assessment"].get("level")
     maximum_risk = policy.get("maximum_unattended_risk")
     require(maximum_risk in RISK_LEVELS, "maximum unattended risk policy is invalid")

@@ -113,14 +113,18 @@ release owner confirms the rollout.”
 
 ## Human context
 
-Ordinary PR, review, and inline-review comments are bounded and passed as
-untrusted evidence. A PR author, owner, member, or collaborator can express an
-informal veto or coordination requirement without knowing how to file a formal
-changes-requested review. A later explicit clearance can resolve it.
+Ordinary PR conversation comments are bounded and passed as untrusted evidence.
+A PR author, owner, member, or collaborator can express an informal veto or
+coordination requirement without knowing how to file a formal changes-requested
+review. A later explicit clearance can resolve it. Formal review and inline
+review state remain GitHub's responsibility and are not reinterpreted here.
 
 Untrusted outsiders cannot unilaterally veto a merge. Their text remains
 visible to the agent so a concrete safety concern can be escalated. Control
 commands and Fullsend machine comments are excluded from this context.
+Trusted comments have a separate evidence budget and can never be displaced by
+an outsider comment flood. If trusted context itself exceeds that bound,
+authorization fails closed.
 
 ## Optional Review quality evidence
 
@@ -168,9 +172,13 @@ No SCM request is made when:
 ## Known POC limitations
 
 - The current Review risk comment lacks a structured head SHA, so this lab
-  correlates it to the exact-head Review approval by trusted producer and a
-  short time window. Production should emit one structured Review attestation
-  containing the head SHA, review decision, risk fields, and run identity.
+  requires the trusted exact-head Review summary, risk comment, and GitHub
+  approval to be updated in that order within a one-minute window. This is
+  stronger than timestamp-only approval correlation but remains a POC bridge.
+  Production should emit one structured Review attestation containing the head
+  SHA, review decision, risk fields, and run identity.
+- The lab merge queue is configured to merge one PR per group. Production must
+  resolve and reauthorize every PR when a forge supports multi-PR merge groups.
 - Durable lease, receipt storage, crash reconciliation, and dedicated GitHub
   App identity remain production work.
 - The optional Review quality adapter is specified but not connected.

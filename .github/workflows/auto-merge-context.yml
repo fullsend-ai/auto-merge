@@ -5,7 +5,7 @@ name: Auto-Merge semantic context
 # reconsider unstructured human context added after Review approval.
 on:
   issue_comment:
-    types: [created]
+    types: [created, edited]
 
 permissions: {}
 
@@ -13,8 +13,12 @@ jobs:
   prepare:
     if: >-
       github.event.issue.pull_request
-      && github.event.comment.user.type != 'Bot'
-      && !startsWith(github.event.comment.body, '/fs-')
+      && (
+        (github.event.comment.user.login == 'fullsend-ai-review[bot]'
+         && contains(github.event.comment.body, '<!-- fullsend:risk-assessment -->'))
+        || (github.event.comment.user.type != 'Bot'
+            && !startsWith(github.event.comment.body, '/fs-'))
+      )
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.context.outputs.matrix }}
@@ -29,6 +33,7 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.issue.number }}
           COMMENT_USER: ${{ github.event.comment.user.login }}
+          COMMENT_TYPE: ${{ github.event.comment.user.type }}
           PR_AUTHOR: ${{ github.event.issue.user.login }}
           COMMENT_ID: ${{ github.event.comment.id }}
           COMMENT_BODY: ${{ github.event.comment.body }}
@@ -37,7 +42,10 @@ jobs:
           echo 'matrix={"include":[]}' >>"${GITHUB_OUTPUT}"
 
           authorized=false
-          if [[ "${COMMENT_USER}" == "${PR_AUTHOR}" ]]; then
+          if [[ "${COMMENT_USER}" == 'fullsend-ai-review[bot]' ]] \
+            && grep -Fq '<!-- fullsend:risk-assessment -->' <<<"${COMMENT_BODY}"; then
+            authorized=true
+          elif [[ "${COMMENT_USER}" == "${PR_AUTHOR}" ]]; then
             authorized=true
           elif role=$(gh api "repos/${REPO}/collaborators/${COMMENT_USER}/permission" --jq '.role_name' 2>/dev/null); then
             case "${role}" in
@@ -57,9 +65,10 @@ jobs:
             --argjson number "${PR_NUMBER}" \
             --arg sha "${head_sha}" \
             --arg actor "${COMMENT_USER}" \
+            --arg actor_type "${COMMENT_TYPE}" \
             --argjson comment_id "${COMMENT_ID}" \
             --arg body "${COMMENT_BODY}" \
-            '{action:"semantic_context_changed",repository:{full_name:$repo},pull_request:{number:$number,html_url:("https://github.com/"+$repo+"/pull/"+($number|tostring)),head:{sha:$sha}},issue:{number:$number,html_url:("https://github.com/"+$repo+"/pull/"+($number|tostring))},sender:{login:$actor,type:"User"},comment:{id:$comment_id,body:$body,user:{login:$actor,type:"User"}}}')
+            '{action:"semantic_context_changed",repository:{full_name:$repo},pull_request:{number:$number,html_url:("https://github.com/"+$repo+"/pull/"+($number|tostring)),head:{sha:$sha}},issue:{number:$number,html_url:("https://github.com/"+$repo+"/pull/"+($number|tostring))},sender:{login:$actor,type:$actor_type},comment:{id:$comment_id,body:$body,user:{login:$actor,type:$actor_type}}}')
           matrix=$(jq -cn \
             --arg repo "${REPO}" \
             --argjson number "${PR_NUMBER}" \

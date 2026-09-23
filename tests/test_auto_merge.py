@@ -45,13 +45,13 @@ def policy(**overrides: object) -> dict:
         "mode": "observe",
         "semantic_reviewer": "fullsend-ai-review[bot]",
         "risk_assessment_producer": "fullsend-ai-review[bot]",
-        "artifact_correlation_minutes": 15,
+        "artifact_correlation_minutes": 1,
         "maximum_unattended_risk": "moderate",
         "human_signal_associations": ["COLLABORATOR", "MEMBER", "OWNER"],
         "review_quality_mode": "off",
         "review_quality_minimum_score": 0.98,
         "review_quality_minimum_samples": 50,
-        "custom_instructions": "Do not authorize an active human veto or coordination dependency.",
+        "custom_instructions": "Do not authorize when trusted human context contains an unresolved request to pause, sequencing requirement, or required follow-up.",
     }
     result.update(overrides)
     return result
@@ -72,6 +72,17 @@ def risk_comment(level: str = "low", score: int = 1, *, comment_id: int = 101) -
     }
 
 
+def review_summary_comment(*, head: str = HEAD, comment_id: int = 102) -> dict:
+    return {
+        "id": comment_id,
+        "body": f"<!-- fullsend:review-agent -->\n<!-- **Head SHA:** {head} -->\n\nLooks good to me",
+        "created_at": "2026-09-23T20:00:05Z",
+        "updated_at": "2026-09-23T20:00:05Z",
+        "author_association": "NONE",
+        "user": {"login": "fullsend-ai-review[bot]", "type": "Bot"},
+    }
+
+
 def eligible_snapshot() -> dict:
     return {
         "pull_request": {
@@ -86,19 +97,18 @@ def eligible_snapshot() -> dict:
             "base": {"sha": BASE, "ref": "main", "repo": {"full_name": "fullsend-ai/auto-merge"}},
         },
         "base_branch": {"commit": {"sha": BASE}},
-        "comments": [risk_comment()],
+        "comments": [risk_comment(), review_summary_comment()],
         "reviews": [
             {
                 "id": 201,
                 "state": "APPROVED",
                 "commit_id": HEAD,
-                "submitted_at": "2026-09-23T20:00:00Z",
+                "submitted_at": "2026-09-23T20:00:06Z",
                 "author_association": "NONE",
                 "body": "Review approved the exact revision.",
                 "user": {"login": "fullsend-ai-review[bot]", "type": "Bot"},
             }
         ],
-        "review_comments": [],
         "review_quality": {},
     }
 
@@ -152,15 +162,20 @@ class SemanticGateTests(unittest.TestCase):
 
     def test_missing_or_unbound_risk_artifact_is_rejected(self) -> None:
         snapshot = eligible_snapshot()
-        snapshot["comments"] = []
+        snapshot["comments"] = [review_summary_comment()]
         self.assert_not_ready(snapshot, "risk assessment")
         snapshot = eligible_snapshot()
-        snapshot["comments"][0]["updated_at"] = "2026-09-23T21:00:00Z"
+        snapshot["comments"][0]["updated_at"] = "2026-09-23T19:00:00Z"
         self.assert_not_ready(snapshot, "risk assessment")
+
+    def test_review_summary_must_bind_the_exact_head(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["comments"][1] = review_summary_comment(head="d" * 40)
+        self.assert_not_ready(snapshot, "Review summary")
 
     def test_risk_above_repository_semantic_policy_is_rejected(self) -> None:
         snapshot = eligible_snapshot()
-        snapshot["comments"] = [risk_comment("high", 4)]
+        snapshot["comments"] = [risk_comment("high", 4), review_summary_comment()]
         self.assert_not_ready(snapshot, "exceeds unattended policy")
 
     def test_human_veto_is_agent_evidence_not_a_preflight_keyword_gate(self) -> None:
@@ -204,6 +219,28 @@ class SemanticGateTests(unittest.TestCase):
         snapshot["comments"].append(human_comment("Please wait for rollout coordination."))
         after = build_evidence(snapshot, policy())["binding"]["semantic_fingerprint"]
         self.assertNotEqual(before, after)
+
+    def test_outsider_flood_cannot_evict_trusted_pause(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["comments"].append(human_comment("Please do not merge yet.", comment_id=300))
+        for index in range(150):
+            snapshot["comments"].append(
+                human_comment(
+                    f"Outsider context {index}",
+                    comment_id=1_000 + index,
+                    author=f"outsider-{index}",
+                    association="NONE",
+                )
+            )
+        context = evaluate_snapshot(snapshot, policy())["semantic_context"]
+        self.assertTrue(any(signal["id"] == 300 for signal in context["human_signals"]))
+        self.assertTrue(context["human_signal_integrity"]["untrusted_truncated"])
+
+    def test_trusted_context_overflow_fails_closed(self) -> None:
+        snapshot = eligible_snapshot()
+        for index in range(101):
+            snapshot["comments"].append(human_comment(f"Trusted context {index}", comment_id=2_000 + index))
+        self.assert_not_ready(snapshot, "trusted human context exceeds")
 
 
 class BindingAndFinalizerTests(unittest.TestCase):
@@ -302,11 +339,29 @@ class BindingAndFinalizerTests(unittest.TestCase):
         changed["comments"].append(human_comment("Please stop; rollout coordination is unresolved."))
         fresh = build_evidence(changed, changed_policy)
         with tempfile.TemporaryDirectory() as directory:
-            with mock.patch("auto_merge_finalize.collect_fresh", return_value=fresh), mock.patch(
+            with mock.patch("auto_merge_finalize.existing_receipt_phases", return_value=set()), mock.patch(
+                "auto_merge_finalize.collect_fresh", return_value=fresh
+            ), mock.patch(
                 "auto_merge_finalize.post_receipt"
             ), mock.patch("auto_merge_finalize.gh") as scm:
                 self.assertEqual(finalize(self.args(directory)), 0)
                 scm.assert_not_called()
+
+    def test_pending_receipt_reconciles_active_request_without_resubmission(self) -> None:
+        changed_policy = policy(mode="lab-automatic")
+        self.evidence = build_evidence(eligible_snapshot(), changed_policy)
+        self.result = result_for(self.evidence)
+        receipts: list[str] = []
+        with tempfile.TemporaryDirectory() as directory:
+            with mock.patch("auto_merge_finalize.existing_receipt_phases", return_value={"pending"}), mock.patch(
+                "auto_merge_finalize.native_request_state", return_value="active"
+            ), mock.patch("auto_merge_finalize.post_receipt", side_effect=lambda _r, _n, body: receipts.append(body)), mock.patch(
+                "auto_merge_finalize.collect_fresh"
+            ) as collect, mock.patch("auto_merge_finalize.gh") as scm:
+                self.assertEqual(finalize(self.args(directory)), 0)
+                collect.assert_not_called()
+                scm.assert_not_called()
+        self.assertIn(":submitted -->", receipts[0])
 
 
 class RepositoryBoundaryTests(unittest.TestCase):
@@ -322,6 +377,28 @@ class RepositoryBoundaryTests(unittest.TestCase):
     def test_removed_readiness_workflow_cannot_duplicate_ci_scheduling(self) -> None:
         self.assertFalse((ROOT / ".github/workflows/auto-merge-ready.yml").exists())
 
+    def test_harness_and_queue_use_identical_semantic_policy(self) -> None:
+        harness = yaml.safe_load((ROOT / ".fullsend/harness/auto-merge.yaml").read_text(encoding="utf-8"))
+        ci = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
+        queue_env = ci["jobs"]["queue-authorization"]["steps"][1]["env"]
+        harness_env = harness["env"]["runner"]
+        mappings = {
+            "AUTO_MERGE_BASE_REF": "AUTO_MERGE_BASE_REF",
+            "AUTO_MERGE_POLICY_VERSION": "AUTO_MERGE_POLICY_VERSION",
+            "AUTO_MERGE_MODE": "AUTO_MERGE_MODE",
+            "AUTO_MERGE_SEMANTIC_REVIEWER": "AUTO_MERGE_SEMANTIC_REVIEWER",
+            "AUTO_MERGE_RISK_ASSESSMENT_PRODUCER": "AUTO_MERGE_RISK_ASSESSMENT_PRODUCER",
+            "AUTO_MERGE_ARTIFACT_CORRELATION_MINUTES": "AUTO_MERGE_ARTIFACT_CORRELATION_MINUTES",
+            "AUTO_MERGE_MAXIMUM_UNATTENDED_RISK": "AUTO_MERGE_MAXIMUM_UNATTENDED_RISK",
+            "AUTO_MERGE_HUMAN_SIGNAL_ASSOCIATIONS": "AUTO_MERGE_HUMAN_SIGNAL_ASSOCIATIONS",
+            "AUTO_MERGE_REVIEW_QUALITY_MODE": "AUTO_MERGE_REVIEW_QUALITY_MODE",
+            "AUTO_MERGE_REVIEW_QUALITY_MINIMUM_SCORE": "AUTO_MERGE_REVIEW_QUALITY_MINIMUM_SCORE",
+            "AUTO_MERGE_REVIEW_QUALITY_MINIMUM_SAMPLES": "AUTO_MERGE_REVIEW_QUALITY_MINIMUM_SAMPLES",
+            "AUTO_MERGE_CUSTOM_INSTRUCTIONS": "AUTO_MERGE_CUSTOM_INSTRUCTIONS",
+        }
+        for harness_key, queue_key in mappings.items():
+            self.assertEqual(str(harness_env[harness_key]), str(queue_env[queue_key]), harness_key)
+
     def test_collector_does_not_fetch_scm_policy_surfaces(self) -> None:
         source = (SCRIPTS / "auto_merge_gate.py").read_text(encoding="utf-8")
         for duplicate in ("check-runs", "/rulesets", "mergeable_state", "reviewThreads", "required_checks"):
@@ -331,9 +408,18 @@ class RepositoryBoundaryTests(unittest.TestCase):
         evidence = build_evidence(eligible_snapshot(), policy())
         request_key = "d" * 64
         receipt = receipt_markdown(result_for(evidence), evidence, "pending", "pending", request_key)
-        comments = [{"body": receipt, "user": {"login": "untrusted-user"}}]
+        comments = [[{"body": receipt, "user": {"login": "untrusted-user"}}]]
         with mock.patch("auto_merge_finalize.gh", return_value=json.dumps(comments)):
             self.assertEqual(existing_receipt_phases("fullsend-ai/auto-merge", 7, request_key), set())
+
+    def test_receipt_lookup_scans_all_pages(self) -> None:
+        evidence = build_evidence(eligible_snapshot(), policy())
+        request_key = "e" * 64
+        receipt = receipt_markdown(result_for(evidence), evidence, "submitted", "submitted", request_key)
+        pages = [[], [{"body": receipt, "user": {"login": "fullsend-ai-coder[bot]"}}]]
+        with mock.patch("auto_merge_finalize.gh", return_value=json.dumps(pages)) as request:
+            self.assertEqual(existing_receipt_phases("fullsend-ai/auto-merge", 7, request_key), {"submitted"})
+            self.assertIn("--paginate", request.call_args.args)
 
     def test_receipt_parser_rejects_embedded_marker(self) -> None:
         evidence = build_evidence(eligible_snapshot(), policy())

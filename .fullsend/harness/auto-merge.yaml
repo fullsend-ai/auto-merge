@@ -47,13 +47,13 @@ env:
     AUTO_MERGE_BASE_REF: "main"
     AUTO_MERGE_POLICY_VERSION: "lab-v3-scm-native"
     AUTO_MERGE_MODE: "lab-automatic"
-    AUTO_MERGE_ARTIFACT_CORRELATION_MINUTES: "15"
+    AUTO_MERGE_ARTIFACT_CORRELATION_MINUTES: "1"
     AUTO_MERGE_MAXIMUM_UNATTENDED_RISK: "moderate"
     AUTO_MERGE_HUMAN_SIGNAL_ASSOCIATIONS: "OWNER,MEMBER,COLLABORATOR"
     AUTO_MERGE_REVIEW_QUALITY_MODE: "off"
     AUTO_MERGE_REVIEW_QUALITY_MINIMUM_SCORE: "0.98"
     AUTO_MERGE_REVIEW_QUALITY_MINIMUM_SAMPLES: "50"
-    AUTO_MERGE_CUSTOM_INSTRUCTIONS: "Authorize only when no active trusted-human veto, coordination dependency, sequencing requirement, or unresolved contradiction makes unattended merge inappropriate. Never reinterpret SCM checks or branch policy."
+    AUTO_MERGE_CUSTOM_INSTRUCTIONS: "Do not authorize when trusted human context contains an unresolved request to pause, sequencing requirement, or required follow-up."
     FULLSEND_FORGE: github
     GH_TOKEN: ${GH_TOKEN}
     ISSUE_URL: ${GITHUB_ISSUE_URL}

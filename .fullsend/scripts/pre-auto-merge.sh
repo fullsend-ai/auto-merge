@@ -21,7 +21,7 @@ python3 "${SCRIPT_DIR}/auto_merge_gate.py" collect \
   --mode "${AUTO_MERGE_MODE:-observe}" \
   --semantic-reviewer "${AUTO_MERGE_SEMANTIC_REVIEWER:-}" \
   --risk-assessment-producer "${AUTO_MERGE_RISK_ASSESSMENT_PRODUCER:-}" \
-  --artifact-correlation-minutes "${AUTO_MERGE_ARTIFACT_CORRELATION_MINUTES:-15}" \
+  --artifact-correlation-minutes "${AUTO_MERGE_ARTIFACT_CORRELATION_MINUTES:-1}" \
   --maximum-unattended-risk "${AUTO_MERGE_MAXIMUM_UNATTENDED_RISK:-moderate}" \
   --human-signal-associations "${AUTO_MERGE_HUMAN_SIGNAL_ASSOCIATIONS:-OWNER,MEMBER,COLLABORATOR}" \
   --review-quality-mode "${AUTO_MERGE_REVIEW_QUALITY_MODE:-off}" \

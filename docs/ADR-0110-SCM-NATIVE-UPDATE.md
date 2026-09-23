@@ -35,6 +35,10 @@ repository's native direct or merge-queue path without recreating SCM policy.
 7. **Review quality is optional.** A repository may ignore, observe, or enforce
    trusted aggregate evaluation evidence such as `review_correctly_approved`.
    Repositories without that evaluation system remain supported.
+8. **Queue reauthorization covers every queued change.** A one-PR queue may
+   validate one receipt. Any forge configuration that batches multiple PRs
+   requires the trusted runtime to resolve every member and validate each
+   member's semantic authorization before its queue check succeeds.
 
 ## Wording to remove or avoid
 

@@ -233,15 +233,29 @@ def post_receipt(repository: str, number: int, body: str) -> None:
 
 
 def existing_receipt_phases(repository: str, number: int, request_key: str) -> set[str]:
-    payload = json.loads(gh("api", f"repos/{repository}/issues/{number}/comments?per_page=100"))
+    pages = json.loads(gh("api", "--paginate", "--slurp", f"repos/{repository}/issues/{number}/comments?per_page=100"))
+    if not isinstance(pages, list) or not all(isinstance(page, list) for page in pages):
+        raise GateError("GitHub returned malformed receipt pagination data")
     phases: set[str] = set()
-    for comment in payload if isinstance(payload, list) else []:
-        if str((comment.get("user") or {}).get("login") or "") not in TRUSTED_RECEIPT_AUTHORS:
-            continue
-        parsed = parse_receipt_header(str(comment.get("body") or ""))
-        if parsed and parsed["key"] == request_key and parsed["marker_key"] == request_key:
-            phases.add(parsed["phase"])
+    for page in pages:
+        for comment in page:
+            if str((comment.get("user") or {}).get("login") or "") not in TRUSTED_RECEIPT_AUTHORS:
+                continue
+            parsed = parse_receipt_header(str(comment.get("body") or ""))
+            if parsed and parsed["key"] == request_key and parsed["marker_key"] == request_key:
+                phases.add(parsed["phase"])
     return phases
+
+
+def native_request_state(repository: str, number: int) -> str:
+    payload = json.loads(
+        gh("pr", "view", str(number), "--repo", repository, "--json", "autoMergeRequest,mergedAt,state")
+    )
+    if payload.get("mergedAt") or str(payload.get("state") or "").upper() == "MERGED":
+        return "merged"
+    if payload.get("autoMergeRequest") is not None:
+        return "active"
+    return "absent"
 
 
 def finalize(args: argparse.Namespace) -> int:
@@ -269,6 +283,22 @@ def finalize(args: argparse.Namespace) -> int:
             post_receipt(repository, number, body)
         return 0
 
+    request_key = idempotency_key(binding, SCM_OPERATION)
+    if policy["mode"] == "lab-automatic":
+        phases = existing_receipt_phases(repository, number, request_key)
+        if "submitted" in phases:
+            print(f"auto-merge: request {request_key} is already submitted; no duplicate SCM request issued")
+            return 0
+        if "pending" in phases:
+            state = native_request_state(repository, number)
+            if state in {"active", "merged"}:
+                post_receipt(
+                    repository,
+                    number,
+                    receipt_markdown(result, evidence, "submitted", f"Reconciled an earlier pending request: GitHub reports {state}.", request_key),
+                )
+                return 0
+
     with tempfile.TemporaryDirectory(prefix="auto-merge-postflight-") as tmp:
         fresh = collect_fresh(args, Path(tmp) / "evidence.json")
     if fresh.get("context_fingerprint") != canonical_hash(fresh):
@@ -293,12 +323,6 @@ def finalize(args: argparse.Namespace) -> int:
         print(receipt_markdown(result, evidence, "observed", "Semantic authorization passed. Observe mode made no SCM request."))
         return 0
 
-    request_key = idempotency_key(binding, SCM_OPERATION)
-    phases = existing_receipt_phases(repository, number, request_key)
-    if phases & {"pending", "submitted"}:
-        print(f"auto-merge: request {request_key} already has phases {sorted(phases)}; no duplicate SCM request issued")
-        return 0
-
     post_receipt(repository, number, receipt_markdown(result, evidence, "pending", "Semantic authorization passed; SCM submission is pending.", request_key))
 
     with tempfile.TemporaryDirectory(prefix="auto-merge-final-context-") as tmp:
@@ -320,8 +344,16 @@ def finalize(args: argparse.Namespace) -> int:
             binding["head_sha"],
         )
     except GateError as exc:
-        post_receipt(repository, number, receipt_markdown(result, evidence, "scm-rejected", "GitHub rejected the request; no policy was bypassed.", request_key))
-        raise GateError("SCM submission failed closed") from exc
+        try:
+            state = native_request_state(repository, number)
+        except GateError:
+            post_receipt(repository, number, receipt_markdown(result, evidence, "outcome-unknown", "The SCM response was ambiguous and reconciliation failed; no retry was attempted in this run.", request_key))
+            raise GateError("SCM submission outcome is unknown and failed closed") from exc
+        if state in {"active", "merged"}:
+            post_receipt(repository, number, receipt_markdown(result, evidence, "submitted", f"The command response was ambiguous, but GitHub reconciliation reports {state}.", request_key))
+            return 0
+        post_receipt(repository, number, receipt_markdown(result, evidence, "scm-rejected", "GitHub confirms that no native auto-merge request is active; a later run may retry.", request_key))
+        raise GateError("SCM submission failed and GitHub reports no active request") from exc
 
     post_receipt(
         repository,

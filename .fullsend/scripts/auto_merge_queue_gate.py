@@ -109,7 +109,7 @@ def policy_from_env() -> dict[str, Any]:
             "mode": os.environ.get("AUTO_MERGE_MODE", "lab-automatic"),
             "semantic_reviewer": os.environ["AUTO_MERGE_SEMANTIC_REVIEWER"],
             "risk_assessment_producer": os.environ["AUTO_MERGE_RISK_ASSESSMENT_PRODUCER"],
-            "artifact_correlation_minutes": int(os.environ.get("AUTO_MERGE_ARTIFACT_CORRELATION_MINUTES", "15")),
+            "artifact_correlation_minutes": int(os.environ.get("AUTO_MERGE_ARTIFACT_CORRELATION_MINUTES", "1")),
             "maximum_unattended_risk": os.environ.get("AUTO_MERGE_MAXIMUM_UNATTENDED_RISK", "moderate"),
             "human_signal_associations": sorted(csv_values(os.environ.get("AUTO_MERGE_HUMAN_SIGNAL_ASSOCIATIONS", "OWNER,MEMBER,COLLABORATOR"))),
             "review_quality_mode": os.environ.get("AUTO_MERGE_REVIEW_QUALITY_MODE", "off"),
