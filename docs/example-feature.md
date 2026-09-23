@@ -16,4 +16,4 @@ configured policy all pass for the same revision.
 ## Verification
 
 Run `python3 scripts/validate_example.py` and confirm both pull-request CI jobs
-complete successfully.
+complete successfully. A successful validation command exits with status code 0.
