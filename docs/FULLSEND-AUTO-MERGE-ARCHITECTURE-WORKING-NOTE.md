@@ -18,7 +18,7 @@ The implementation should preserve the existing execution pattern:
 pre-script -> LLM -> post-script
 ```
 
-The pre-script performs inexpensive deterministic gating and can stop before an LLM call. The LLM performs the non-deterministic semantic judgment. The post-script revalidates authoritative state and invokes the configured forge merge mechanism.
+The pre-script performs inexpensive deterministic gating and can stop before an LLM call. The Review Agent performs the non-deterministic semantic code judgment. The Auto-Merge LLM validates that Review result for legibility and coherence before authorizing unattended execution. The post-script revalidates authoritative state and invokes the configured forge merge mechanism.
 
 > **Decision principle:** Forge approval is necessary, but not sufficient, for Fullsend approval. Fullsend must never bypass repository governance, and repository governance must not substitute for Fullsend's final authorization.
 
@@ -34,7 +34,8 @@ The Fullsend question is stronger:
 | --- | --- | --- |
 | Forge | Is this PR mergeable under this repository's configured rules? | Repository governance and integration mechanics |
 | Fullsend pre-script | Are all objective Fullsend prerequisites true right now? | Deterministic eligibility filtering |
-| Auto-Merge LLM | Should Fullsend authorize an unattended merge given the complete evidence? | Semantic/risk judgment |
+| Review Agent | Does the change satisfy its intent and meet correctness, security, and scope expectations? | Semantic review authority |
+| Auto-Merge LLM | Is the Review Agent's exact-head result legible, coherent, and safe to use for unattended authorization? | Review-result validation and authorization |
 | Fullsend post-script | Is the authorized state still current and safe to execute? | Deterministic revalidation and mutation |
 
 ## 3. Terminology and separation of concerns
@@ -101,13 +102,13 @@ The pre-script should contain as many high-confidence deterministic gates as pra
 
 ## 6. Auto-Merge LLM: the semantic gate
 
-The Auto-Merge LLM receives a compact but complete evidence package describing the final candidate state and the history that produced it. Its role is not to redo CI or branch protection. Its role is to reason about evidence that cannot be reduced cleanly to deterministic checks.
+The Auto-Merge LLM receives a compact but complete evidence package describing the final candidate state and the Review Agent result. The Review Agent remains the authority for correctness, security, and intent satisfaction. Auto-Merge does not redo that review; it checks whether the Review result is legible, internally consistent, exact-head bound, and safe to use as unattended authorization. If the Review Agent's conclusion appears hallucinated, contradictory, or insufficiently supported, Auto-Merge escalates instead of authorizing.
 
 Potential evidence inputs include:
 
-- Issue/refinement intent and acceptance criteria.
-- Final PR/MR diff and change summary.
-- Review Agent verdict and rationale.
+- Issue/refinement intent and acceptance criteria, as context for validating the Review result.
+- Final PR/MR diff and change summary, as context for checking that result's binding.
+- Review Agent verdict, rationale, and structured findings as the semantic authority.
 - Fix Agent history, including whether earlier findings were corrected.
 - Code Agent execution context and relevant decisions.
 - Test, security, quality, and CI summaries.
