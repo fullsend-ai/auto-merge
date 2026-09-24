@@ -197,7 +197,7 @@ def review_summary(snapshot: dict[str, Any], policy: dict[str, Any], attestation
             candidates.append((comment, head_match))
     matching = [item for item in candidates if item[1].group("head") == expected_head]
     if not matching:
-        return {"status": "MISSING", "head_sha": "", "comment_id": 0, "updated_at": ""}
+        return {"status": "MISSING", "head_sha": "", "comment_id": 0, "updated_at": "", "summary": ""}
     comment, match = max(
         matching,
         key=lambda item: (str(item[0].get("updated_at") or item[0].get("created_at") or ""), int(item[0].get("id") or 0)),
@@ -206,12 +206,15 @@ def review_summary(snapshot: dict[str, Any], policy: dict[str, Any], attestation
     review_time = parse_time(str(attestation.get("submitted_at") or ""))
     correlation_seconds = (review_time - summary_time).total_seconds() if summary_time and review_time else None
     current = correlation_seconds is not None and 0 <= correlation_seconds <= int(policy["artifact_correlation_minutes"]) * 60
+    review_text = REVIEW_HEAD_RE.sub("", str(comment.get("body") or ""), count=1)
+    review_text = review_text.replace(REVIEW_MARKER, "", 1).strip()[:MAX_COMMENT_CHARS]
     return {
         "status": "CURRENT" if current else "UNBOUND",
         "head_sha": match.group("head"),
         "comment_id": int(comment.get("id") or 0),
         "updated_at": str(comment.get("updated_at") or comment.get("created_at") or ""),
         "correlation_seconds": int(correlation_seconds) if correlation_seconds is not None else None,
+        "summary": review_text,
     }
 
 

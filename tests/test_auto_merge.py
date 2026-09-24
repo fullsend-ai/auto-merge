@@ -171,6 +171,20 @@ class SemanticGateTests(unittest.TestCase):
         snapshot["comments"][1] = review_summary_comment(head="d" * 40)
         self.assert_not_ready(snapshot, "Review summary")
 
+    def test_current_review_summary_preserves_bounded_reviewer_words(self) -> None:
+        snapshot = eligible_snapshot()
+        summary = evaluate_snapshot(snapshot, policy())["semantic_context"]["review_summary"]
+        self.assertEqual(summary["status"], "CURRENT")
+        self.assertIn("Looks good to me", summary["summary"])
+        self.assertNotIn("fullsend:review-agent", summary["summary"])
+        self.assertNotIn("Head SHA", summary["summary"])
+
+    def test_review_summary_text_is_bounded(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["comments"][1]["body"] += "\n" + ("x" * 10_000)
+        summary = evaluate_snapshot(snapshot, policy())["semantic_context"]["review_summary"]
+        self.assertEqual(len(summary["summary"]), 4_000)
+
     def test_risk_above_repository_semantic_policy_is_rejected(self) -> None:
         snapshot = eligible_snapshot()
         snapshot["comments"] = [risk_comment("high", 4), review_summary_comment()]

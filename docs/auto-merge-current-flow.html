@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auto-Merge: the current flow</title>
+  <style>
+    :root{--ink:#14202a;--muted:#64727d;--paper:#f3f0ea;--card:#fffdf8;--line:#d9d2c6;--det:#176b55;--sem:#60428f;--trust:#9a5d00;--scm:#1c6294;--fail:#a83228}
+    *{box-sizing:border-box} body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 Inter,ui-sans-serif,system-ui,sans-serif} main{max-width:1320px;margin:auto;padding:48px 30px 80px} h1{font-size:42px;line-height:1.02;margin:0 0 12px;letter-spacing:-.045em} h2{font-size:22px;margin:42px 0 12px} h3{font-size:16px;margin:0 0 6px} p{margin:8px 0;color:var(--muted)} a{color:#075eaa;text-decoration:underline;text-underline-offset:3px}.lede{font-size:18px;max-width:850px}.stamp{font:12px ui-monospace,SFMono-Regular,monospace;color:var(--muted);margin-top:15px}.key{display:flex;gap:8px;flex-wrap:wrap;margin:26px 0}.key span{padding:6px 10px;border:1px solid var(--line);background:var(--card);font-size:12px}.key .det{color:var(--det)}.key .sem{color:var(--sem)}.key .scm{color:var(--scm)}
+    .diagram{display:grid;grid-template-columns:repeat(4,minmax(210px,1fr));gap:0;background:#1b2928;border:0;border-radius:4px;overflow:hidden;padding:0}.lane{position:relative;border:0;border-right:1px solid #49625e;border-radius:0;padding:22px 17px 24px;margin:0;background:transparent;min-height:560px}.lane:last-child{border-right:0}.lane h2{margin:0 0 24px;color:#f4f2e9;font-size:13px;line-height:1.3;letter-spacing:.08em;text-transform:uppercase}.lane h2:before{display:block;color:#91c9b3;font:11px ui-monospace,SFMono-Regular,monospace;margin-bottom:10px}.lane:nth-child(1) h2:before{content:'01 / GATE'}.lane:nth-child(2) h2:before{content:'02 / THINK'}.lane:nth-child(3) h2:before{content:'03 / AUTHORIZE'}.lane:nth-child(4) h2:before{content:'04 / HAND OFF'}
+    .lane:after{content:'→';position:absolute;top:47%;right:-13px;z-index:3;width:25px;height:25px;border-radius:50%;background:#f1c46b;color:#1b2928;text-align:center;font-weight:800;line-height:25px}.lane:last-child:after{display:none}.lane.trusted{border-top:5px solid #58a982}.lane.sandbox{border-top:5px solid #9a76cb}.lane.scm{border-top:5px solid #6aaed2}.nodes{display:flex;flex-direction:column;gap:10px}.node{display:block;text-decoration:none;color:var(--ink);border:0;border-left:5px solid var(--det);background:var(--card);padding:13px 13px 14px;min-height:0;transition:transform .12s,background .12s}.node:hover{transform:translateX(4px);background:#fff}.node.sem{border-left-color:var(--sem)}.node.trust{border-left-color:var(--trust)}.node.scm{border-left-color:var(--scm)}.node.fail{border-left-color:var(--fail)}.tag{font:10px ui-monospace,SFMono-Regular,monospace;letter-spacing:.08em;font-weight:800;color:var(--det);text-transform:uppercase}.sem .tag{color:var(--sem)}.trust .tag{color:var(--trust)}.scm .tag{color:var(--scm)}.fail .tag{color:var(--fail)}.node strong{display:block;font-size:16px;line-height:1.15;margin:5px 0}.node small{display:block;color:var(--muted);font-size:12px;line-height:1.45}.arrow{display:none}.branch{display:flex;flex-direction:column;gap:8px;margin-top:13px}.outcome{padding:11px 12px;background:#f8f4e9;border-left:4px solid #a83228}.outcome h3{font-size:13px;margin-bottom:4px}.outcome p{font-size:12px}.outcome.stop{border-color:var(--fail)}.outcome.go{border-color:#d59b25}
+    .callout{border-left:4px solid #d59b25;background:#f8f1df;padding:12px 14px;margin:16px 0;font-size:13px}.diagram .callout{margin:20px 0 0;background:#253b38;color:#dbe9df;border-left-color:#d59b25}.diagram .callout strong{color:#f1c46b}.diagram .callout p{color:#c1d2ca}.explain{display:grid;grid-template-columns:1fr 1fr;gap:18px}.panel{background:var(--card);border:1px solid var(--line);padding:19px}.panel ul{margin:8px 0 0;padding-left:20px}.panel li{margin:8px 0}.panel.det{border-top:4px solid var(--det)}.panel.sem{border-top:4px solid var(--sem)}.panel.scm{border-top:4px solid var(--scm)}.source-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.source{display:block;background:var(--card);border:1px solid var(--line);padding:14px;text-decoration:none;color:inherit}.source:hover{border-color:#1f6feb}.source code{display:block;font-size:12px;color:var(--muted);margin-top:6px;overflow-wrap:anywhere}.json-note{font-size:13px;max-width:850px}.json-example{margin:15px 0 0;padding:20px;overflow:auto;background:#182321;color:#dbe9df;border-left:5px solid #d59b25;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre}.json-example .key{display:inline;margin:0;padding:0;border:0;background:transparent;color:#9ed7b8;font:inherit}.json-example .string{color:#f3c982}.json-example .number{color:#9cc9e8}.foot{font-size:12px;color:var(--muted);margin-top:24px}@media(max-width:1050px){.diagram{grid-template-columns:repeat(2,1fr)}.lane:nth-child(2){border-right:0}.lane:nth-child(-n+2){border-bottom:1px solid #49625e}.lane:nth-child(2):after{display:none}}@media(max-width:650px){main{padding:30px 15px}h1{font-size:33px}.diagram,.explain,.source-grid{grid-template-columns:1fr}.lane{border-right:0!important;border-bottom:1px solid #49625e!important;min-height:0}.lane:after{display:none!important}}
+  </style>
+</head>
+<body>
+<main>
+  <h1>Auto-Merge: the current flow</h1>
+  <p class="lede">A simple map of what happens before the model runs, what the model is allowed to decide, and what the trusted runtime rechecks before asking GitHub to merge. Click any box to open the exact implementation or hosted evidence.</p>
+  <p class="stamp">Current implementation: <a href="https://github.com/fullsend-ai/auto-merge/tree/fc04011245936a86f2265c4fbde6c0d8548fde40">fc04011</a> on <code>main</code>. Smoke test: <a href="https://github.com/fullsend-ai/auto-merge/pull/11">PR #11</a>.</p>
+  <div class="key"><span class="det">Green = deterministic trusted checks</span><span class="sem">Purple = non-deterministic semantic judgment</span><span class="trust">Gold = trusted host action</span><span class="scm">Blue = GitHub / SCM responsibility</span></div>
+
+  <div class="diagram">
+    <div class="lane trusted">
+      <h2>1 · Trusted Fullsend pre-script — before the model is called</h2>
+      <div class="nodes">
+        <a class="node" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.fullsend/harness/auto-merge.yaml#L69-L104" target="_blank"><span class="tag">Trigger</span><strong>Wake up</strong><small>Automatic handoff on a trusted Review Agent approval; authorized human comment/manual request remains available.</small></a>
+        <a class="node" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.fullsend/scripts/pre-auto-merge.sh#L16-L32" target="_blank"><span class="tag">D1 · collect</span><strong>Read live SCM facts</strong><small>Fetch the pull request, base branch, reviews, comments, risk assessment, and optional quality evidence into secret-free evidence.</small></a>
+        <a class="node" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.fullsend/scripts/auto_merge_gate.py#L364-L411" target="_blank"><span class="tag">D2 · gate</span><strong>Check prerequisites</strong><small>Open, non-draft, exact repository/base, same-repository head, current Review approval, current risk, bounded human context, and allowed risk.</small></a>
+        <a class="node fail" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.fullsend/scripts/pre-auto-merge.sh#L34-L43" target="_blank"><span class="tag">Fail closed</span><strong>Stop before model</strong><small>If prerequisites are missing or stale, record the reason and do not spend a semantic-agent run.</small></a>
+      </div>
+      <div class="arrow">↓</div>
+      <div class="callout"><strong>Important boundary:</strong> these checks do not decide whether GitHub’s required CI, review count, conversation resolution, branch freshness, mergeability, or queue policy passes. GitHub remains the authority for those mechanical facts.</div>
+    </div>
+
+    <div class="lane sandbox">
+      <h2>2 · Fullsend agent runtime — inside the OpenShell sandbox</h2>
+      <div class="nodes">
+        <a class="node sem" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.fullsend/agents/auto-merge.md#L8-L19" target="_blank"><span class="tag">N1 · input</span><strong>Read bound evidence</strong><small>The agent sees the exact revision, Review attestation, risk rationale, human signals, optional quality evidence, and repository instructions.</small></a>
+        <a class="node sem" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.fullsend/agents/auto-merge.md#L36-L63" target="_blank"><span class="tag">N2 · judgment</span><strong>Make semantic decision</strong><small>Assess intended outcome, risk, coordination, follow-up, and unresolved human “hold / do not merge” context.</small></a>
+        <a class="node sem" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.fullsend/agents/auto-merge.md#L64-L96" target="_blank"><span class="tag">N3 · output</span><strong>Return JSON only</strong><small>AUTHORIZE, DEFER, or ESCALATE with reasons, blockers, comment IDs, and an unchanged binding.</small></a>
+        <a class="node sem" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.fullsend/harness/auto-merge.yaml#L11-L18" target="_blank"><span class="tag">Sandbox boundary</span><strong>No merge authority</strong><small>The model has read/write-to-output tools only; GitHub credentials and merge authority stay outside the sandbox.</small></a>
+      </div>
+      <div class="arrow">↓</div>
+    </div>
+
+    <div class="lane trusted">
+      <h2>3 · Trusted Fullsend post-script — after the model responds</h2>
+      <div class="nodes">
+        <a class="node trust" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.fullsend/scripts/auto_merge_finalize.py#L76-L105" target="_blank"><span class="tag">D3 · validate</span><strong>Validate result</strong><small>Require a valid decision, exact binding, bounded reasons/blockers, and ready prerequisites. AUTHORIZE cannot contain blockers.</small></a>
+        <a class="node trust" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.fullsend/scripts/auto_merge_finalize.py#L259-L318" target="_blank"><span class="tag">D4 · postflight</span><strong>Collect fresh evidence</strong><small>Re-fetch semantic state, verify fingerprints and policy, and stop if the head, base, policy, or context changed.</small></a>
+        <a class="node trust" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.fullsend/scripts/auto_merge_finalize.py#L320-L330" target="_blank"><span class="tag">D5 · mode</span><strong>Observe or authorize</strong><small>Observe mode records the decision without mutation. Automatic mode writes a pending receipt, performs one final fresh check, then proceeds.</small></a>
+        <a class="node trust" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.fullsend/scripts/auto_merge_finalize.py#L332-L354" target="_blank"><span class="tag">A · SCM request</span><strong>Ask GitHub to merge</strong><small>Use native <code>gh pr merge --auto --squash --match-head-commit</code>; never bypass GitHub’s configured path.</small></a>
+      </div>
+      <div class="branch"><div class="outcome stop"><h3>DEFER / ESCALATE</h3><p>Write or print a receipt, make no merge request, and leave the PR for human attention or a later context change.</p></div><div class="outcome go"><h3>AUTHORIZE</h3><p>After fresh validation, submit the exact head to GitHub’s native direct or queue path. The agent is done at this handoff.</p></div></div>
+    </div>
+
+    <div class="lane scm">
+      <h2>4 · GitHub / SCM — final mechanical authority</h2>
+      <div class="nodes">
+        <a class="node scm" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.github/workflows/ci.yml#L3-L31" target="_blank"><span class="tag">SCM · checks</span><strong>Required CI and checks</strong><small>GitHub decides whether repository-configured status checks pass. The demo includes a quick check and a four-minute illustrative check.</small></a>
+        <a class="node scm" href="https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue" target="_blank"><span class="tag">SCM · queue</span><strong>Direct or queue path</strong><small>If the repository requires a merge queue, GitHub queues the exact requested head; otherwise its normal native auto-merge path applies.</small></a>
+        <a class="node scm" href="https://github.com/fullsend-ai/auto-merge/pull/11" target="_blank"><span class="tag">Hosted proof</span><strong>Smoke PR #11</strong><small>One signed-off documentation change on main; Fullsend routing, harness dispatch, Example Contract, DCO, and Review ran without a repository ruleset.</small></a>
+        <a class="node scm" href="https://github.com/fullsend-ai/auto-merge/pull/10" target="_blank"><span class="tag">Earlier proof</span><strong>PR #10</strong><small>Implementation PR that removed the lab-only queue gate. It is historical evidence, not the portable agent’s runtime dependency.</small></a>
+      </div>
+    </div>
+  </div>
+
+  <h2>Exactly what is deterministic vs. semantic</h2>
+  <div class="explain">
+    <section class="panel det"><h3>Deterministic, trusted checks</h3><ul><li>Trigger actor, event type, repository, fork status, PR state, draft state, base ref, and exact head/base SHAs.</li><li>Exact-head Review Agent approval and current risk assessment are present and bound to the same run.</li><li>Policy fingerprints, semantic fingerprints, context fingerprints, schema, decision, blockers, and evidence comment IDs match.</li><li>Risk is within the configured maximum; optional quality evidence is enforced only when configured.</li><li>Fresh postflight sees the same immutable binding before any SCM request; idempotency avoids duplicate native requests.</li></ul></section>
+    <section class="panel sem"><h3>Non-deterministic semantic judgment</h3><ul><li>Does the change achieve its intended outcome, rather than merely pass CI?</li><li>Is its assessed scope and risk appropriate for unattended merging?</li><li>Does a human comment express “do not merge”, a hold, sequencing dependency, coordination need, or required follow-up?</li><li>Does the risk rationale and optional Review-quality signal support trusting this specific run?</li><li>Should the result be AUTHORIZE, DEFER, or ESCALATE when the evidence is ambiguous?</li></ul></section>
+  </div>
+  <div class="callout"><strong>What this does not duplicate:</strong> Auto-Merge does not reimplement GitHub’s required-check evaluation, review-count rules, conversation-resolution rules, branch freshness, mergeability, or queue mechanics. It adds the semantic authority boundary around the questions GitHub cannot infer from SCM state alone, then hands the exact revision back to GitHub.</div>
+
+  <h2>Source map</h2>
+  <div class="source-grid">
+    <a class="source" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.fullsend/scripts/auto_merge_gate.py#L364-L411" target="_blank"><strong>Preflight evaluator</strong><code>auto_merge_gate.py:364-411</code></a>
+    <a class="source" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.fullsend/scripts/auto_merge_gate.py#L343-L360" target="_blank"><strong>Semantic context assembly</strong><code>auto_merge_gate.py:343-360</code></a>
+    <a class="source" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.fullsend/scripts/auto_merge_finalize.py#L259-L354" target="_blank"><strong>Trusted finalization</strong><code>auto_merge_finalize.py:259-354</code></a>
+    <a class="source" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.fullsend/agents/auto-merge.md" target="_blank"><strong>Agent contract</strong><code>.fullsend/agents/auto-merge.md</code></a>
+    <a class="source" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.fullsend/harness/auto-merge.yaml#L69-L104" target="_blank"><strong>CEL-style trigger</strong><code>auto-merge.yaml:69-104</code></a>
+    <a class="source" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.github/workflows/auto-merge-context.yml#L19-L105" target="_blank"><strong>Supplementary context workflow</strong><code>auto-merge-context.yml:19-105</code></a>
+  </div>
+  <h2>Example: <code>.fullsend-runtime/auto-merge-evidence.json</code></h2>
+  <p class="json-note">This is a sanitized illustrative output from the trusted pre-script. The zeroed and repeated hexadecimal values are placeholders, not live SHAs or fingerprints. The actual file is created inside the target checkout for one run and is then consumed by the agent and trusted post-script.</p>
+  <pre class="json-example"><code>{
+  <span class="key">"schema_version"</span>: <span class="string">"2"</span>,
+  <span class="key">"captured_at"</span>: <span class="string">"2026-09-24T16:00:00Z"</span>,
+  <span class="key">"binding"</span>: {
+    <span class="key">"repository"</span>: <span class="string">"fullsend-ai/auto-merge"</span>,
+    <span class="key">"pull_request_number"</span>: <span class="number">11</span>,
+    <span class="key">"head_sha"</span>: <span class="string">"0000000000000000000000000000000000000000"</span>,
+    <span class="key">"base_ref"</span>: <span class="string">"main"</span>,
+    <span class="key">"base_sha"</span>: <span class="string">"1111111111111111111111111111111111111111"</span>,
+    <span class="key">"policy_fingerprint"</span>: <span class="string">"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"</span>,
+    <span class="key">"semantic_fingerprint"</span>: <span class="string">"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"</span>,
+    <span class="key">"context_fingerprint"</span>: <span class="string">"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"</span>
+  },
+  <span class="key">"pull_request"</span>: {
+    <span class="key">"url"</span>: <span class="string">"https://github.com/fullsend-ai/auto-merge/pull/11"</span>,
+    <span class="key">"title"</span>: <span class="string">"test: exercise autonomous auto-merge agent"</span>,
+    <span class="key">"author"</span>: <span class="string">"example-author"</span>
+  },
+  <span class="key">"policy"</span>: {
+    <span class="key">"repository"</span>: <span class="string">"fullsend-ai/auto-merge"</span>,
+    <span class="key">"base_ref"</span>: <span class="string">"main"</span>,
+    <span class="key">"mode"</span>: <span class="string">"lab-automatic"</span>,
+    <span class="key">"maximum_unattended_risk"</span>: <span class="string">"moderate"</span>,
+    <span class="key">"review_quality_mode"</span>: <span class="string">"off"</span>,
+    <span class="key">"human_signal_associations"</span>: [<span class="string">"COLLABORATOR"</span>, <span class="string">"MEMBER"</span>, <span class="string">"OWNER"</span>]
+  },
+  <span class="key">"prerequisites"</span>: {
+    <span class="key">"ready_for_semantic_evaluation"</span>: <span class="number">true</span>,
+    <span class="key">"failures"</span>: [],
+    <span class="key">"scm_policy_checked"</span>: <span class="number">false</span>,
+    <span class="key">"note"</span>: <span class="string">"SCM owns checks, review counts, conversations, mergeability, branch freshness, and queue policy."</span>
+  },
+  <span class="key">"semantic_context"</span>: {
+    <span class="key">"review_attestation"</span>: {
+      <span class="key">"authority"</span>: <span class="string">"fullsend-review-agent"</span>,
+      <span class="key">"decision"</span>: <span class="string">"APPROVE"</span>,
+      <span class="key">"head_sha"</span>: <span class="string">"0000000000000000000000000000000000000000"</span>,
+      <span class="key">"review_id"</span>: <span class="number">123456</span>
+    },
+    <span class="key">"review_summary"</span>: {
+      <span class="key">"status"</span>: <span class="string">"CURRENT"</span>,
+      <span class="key">"head_sha"</span>: <span class="string">"0000000000000000000000000000000000000000"</span>,
+      <span class="key">"comment_id"</span>: <span class="number">123457</span>,
+      <span class="key">"summary"</span>: <span class="string">"The implementation satisfies the stated intent. No blocking correctness or security findings remain."</span>
+    },
+    <span class="key">"risk_assessment"</span>: {
+      <span class="key">"authority"</span>: <span class="string">"fullsend-risk-assessment"</span>,
+      <span class="key">"status"</span>: <span class="string">"CURRENT"</span>,
+      <span class="key">"level"</span>: <span class="string">"low"</span>,
+      <span class="key">"score"</span>: <span class="number">1</span>,
+      <span class="key">"comment_id"</span>: <span class="number">123458</span>,
+      <span class="key">"correlated_review_id"</span>: <span class="number">123456</span>
+    },
+    <span class="key">"human_signals"</span>: [],
+    <span class="key">"human_signal_integrity"</span>: {<span class="key">"trusted_total"</span>: <span class="number">0</span>, <span class="key">"untrusted_total"</span>: <span class="number">0</span>, <span class="key">"trusted_truncated"</span>: <span class="number">false</span>, <span class="key">"untrusted_truncated"</span>: <span class="number">false</span>},
+    <span class="key">"review_quality"</span>: {<span class="key">"status"</span>: <span class="string">"UNAVAILABLE"</span>}
+  },
+  <span class="key">"context_fingerprint"</span>: <span class="string">"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"</span>
+}</code></pre>
+  <p class="foot">This page describes the implementation on commit fc04011 and the current smoke-test evidence available from PR #11. A running review is not the same as an approved semantic attestation, and a passed CI check is not proof that Auto-Merge has submitted or completed a merge.</p>
+</main>
+</body>
+</html>
