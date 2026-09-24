@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auto-Merge: real queue flow</title>
+  <style>
+    :root {
+      --ink: #17211f;
+      --muted: #586762;
+      --paper: #f5f7f4;
+      --panel: #ffffff;
+      --line: #aab8b2;
+      --host: #0e6f58;
+      --host-fill: #e2f3ec;
+      --agent: #6d4ba3;
+      --agent-fill: #eee8fa;
+      --scm: #256795;
+      --scm-fill: #e5f0f8;
+      --queue: #a06400;
+      --queue-fill: #fff0ce;
+      --stop: #a43c35;
+      --stop-fill: #fae4e1;
+      --link: #075eaa;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font: 15px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    a { color: var(--link); }
+    a:focus-visible, button:focus-visible { outline: 3px solid #f0a30a; outline-offset: 3px; }
+    .page { max-width: 1500px; margin: 0 auto; padding: 28px; }
+    .eyebrow { color: var(--host); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 4px 0 8px; font-size: clamp(30px, 4vw, 48px); line-height: 1.05; }
+    .lede { max-width: 900px; margin: 0 0 22px; font-size: 18px; color: var(--muted); }
+    .key { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 20px 0 28px; }
+    .key-item { background: var(--panel); border: 1px solid var(--line); padding: 12px 14px; }
+    .key-swatch { display: inline-block; width: 12px; height: 12px; margin-right: 7px; vertical-align: -1px; border: 1px solid var(--ink); }
+    .host { background: var(--host-fill); border-color: var(--host); }
+    .agent { background: var(--agent-fill); border-color: var(--agent); }
+    .scm { background: var(--scm-fill); border-color: var(--scm); }
+    .queue { background: var(--queue-fill); border-color: var(--queue); }
+    .stop { background: var(--stop-fill); border-color: var(--stop); }
+    .section { margin: 26px 0; }
+    .section h2 { margin: 0 0 6px; font-size: 24px; }
+    .section-intro { margin: 0 0 14px; color: var(--muted); }
+    .diagram-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); padding: 16px; }
+    svg { display: block; width: 100%; min-width: 1120px; height: auto; }
+    .boundary { fill: none; stroke-width: 2; stroke-dasharray: 8 6; vector-effect: non-scaling-stroke; }
+    .boundary-label { font-size: 13px; font-weight: 800; letter-spacing: .1em; }
+    .node rect { stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+    .node text { pointer-events: none; }
+    .node-title { font-size: 16px; font-weight: 800; }
+    .node-copy { font-size: 13px; fill: #40504b; }
+    .node-step { font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+    .node a:hover rect { stroke-width: 3; }
+    .connector { fill: none; stroke: #44544f; stroke-width: 2.2; marker-end: url(#arrow); vector-effect: non-scaling-stroke; }
+    .connector.host-line { stroke: var(--host); marker-end: url(#arrow-host); }
+    .connector.agent-line { stroke: var(--agent); marker-end: url(#arrow-agent); }
+    .connector.scm-line { stroke: var(--scm); marker-end: url(#arrow-scm); }
+    .connector.queue-line { stroke: var(--queue); marker-end: url(#arrow-queue); }
+    .connector.stop-line { stroke: var(--stop); marker-end: url(#arrow-stop); }
+    .edge-label { font-size: 12px; font-weight: 700; fill: #33423e; }
+    .tiny { font-size: 11px; fill: var(--muted); }
+    .panel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .card { background: var(--panel); border: 1px solid var(--line); padding: 18px; }
+    .card h3 { margin: 0 0 7px; font-size: 18px; }
+    .card p { margin: 7px 0; }
+    .card ul { margin: 8px 0 0; padding-left: 20px; }
+    .card li { margin: 5px 0; }
+    .badge { display: inline-block; padding: 2px 7px; border: 1px solid currentColor; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    .badge.host-b { color: var(--host); }
+    .badge.agent-b { color: var(--agent); }
+    .badge.scm-b { color: var(--scm); }
+    .badge.queue-b { color: var(--queue); }
+    .evidence { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .evidence a { display: block; font-weight: 750; }
+    .evidence small { display: block; margin-top: 4px; color: var(--muted); }
+    .source-list { columns: 2; column-gap: 28px; }
+    .source-list li { break-inside: avoid; margin: 8px 0; }
+    .source-list code, code { font: 0.92em ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .callout { border-left: 5px solid var(--host); background: var(--host-fill); padding: 14px 16px; }
+    .callout strong { display: block; margin-bottom: 4px; }
+    @media (max-width: 800px) {
+      .page { padding: 18px; }
+      .key, .panel-grid, .evidence { grid-template-columns: 1fr; }
+      .source-list { columns: 1; }
+      .lede { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="vis-sr-only" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden">Clickable flow map of the Fullsend Auto-Merge proof on pull request 9, showing where GitHub, trusted Fullsend scripts, the OpenShell agent, and the merge queue each act.</div>
+    <div class="eyebrow">Fullsend Auto-Merge · real proof, not a conceptual mockup</div>
+    <h1>What actually happens before a PR merges</h1>
+    <p class="lede">This map follows <a href="https://github.com/fullsend-ai/auto-merge/pull/9" target="_blank" rel="noopener">PR #9</a> from a human hold, through semantic authorization, into GitHub’s merge queue. Click any numbered box or evidence link to open the exact implementation, comment, workflow run, or merge-group run.</p>
+
+    <div class="key" aria-label="Diagram legend">
+      <div><span class="key-swatch host"></span><strong>Trusted Fullsend host</strong><br><small>pre-script and post-script</small></div>
+      <div><span class="key-swatch agent"></span><strong>OpenShell agent runtime</strong><br><small>semantic decision only</small></div>
+      <div><span class="key-swatch scm"></span><strong>GitHub / SCM</strong><br><small>events and native policy</small></div>
+      <div><span class="key-swatch queue"></span><strong>Merge queue</strong><br><small>fresh checks and final merge</small></div>
+    </div>
+
+    <section class="section" id="flow">
+      <h2>The real end-to-end flow</h2>
+      <p class="section-intro">The important boundary is simple: Fullsend decides whether semantic context permits a request; GitHub decides whether and how that request can merge.</p>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 1440 1390" role="img" aria-labelledby="svg-title svg-desc">
+          <title id="svg-title">Fullsend Auto-Merge real flow for PR 9</title>
+          <desc id="svg-desc">A two-path flow. The first run detects an unresolved human hold and stops before requesting merge. After a clearance comment, the second run verifies semantic evidence, requests GitHub native auto-merge, enters the merge queue, reruns required checks on the merge group, and merges.</desc>
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#44544f"/></marker>
+            <marker id="arrow-host" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#0e6f58"/></marker>
+            <marker id="arrow-agent" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#6d4ba3"/></marker>
+            <marker id="arrow-scm" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#256795"/></marker>
+            <marker id="arrow-queue" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#a06400"/></marker>
+            <marker id="arrow-stop" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#a43c35"/></marker>
+          </defs>
+
+          <text x="40" y="34" font-size="25" font-weight="800">PR #9 · two attempts, one final merge</text>
+          <text x="40" y="59" class="tiny">The first attempt proves a hold is respected. The second proves clearance, queue entry, fresh queue checks, and merge.</text>
+
+          <rect x="30" y="80" width="1380" height="190" rx="12" class="boundary" stroke="var(--scm)"/>
+          <text x="52" y="108" class="boundary-label" fill="var(--scm)">GITHUB / SCM EVENT SURFACE</text>
+          <rect x="30" y="300" width="1380" height="330" rx="12" class="boundary" stroke="var(--host)"/>
+          <text x="52" y="328" class="boundary-label" fill="var(--host)">TRUSTED FULLSEND HOST · OUTSIDE OPENSHELL</text>
+          <rect x="30" y="660" width="1380" height="235" rx="12" class="boundary" stroke="var(--agent)"/>
+          <text x="52" y="688" class="boundary-label" fill="var(--agent)">FULLSEND AGENT RUNTIME · OPENSHELL SANDBOX</text>
+          <rect x="30" y="925" width="1380" height="425" rx="12" class="boundary" stroke="var(--queue)"/>
+          <text x="52" y="953" class="boundary-label" fill="var(--queue)">GITHUB MERGE QUEUE · FRESH MERGE-GROUP REVISION</text>
+
+          <path d="M270 180 H330" class="connector scm-line"/>
+          <path d="M600 180 H660" class="connector scm-line"/>
+          <path d="M930 180 H990" class="connector scm-line"/>
+          <path d="M1125 245 V365" class="connector host-line"/>
+          <path d="M270 450 H330" class="connector host-line"/>
+          <path d="M600 450 H660" class="connector host-line"/>
+          <path d="M930 450 H990" class="connector host-line"/>
+          <path d="M1125 535 V715" class="connector agent-line"/>
+          <path d="M1260 800 V1000" class="connector queue-line"/>
+          <path d="M390 1040 H450" class="connector queue-line"/>
+          <path d="M700 1040 H760" class="connector queue-line"/>
+          <path d="M1010 1040 H1070" class="connector queue-line"/>
+          <path d="M1260 1110 V1190" class="connector queue-line"/>
+
+          <text x="286" y="169" class="edge-label">comment / event</text>
+          <text x="616" y="169" class="edge-label">authorized context</text>
+          <text x="946" y="169" class="edge-label">dispatch</text>
+          <text x="1142" y="304" class="edge-label">trusted runner starts</text>
+          <text x="286" y="439" class="edge-label">snapshot</text>
+          <text x="616" y="439" class="edge-label">evidence file</text>
+          <text x="946" y="439" class="edge-label">validated result</text>
+          <text x="1142" y="678" class="edge-label">result enters post-script</text>
+          <text x="1276" y="902" class="edge-label">native request</text>
+          <text x="400" y="1030" class="edge-label">queue ref</text>
+          <text x="710" y="1030" class="edge-label">checks requested</text>
+          <text x="1020" y="1030" class="edge-label">all required checks pass</text>
+
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/pull/9#issuecomment-5805424651" target="_blank" rel="noopener" aria-label="Open PR 9 human hold comment">
+              <rect x="60" y="130" width="210" height="100" rx="10" fill="var(--scm-fill)" stroke="var(--scm)"/>
+              <text x="78" y="154" class="node-step" fill="var(--scm)">1 · INPUT</text><text x="78" y="179" class="node-title">Human hold</text><text x="78" y="201" class="node-copy">“Please do not merge yet”</text><text x="78" y="219" class="node-copy">comment 5805424651</text>
+            </a>
+          </g>
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/blob/main/.github/workflows/auto-merge-context.yml#L3-L21" target="_blank" rel="noopener" aria-label="Open semantic context workflow trigger">
+              <rect x="330" y="130" width="270" height="100" rx="10" fill="var(--scm-fill)" stroke="var(--scm)"/>
+              <text x="348" y="154" class="node-step" fill="var(--scm)">2 · TRIGGER</text><text x="348" y="179" class="node-title">Semantic context workflow</text><text x="348" y="201" class="node-copy">issue_comment: created / edited</text><text x="348" y="219" class="node-copy">not a CI or review substitute</text>
+            </a>
+          </g>
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/blob/main/.github/workflows/auto-merge-context.yml#L29-L77" target="_blank" rel="noopener" aria-label="Open actor authorization and dispatch code">
+              <rect x="660" y="130" width="270" height="100" rx="10" fill="var(--scm-fill)" stroke="var(--scm)"/>
+              <text x="678" y="154" class="node-step" fill="var(--scm)">3 · GATE</text><text x="678" y="179" class="node-title">Authorize the actor</text><text x="678" y="201" class="node-copy">PR author, write actor, or</text><text x="678" y="219" class="node-copy">trusted risk-assessment bot</text>
+            </a>
+          </g>
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/actions/runs/35991790484" target="_blank" rel="noopener" aria-label="Open second semantic context workflow run">
+              <rect x="990" y="130" width="270" height="100" rx="10" fill="var(--scm-fill)" stroke="var(--scm)"/>
+              <text x="1008" y="154" class="node-step" fill="var(--scm)">4 · DISPATCH</text><text x="1008" y="179" class="node-title">Fullsend run 35991790484</text><text x="1008" y="201" class="node-copy">11:13:42Z · 4m46s agent run</text><text x="1008" y="219" class="node-copy">opened after clearance</text>
+            </a>
+          </g>
+
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/scripts/pre-auto-merge.sh#L1-L43" target="_blank" rel="noopener" aria-label="Open trusted pre-script">
+              <rect x="60" y="400" width="210" height="100" rx="10" fill="var(--host-fill)" stroke="var(--host)"/>
+              <text x="78" y="424" class="node-step" fill="var(--host)">5 · PRE-SCRIPT</text><text x="78" y="449" class="node-title">Collect evidence</text><text x="78" y="471" class="node-copy">trusted GitHub snapshot</text><text x="78" y="489" class="node-copy">writes secret-free JSON</text>
+            </a>
+          </g>
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/scripts/auto_merge_gate.py#L82-L139" target="_blank" rel="noopener" aria-label="Open evidence collector">
+              <rect x="330" y="400" width="270" height="100" rx="10" fill="var(--host-fill)" stroke="var(--host)"/>
+              <text x="348" y="424" class="node-step" fill="var(--host)">6 · COLLECT</text><text x="348" y="449" class="node-title">Build semantic evidence</text><text x="348" y="471" class="node-copy">review, risk, human context,</text><text x="348" y="489" class="node-copy">exact head and fingerprints</text>
+            </a>
+          </g>
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/harness/auto-merge.yaml#L13-L38" target="_blank" rel="noopener" aria-label="Open Fullsend harness privileges">
+              <rect x="660" y="400" width="270" height="100" rx="10" fill="var(--host-fill)" stroke="var(--host)"/>
+              <text x="678" y="424" class="node-step" fill="var(--host)">7 · BOUNDARY</text><text x="678" y="449" class="node-title">Runtime contract</text><text x="678" y="471" class="node-copy">pre: read · runtime: read</text><text x="678" y="489" class="node-copy">post: write</text>
+            </a>
+          </g>
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/agents/auto-merge.md#L11-L15" target="_blank" rel="noopener" aria-label="Open agent boundary instructions">
+              <rect x="990" y="400" width="270" height="100" rx="10" fill="var(--host-fill)" stroke="var(--host)"/>
+              <text x="1008" y="424" class="node-step" fill="var(--host)">8 · HANDOFF</text><text x="1008" y="449" class="node-title">Read-only sandbox input</text><text x="1008" y="471" class="node-copy">agent receives evidence,</text><text x="1008" y="489" class="node-copy">not GitHub authority</text>
+            </a>
+          </g>
+
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/agents/auto-merge.md#L28-L90" target="_blank" rel="noopener" aria-label="Open semantic auto-merge agent instructions">
+              <rect x="60" y="735" width="270" height="110" rx="10" fill="var(--agent-fill)" stroke="var(--agent)"/>
+              <text x="78" y="759" class="node-step" fill="var(--agent)">9 · AGENT</text><text x="78" y="784" class="node-title">Evaluate meaning</text><text x="78" y="806" class="node-copy">unresolved human hold?</text><text x="78" y="824" class="node-copy">risk / review evidence coherent?</text>
+            </a>
+          </g>
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/schemas/auto-merge-result.schema.json" target="_blank" rel="noopener" aria-label="Open agent result schema">
+              <rect x="390" y="735" width="270" height="110" rx="10" fill="var(--agent-fill)" stroke="var(--agent)"/>
+              <text x="408" y="759" class="node-step" fill="var(--agent)">10 · OUTPUT</text><text x="408" y="784" class="node-title">AUTHORIZE / DEFER</text><text x="408" y="806" class="node-copy">exact binding required</text><text x="408" y="824" class="node-copy">missing facts never approve</text>
+            </a>
+          </g>
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/actions/runs/35940911198" target="_blank" rel="noopener" aria-label="Open first deferred agent run">
+              <rect x="720" y="735" width="270" height="110" rx="10" fill="var(--stop-fill)" stroke="var(--stop)"/>
+              <text x="738" y="759" class="node-step" fill="var(--stop)">PROOF A · STOP</text><text x="738" y="784" class="node-title">DEFER on hold</text><text x="738" y="806" class="node-copy">run 35940911198</text><text x="738" y="824" class="node-copy">no native merge request</text>
+            </a>
+          </g>
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/pull/9#issuecomment-5805592013" target="_blank" rel="noopener" aria-label="Open deferred receipt comment">
+              <rect x="1050" y="735" width="270" height="110" rx="10" fill="var(--stop-fill)" stroke="var(--stop)"/>
+              <text x="1068" y="759" class="node-step" fill="var(--stop)">RECEIPT A</text><text x="1068" y="784" class="node-title">DEFER receipt</text><text x="1068" y="806" class="node-copy">exact head + context</text><text x="1068" y="824" class="node-copy">human action required</text>
+            </a>
+          </g>
+
+          <path d="M1050 875 C980 900 390 900 300 875" class="connector stop-line"/>
+          <text x="550" y="887" class="edge-label" fill="var(--stop)">hold remains unresolved → wait for new context</text>
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/pull/9#issuecomment-5812970605" target="_blank" rel="noopener" aria-label="Open human clearance comment">
+              <rect x="60" y="990" width="330" height="100" rx="10" fill="var(--scm-fill)" stroke="var(--scm)"/>
+              <text x="78" y="1014" class="node-step" fill="var(--scm)">11 · NEW CONTEXT</text><text x="78" y="1039" class="node-title">Human clearance</text><text x="78" y="1061" class="node-copy">release-owner review complete</text><text x="78" y="1079" class="node-copy">comment 5812970605</text>
+            </a>
+          </g>
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/pull/9#issuecomment-5813035094" target="_blank" rel="noopener" aria-label="Open pending receipt comment">
+              <rect x="450" y="990" width="250" height="100" rx="10" fill="var(--host-fill)" stroke="var(--host)"/>
+              <text x="468" y="1014" class="node-step" fill="var(--host)">12 · POST-SCRIPT</text><text x="468" y="1039" class="node-title">PENDING receipt</text><text x="468" y="1061" class="node-copy">fresh semantic postflight</text><text x="468" y="1079" class="node-copy">before SCM request</text>
+            </a>
+          </g>
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/scripts/auto_merge_finalize.py#L300-L318" target="_blank" rel="noopener" aria-label="Open fresh postflight checks">
+              <rect x="760" y="990" width="250" height="100" rx="10" fill="var(--host-fill)" stroke="var(--host)"/>
+              <text x="778" y="1014" class="node-step" fill="var(--host)">13 · POSTFLIGHT</text><text x="778" y="1039" class="node-title">Revalidate context</text><text x="778" y="1061" class="node-copy">exact revision and facts</text><text x="778" y="1079" class="node-copy">abort if changed</text>
+            </a>
+          </g>
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/scripts/auto_merge_finalize.py#L324-L365" target="_blank" rel="noopener" aria-label="Open native GitHub merge request code">
+              <rect x="1070" y="990" width="250" height="100" rx="10" fill="var(--queue-fill)" stroke="var(--queue)"/>
+              <text x="1088" y="1014" class="node-step" fill="var(--queue)">14 · SCM HANDOFF</text><text x="1088" y="1039" class="node-title">Native request</text><text x="1088" y="1061" class="node-copy"><tspan font-family="ui-monospace">gh pr merge --auto</tspan></text><text x="1088" y="1079" class="node-copy">match exact head SHA</text>
+            </a>
+          </g>
+
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/pull/9#issuecomment-5813036885" target="_blank" rel="noopener" aria-label="Open submitted receipt comment">
+              <rect x="60" y="1190" width="330" height="100" rx="10" fill="var(--queue-fill)" stroke="var(--queue)"/>
+              <text x="78" y="1214" class="node-step" fill="var(--queue)">15 · RECEIPT B</text><text x="78" y="1239" class="node-title">SUBMITTED</text><text x="78" y="1261" class="node-copy">GitHub owns checks, reviews,</text><text x="78" y="1279" class="node-copy">queue policy, and final merge</text>
+            </a>
+          </g>
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/pull/9" target="_blank" rel="noopener" aria-label="Open PR 9 queue state">
+              <rect x="450" y="1190" width="250" height="100" rx="10" fill="var(--queue-fill)" stroke="var(--queue)"/>
+              <text x="468" y="1214" class="node-step" fill="var(--queue)">16 · QUEUE</text><text x="468" y="1239" class="node-title">PR enters queue</text><text x="468" y="1261" class="node-copy">position 1 · awaiting checks</text><text x="468" y="1279" class="node-copy">merge-group revision created</text>
+            </a>
+          </g>
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/actions/runs/35992288930" target="_blank" rel="noopener" aria-label="Open merge group checks run">
+              <rect x="760" y="1190" width="250" height="100" rx="10" fill="var(--queue-fill)" stroke="var(--queue)"/>
+              <text x="778" y="1214" class="node-step" fill="var(--queue)">17 · MERGE_GROUP</text><text x="778" y="1239" class="node-title">Fresh CI runs</text><text x="778" y="1261" class="node-copy">Example contract</text><text x="778" y="1279" class="node-copy">Delayed integration · 4 minutes</text>
+            </a>
+          </g>
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/blob/main/.github/workflows/ci.yml#L33-L64" target="_blank" rel="noopener" aria-label="Open queue authorization check">
+              <rect x="1070" y="1190" width="250" height="100" rx="10" fill="var(--queue-fill)" stroke="var(--queue)"/>
+              <text x="1088" y="1214" class="node-step" fill="var(--queue)">18 · REAUTHORIZE</text><text x="1088" y="1239" class="node-title">Queue gate passes</text><text x="1088" y="1261" class="node-copy">receipt matches queue base</text><text x="1088" y="1279" class="node-copy">semantic authority still valid</text>
+            </a>
+          </g>
+          <g class="node">
+            <a href="https://github.com/fullsend-ai/auto-merge/commit/de546b3331f0ee5c2b7223950bd96e12f094540f" target="_blank" rel="noopener" aria-label="Open final merge commit">
+              <rect x="1070" y="1305" width="250" height="38" rx="10" fill="#dcefe3" stroke="var(--host)"/>
+              <text x="1195" y="1330" text-anchor="middle" class="node-title" fill="var(--host)">19 · MERGED</text>
+            </a>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <section class="section" id="two-paths">
+      <h2>What the two real runs proved</h2>
+      <div class="panel-grid">
+        <article class="card">
+          <span class="badge" style="color:var(--stop)">Proof A · fail closed</span>
+          <h3>Human context can stop the request</h3>
+          <p>The first run saw an explicit “do not merge yet” comment. The agent returned <code>DEFER</code>; the post-script emitted a deferred receipt and did not call GitHub’s native merge command.</p>
+          <ul>
+            <li><a href="https://github.com/fullsend-ai/auto-merge/actions/runs/35940911198" target="_blank" rel="noopener">Fullsend run 35940911198</a></li>
+            <li><a href="https://github.com/fullsend-ai/auto-merge/pull/9#issuecomment-5805592013" target="_blank" rel="noopener">Deferred receipt</a></li>
+            <li><a href="https://github.com/fullsend-ai/auto-merge/pull/9#issuecomment-5805424651" target="_blank" rel="noopener">Original hold</a></li>
+          </ul>
+        </article>
+        <article class="card">
+          <span class="badge" style="color:var(--host)">Proof B · authorize then defer to SCM</span>
+          <h3>Clearance permits a native request</h3>
+          <p>After the release-owner cleared the hold, the semantic agent authorized the exact head. The trusted post-script revalidated context, requested native auto-merge, and GitHub created the queue entry.</p>
+          <ul>
+            <li><a href="https://github.com/fullsend-ai/auto-merge/actions/runs/35991790484" target="_blank" rel="noopener">Semantic context run 35991790484</a></li>
+            <li><a href="https://github.com/fullsend-ai/auto-merge/pull/9#issuecomment-5813035094" target="_blank" rel="noopener">Pending receipt</a></li>
+            <li><a href="https://github.com/fullsend-ai/auto-merge/pull/9#issuecomment-5813036885" target="_blank" rel="noopener">Submitted receipt</a></li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="ownership">
+      <h2>Who checks what?</h2>
+      <div class="panel-grid">
+        <article class="card"><span class="badge scm-b">GitHub / SCM</span><h3>Mechanical merge policy</h3><p>Required checks, required reviews, conversation resolution, branch freshness, mergeability, rulesets, queue ordering, merge-group synthesis, and the final merge.</p><p><a href="https://github.com/fullsend-ai/auto-merge/blob/main/.github/workflows/ci.yml#L3-L7" target="_blank" rel="noopener">CI and merge_group triggers</a> · <a href="https://github.com/fullsend-ai/auto-merge/pull/9" target="_blank" rel="noopener">PR #9 final state</a></p></article>
+        <article class="card"><span class="badge host-b">Trusted host scripts</span><h3>Authority boundary</h3><p>Collects secret-free evidence, verifies fingerprints, selects the validated result, performs fresh semantic postflight, and submits exactly one head-matched native request.</p><p><a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/scripts/pre-auto-merge.sh#L1-L43" target="_blank" rel="noopener">pre-script</a> · <a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/scripts/auto_merge_finalize.py#L259-L367" target="_blank" rel="noopener">finalizer</a></p></article>
+        <article class="card"><span class="badge agent-b">OpenShell agent</span><h3>Semantic judgment</h3><p>Interprets evidence SCM cannot interpret reliably: whether human context still signals a hold, whether risk and review evidence are coherent, and whether the exact binding is safe to authorize.</p><p><a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/agents/auto-merge.md#L11-L15" target="_blank" rel="noopener">agent boundary</a> · <a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/agents/auto-merge.md#L28-L90" target="_blank" rel="noopener">decision contract</a></p></article>
+        <article class="card"><span class="badge queue-b">Merge queue gate</span><h3>Re-authorize the queued revision</h3><p>Checks that the submitted semantic receipt still matches the PR head, queue base, policy fingerprint, and semantic fingerprint. It then becomes one of the required merge-group checks.</p><p><a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/scripts/auto_merge_queue_gate.py#L24-L100" target="_blank" rel="noopener">queue gate code</a> · <a href="https://github.com/fullsend-ai/auto-merge/actions/runs/35992288930" target="_blank" rel="noopener">merge-group proof</a></p></article>
+      </div>
+    </section>
+
+    <section class="section" id="sources">
+      <h2>Source map for stepping through the implementation</h2>
+      <p class="section-intro">These are the exact source locations used by the diagram. Links open GitHub’s code view at the relevant lines rather than a rendered Markdown preview.</p>
+      <ul class="source-list">
+        <li><a href="https://github.com/fullsend-ai/auto-merge/blob/main/.github/workflows/auto-merge-context.yml#L3-L21" target="_blank" rel="noopener"><code>auto-merge-context.yml:3-21</code></a> — event scope and authorized trigger condition</li>
+        <li><a href="https://github.com/fullsend-ai/auto-merge/blob/main/.github/workflows/auto-merge-context.yml#L29-L77" target="_blank" rel="noopener"><code>auto-merge-context.yml:29-77</code></a> — actor authorization and event payload</li>
+        <li><a href="https://github.com/fullsend-ai/auto-merge/blob/main/.github/workflows/auto-merge-context.yml#L79-L100" target="_blank" rel="noopener"><code>auto-merge-context.yml:79-100</code></a> — Fullsend dispatch and secret wiring</li>
+        <li><a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/scripts/pre-auto-merge.sh#L1-L43" target="_blank" rel="noopener"><code>pre-auto-merge.sh:1-43</code></a> — trusted pre-script entrypoint</li>
+        <li><a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/scripts/auto_merge_gate.py#L82-L139" target="_blank" rel="noopener"><code>auto_merge_gate.py:82-139</code></a> — GitHub snapshot collection</li>
+        <li><a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/harness/auto-merge.yaml#L13-L38" target="_blank" rel="noopener"><code>auto-merge.yaml:13-38</code></a> — read/write privilege boundary</li>
+        <li><a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/agents/auto-merge.md#L11-L15" target="_blank" rel="noopener"><code>auto-merge.md:11-15</code></a> — agent is not reviewer or GitHub authority</li>
+        <li><a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/agents/auto-merge.md#L28-L90" target="_blank" rel="noopener"><code>auto-merge.md:28-90</code></a> — input, decision, and output contract</li>
+        <li><a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/scripts/auto_merge_finalize.py#L259-L318" target="_blank" rel="noopener"><code>auto_merge_finalize.py:259-318</code></a> — validate, defer, and fresh semantic postflight</li>
+        <li><a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/scripts/auto_merge_finalize.py#L320-L365" target="_blank" rel="noopener"><code>auto_merge_finalize.py:320-365</code></a> — pending receipt and exact-head native request</li>
+        <li><a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/scripts/auto_merge_queue_gate.py#L24-L100" target="_blank" rel="noopener"><code>auto_merge_queue_gate.py:24-100</code></a> — queue revision reauthorization</li>
+        <li><a href="https://github.com/fullsend-ai/auto-merge/blob/main/.github/workflows/ci.yml#L22-L64" target="_blank" rel="noopener"><code>ci.yml:22-64</code></a> — four-minute CI and merge-group queue check</li>
+        <li><a href="https://github.com/fullsend-ai/auto-merge/blob/main/.fullsend/schemas/auto-merge-result.schema.json" target="_blank" rel="noopener"><code>auto-merge-result.schema.json</code></a> — machine-validated decision shape</li>
+      </ul>
+    </section>
+
+    <section class="section">
+      <div class="callout"><strong>The one-sentence mental model</strong>Fullsend supplies a semantic authorization signal and a guarded native request; GitHub remains the authority for every mechanical condition and for the final direct-or-queue merge path.</div>
+    </section>
+  </main>
+</body>
+</html>

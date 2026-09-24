@@ -1,8 +1,13 @@
 name: Auto-Merge semantic context
 
-# SCM remains responsible for CI, reviews, conversations, branch freshness,
-# mergeability, and queue policy. This workflow only asks Auto-Merge to
-# reconsider unstructured human context added after Review approval.
+# SCM remains authoritative for mechanical merge policy: required checks and
+# reviews, conversation resolution, branch freshness, mergeability, and queue
+# policy. Auto-Merge is the semantic authorization stage in the unattended
+# Fullsend loop. The main automatic handoff is the harness trigger on an
+# approved trusted Review Agent result; this workflow is the supplementary
+# re-evaluation path for a trusted risk-assessment comment or authorized human
+# context change. Triage and code stages feed the Review Agent; neither this
+# workflow nor the harness bypasses SCM policy or checks.
 on:
   issue_comment:
     types: [created, edited]
