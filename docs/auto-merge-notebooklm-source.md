@@ -885,7 +885,7 @@ both append-only events but make the outcome record concise.
 - Why are there two receipts?
 - Which cases stop before model invocation?
 - Which cases require the model to reject or escalate?
-- What happens if the head changes after semantic approval?
+- What happens if the head changes after the Review Agent records its judgment?
 - Why is native "merge when ready" insufficient by itself?
 - How should a merge queue fit into the final production architecture?
 - Which lab workarounds must not become production behavior?
