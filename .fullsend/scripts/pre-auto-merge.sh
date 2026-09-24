@@ -19,7 +19,9 @@ python3 "${SCRIPT_DIR}/auto_merge_gate.py" collect \
   --base-ref "${AUTO_MERGE_BASE_REF:-main}" \
   --policy-version "${AUTO_MERGE_POLICY_VERSION:-lab-v1}" \
   --mode "${AUTO_MERGE_MODE:-observe}" \
+  --semantic-provider "${AUTO_MERGE_SEMANTIC_PROVIDER:-fullsend-review-agent}" \
   --semantic-reviewer "${AUTO_MERGE_SEMANTIC_REVIEWER:-}" \
+  --review-attestation-file "${AUTO_MERGE_REVIEW_ATTESTATION_FILE:-}" \
   --risk-assessment-producer "${AUTO_MERGE_RISK_ASSESSMENT_PRODUCER:-}" \
   --artifact-correlation-minutes "${AUTO_MERGE_ARTIFACT_CORRELATION_MINUTES:-1}" \
   --maximum-unattended-risk "${AUTO_MERGE_MAXIMUM_UNATTENDED_RISK:-moderate}" \

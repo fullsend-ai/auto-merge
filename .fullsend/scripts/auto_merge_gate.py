@@ -272,6 +272,49 @@ def _latest_reviews(reviews: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def review_attestation(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[str, Any]:
     head_sha = str((snapshot["pull_request"].get("head") or {}).get("sha") or "")
+    provider = str(policy.get("semantic_provider") or "fullsend-review-agent").casefold()
+    attestation_file = str(policy.get("review_attestation_file") or "")
+    if attestation_file:
+        try:
+            raw = json.loads(Path(attestation_file).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise GateError("configured semantic review attestation is unreadable or invalid") from exc
+        if not isinstance(raw, dict):
+            raise GateError("configured semantic review attestation must be a JSON object")
+        file_provider = str(raw.get("provider") or "").casefold()
+        file_head = str(raw.get("head_sha") or "")
+        decision = str(raw.get("decision") or "").upper()
+        reviewer = str(raw.get("reviewer") or "")
+        submitted_at = str(raw.get("submitted_at") or "")
+        summary = str(raw.get("summary") or "")[:MAX_COMMENT_CHARS]
+        if file_provider != provider or decision != "APPROVE" or file_head != head_sha:
+            return {
+                "authority": provider,
+                "decision": "MISSING",
+                "provider": file_provider or provider,
+                "reviewer": reviewer,
+                "head_sha": file_head,
+                "review_id": str(raw.get("review_id") or ""),
+                "run_id": str(raw.get("run_id") or ""),
+                "submitted_at": submitted_at,
+                "summary": summary,
+                "source": "trusted_attestation_file",
+            }
+        if not reviewer or not submitted_at or not summary or parse_time(submitted_at) is None:
+            raise GateError("configured semantic review attestation is incomplete")
+        return {
+            "authority": provider,
+            "decision": "APPROVE",
+            "provider": provider,
+            "reviewer": reviewer,
+            "head_sha": head_sha,
+            "review_id": str(raw.get("review_id") or ""),
+            "run_id": str(raw.get("run_id") or ""),
+            "submitted_at": submitted_at,
+            "summary": summary,
+            "source": "trusted_attestation_file",
+        }
+
     reviewer = str(policy["semantic_reviewer"]).casefold()
     matches = [
         review
@@ -282,8 +325,9 @@ def review_attestation(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict
     ]
     if not matches:
         return {
-            "authority": "fullsend-review-agent",
+            "authority": provider,
             "decision": "MISSING",
+            "provider": provider,
             "reviewer": reviewer,
             "head_sha": "",
             "review_id": 0,
@@ -291,8 +335,9 @@ def review_attestation(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict
         }
     match = max(matches, key=lambda item: (str(item.get("submitted_at") or ""), int(item.get("id") or 0)))
     return {
-        "authority": "fullsend-review-agent",
+        "authority": provider,
         "decision": "APPROVE",
+        "provider": provider,
         "reviewer": reviewer,
         "head_sha": head_sha,
         "review_id": int(match.get("id") or 0),
@@ -301,6 +346,17 @@ def review_attestation(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict
 
 
 def review_summary(snapshot: dict[str, Any], policy: dict[str, Any], attestation: dict[str, Any]) -> dict[str, Any]:
+    if attestation.get("source") == "trusted_attestation_file":
+        current = attestation.get("decision") == "APPROVE" and parse_time(str(attestation.get("submitted_at") or "")) is not None
+        return {
+            "status": "CURRENT" if current else "MISSING",
+            "head_sha": str(attestation.get("head_sha") or ""),
+            "comment_id": 0,
+            "updated_at": str(attestation.get("submitted_at") or ""),
+            "correlation_seconds": 0 if current else None,
+            "summary": str(attestation.get("summary") or "")[:MAX_COMMENT_CHARS],
+            "source": "trusted_attestation_file",
+        }
     producer = str(policy["semantic_reviewer"]).casefold()
     expected_head = str(attestation.get("head_sha") or "")
     candidates: list[tuple[dict[str, Any], re.Match[str]]] = []
@@ -501,7 +557,8 @@ def evaluate_snapshot(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[
     require((pr.get("base") or {}).get("ref") == policy["base_ref"], "base ref is outside the configured scope")
     require((pr.get("base") or {}).get("repo", {}).get("full_name") == repository, "base repository mismatch")
     require((pr.get("head") or {}).get("repo", {}).get("full_name") == repository, "fork pull requests are outside this lab's security scope")
-    require(context["review_attestation"]["decision"] == "APPROVE", "exact-head Review Agent attestation is missing")
+    authority_label = "Review Agent" if context["review_attestation"].get("authority") == "fullsend-review-agent" else "configured semantic reviewer"
+    require(context["review_attestation"]["decision"] == "APPROVE", f"exact-head {authority_label} attestation is missing or stale")
     require(context["review_summary"]["status"] == "CURRENT", "exact-head Review summary is missing or stale")
     require(context["risk_assessment"]["status"] == "CURRENT", "exact-head risk assessment is missing or cannot be bound to the Review run")
     require(not context["human_signal_integrity"]["trusted_truncated"], "trusted human context exceeds the safe evidence bound")
@@ -604,6 +661,8 @@ def policy_from_args(args: argparse.Namespace) -> dict[str, Any]:
         "policy_version": args.policy_version,
         "mode": args.mode,
         "semantic_reviewer": args.semantic_reviewer,
+        "semantic_provider": args.semantic_provider,
+        "review_attestation_file": args.review_attestation_file,
         "risk_assessment_producer": args.risk_assessment_producer,
         "artifact_correlation_minutes": args.artifact_correlation_minutes,
         "maximum_unattended_risk": args.maximum_unattended_risk,
@@ -638,6 +697,8 @@ def parser() -> argparse.ArgumentParser:
     collect.add_argument("--policy-version", required=True)
     collect.add_argument("--mode", required=True, choices=["observe", "lab-automatic"])
     collect.add_argument("--semantic-reviewer", required=True)
+    collect.add_argument("--semantic-provider", default="fullsend-review-agent")
+    collect.add_argument("--review-attestation-file", default="")
     collect.add_argument("--risk-assessment-producer", required=True)
     collect.add_argument("--artifact-correlation-minutes", required=True, type=int)
     collect.add_argument("--maximum-unattended-risk", required=True, choices=["low", "moderate", "elevated", "high", "critical"])

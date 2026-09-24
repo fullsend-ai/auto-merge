@@ -26,10 +26,11 @@ GitHub exclusively owns:
 - merge method, native auto-merge, and merge-queue execution; and
 - the final decision to accept, wait, queue, reject, or merge a request.
 
-Fullsend exclusively adds:
+Auto-Merge exclusively adds:
 
-- an exact-head Review Agent attestation;
-- the Review Agent's structured risk assessment and rationale;
+- an exact-head attestation from the repository's configured semantic review
+  provider (Fullsend Review is the default lab provider);
+- the configured provider's structured risk assessment and rationale;
 - interpretation of ordinary human context, including an informal request to
   pause, coordinate, sequence, or follow up;
 - optional repository-scoped Review quality evidence;
@@ -107,8 +108,8 @@ GitHub.
 - `ESCALATE`: evidence is contradictory, risky, suspicious, or requires human
   judgment.
 
-The model accepts the Review Agent's approval as the code-review decision. It
-does not inspect the patch or repeat code review. It interprets context that
+The model accepts the configured review provider's approval as the code-review
+decision. It does not inspect the patch or repeat code review. It interprets context that
 SCM configuration cannot understand, such as “please do not merge until the
 release owner confirms the rollout.”
 

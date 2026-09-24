@@ -112,6 +112,8 @@ def trusted_policy(args: argparse.Namespace) -> dict[str, Any]:
         "policy_version": args.policy_version,
         "mode": args.mode,
         "semantic_reviewer": args.semantic_reviewer,
+        "semantic_provider": getattr(args, "semantic_provider", "fullsend-review-agent"),
+        "review_attestation_file": getattr(args, "review_attestation_file", ""),
         "risk_assessment_producer": args.risk_assessment_producer,
         "artifact_correlation_minutes": args.artifact_correlation_minutes,
         "maximum_unattended_risk": args.maximum_unattended_risk,
@@ -123,7 +125,8 @@ def trusted_policy(args: argparse.Namespace) -> dict[str, Any]:
     }
     if policy["mode"] not in MODES:
         raise GateError("trusted mode is unsupported")
-    if not policy["semantic_reviewer"] or not policy["risk_assessment_producer"] or not policy["human_signal_associations"]:
+    if (not policy["semantic_provider"] or (not policy["semantic_reviewer"] and not policy["review_attestation_file"])
+            or not policy["risk_assessment_producer"] or not policy["human_signal_associations"]):
         raise GateError("trusted semantic policy is incomplete")
     return policy
 
@@ -146,6 +149,10 @@ def collect_fresh(args: argparse.Namespace, destination: Path) -> dict[str, Any]
         policy["mode"],
         "--semantic-reviewer",
         policy["semantic_reviewer"],
+        "--semantic-provider",
+        policy["semantic_provider"],
+        "--review-attestation-file",
+        policy["review_attestation_file"],
         "--risk-assessment-producer",
         policy["risk_assessment_producer"],
         "--artifact-correlation-minutes",
@@ -375,6 +382,8 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--policy-version", required=True)
     result.add_argument("--mode", required=True, choices=sorted(MODES))
     result.add_argument("--semantic-reviewer", required=True)
+    result.add_argument("--semantic-provider", required=True)
+    result.add_argument("--review-attestation-file", default="")
     result.add_argument("--risk-assessment-producer", required=True)
     result.add_argument("--artifact-correlation-minutes", required=True, type=int)
     result.add_argument("--maximum-unattended-risk", required=True)

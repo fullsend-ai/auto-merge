@@ -41,6 +41,8 @@ def policy(**overrides: object) -> dict:
         "base_ref": "main",
         "policy_version": "lab-v3-scm-native",
         "mode": "observe",
+        "semantic_provider": "fullsend-review-agent",
+        "review_attestation_file": "",
         "semantic_reviewer": "fullsend-ai-review[bot]",
         "risk_assessment_producer": "fullsend-ai-review[bot]",
         "artifact_correlation_minutes": 1,
@@ -182,6 +184,36 @@ class SemanticGateTests(unittest.TestCase):
         self.assertIn("Looks good to me", summary["summary"])
         self.assertNotIn("fullsend:review-agent", summary["summary"])
         self.assertNotIn("Head SHA", summary["summary"])
+
+    def test_configured_external_attestation_can_replace_fullsend_review(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["reviews"] = []
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json") as handle:
+            json.dump(
+                {
+                    "provider": "qodo",
+                    "decision": "APPROVE",
+                    "reviewer": "qodo-code-review[bot]",
+                    "head_sha": HEAD,
+                    "review_id": 242,
+                    "run_id": "qodo-run-42",
+                    "submitted_at": "2026-09-23T20:00:06Z",
+                    "summary": "No material issues found; the requested documentation change is complete.",
+                },
+                handle,
+            )
+            handle.flush()
+            external_policy = policy(
+                semantic_provider="qodo",
+                semantic_reviewer="",
+                review_attestation_file=handle.name,
+            )
+            evaluation = evaluate_snapshot(snapshot, external_policy)
+        self.assertTrue(evaluation["ready_for_semantic_evaluation"], evaluation["failures"])
+        attestation = evaluation["semantic_context"]["review_attestation"]
+        self.assertEqual(attestation["authority"], "qodo")
+        self.assertEqual(attestation["source"], "trusted_attestation_file")
+        self.assertEqual(evaluation["semantic_context"]["review_summary"]["status"], "CURRENT")
 
     def test_evidence_contains_intent_and_bounded_change_context(self) -> None:
         evidence = build_evidence(eligible_snapshot(), policy())

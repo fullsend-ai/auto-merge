@@ -10,7 +10,6 @@ set -euo pipefail
 : "${AUTO_MERGE_BASE_REF:?AUTO_MERGE_BASE_REF must be set}"
 : "${AUTO_MERGE_POLICY_VERSION:?AUTO_MERGE_POLICY_VERSION must be set}"
 : "${AUTO_MERGE_MODE:?AUTO_MERGE_MODE must be set}"
-: "${AUTO_MERGE_SEMANTIC_REVIEWER:?AUTO_MERGE_SEMANTIC_REVIEWER must be set}"
 : "${AUTO_MERGE_RISK_ASSESSMENT_PRODUCER:?AUTO_MERGE_RISK_ASSESSMENT_PRODUCER must be set}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -41,7 +40,9 @@ python3 "${SCRIPT_DIR}/auto_merge_finalize.py" \
   --base-ref "${AUTO_MERGE_BASE_REF}" \
   --policy-version "${AUTO_MERGE_POLICY_VERSION}" \
   --mode "${AUTO_MERGE_MODE}" \
-  --semantic-reviewer "${AUTO_MERGE_SEMANTIC_REVIEWER}" \
+  --semantic-provider "${AUTO_MERGE_SEMANTIC_PROVIDER:-fullsend-review-agent}" \
+  --semantic-reviewer "${AUTO_MERGE_SEMANTIC_REVIEWER:-}" \
+  --review-attestation-file "${AUTO_MERGE_REVIEW_ATTESTATION_FILE:-}" \
   --risk-assessment-producer "${AUTO_MERGE_RISK_ASSESSMENT_PRODUCER}" \
   --artifact-correlation-minutes "${AUTO_MERGE_ARTIFACT_CORRELATION_MINUTES:-1}" \
   --maximum-unattended-risk "${AUTO_MERGE_MAXIMUM_UNATTENDED_RISK:-moderate}" \
