@@ -82,38 +82,38 @@
     <a class="source" href="https://github.com/fullsend-ai/auto-merge/blob/fc04011245936a86f2265c4fbde6c0d8548fde40/.github/workflows/auto-merge-context.yml#L19-L105" target="_blank"><strong>Supplementary context workflow</strong><code>auto-merge-context.yml:19-105</code></a>
   </div>
   <h2>Example: <code>.fullsend-runtime/auto-merge-evidence.json</code></h2>
-  <p class="json-note">This is a sanitized illustrative output from the trusted pre-script. The zeroed and repeated hexadecimal values are placeholders, not live SHAs or fingerprints. The actual file is created inside the target checkout for one run and is then consumed by the agent and trusted post-script.</p>
+  <p class="json-note">This is a sanitized snapshot based on the completed PR #13 run. The run binding, changed-file facts, Review Agent result, and risk assessment are real; policy fingerprints remain placeholders. The Review Agent completed successfully but requested a small documentation fix, so this evidence is intentionally not merge-authorized.</p>
   <pre class="json-example"><code>{
   <span class="key">"schema_version"</span>: <span class="string">"2"</span>,
-  <span class="key">"captured_at"</span>: <span class="string">"2026-09-24T16:00:00Z"</span>,
+    <span class="key">"captured_at"</span>: <span class="string">"2026-09-24T12:45:00Z"</span>,
   <span class="key">"binding"</span>: {
     <span class="key">"repository"</span>: <span class="string">"fullsend-ai/auto-merge"</span>,
-    <span class="key">"pull_request_number"</span>: <span class="number">11</span>,
-    <span class="key">"head_sha"</span>: <span class="string">"0000000000000000000000000000000000000000"</span>,
+    <span class="key">"pull_request_number"</span>: <span class="number">13</span>,
+    <span class="key">"head_sha"</span>: <span class="string">"295423a9bc5b5e1fa609dd95f3f7ded80fd0f621"</span>,
     <span class="key">"base_ref"</span>: <span class="string">"main"</span>,
-    <span class="key">"base_sha"</span>: <span class="string">"1111111111111111111111111111111111111111"</span>,
+    <span class="key">"base_sha"</span>: <span class="string">"0adb1f7649a9f38d90ae9f41bfa55a1e6b12a5f4"</span>,
     <span class="key">"policy_fingerprint"</span>: <span class="string">"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"</span>,
     <span class="key">"semantic_fingerprint"</span>: <span class="string">"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"</span>,
     <span class="key">"context_fingerprint"</span>: <span class="string">"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"</span>
   },
   <span class="key">"pull_request"</span>: {
-    <span class="key">"url"</span>: <span class="string">"https://github.com/fullsend-ai/auto-merge/pull/11"</span>,
-    <span class="key">"title"</span>: <span class="string">"test: exercise autonomous auto-merge agent"</span>,
-    <span class="key">"author"</span>: <span class="string">"example-author"</span>
+    <span class="key">"url"</span>: <span class="string">"https://github.com/fullsend-ai/auto-merge/pull/13"</span>,
+    <span class="key">"title"</span>: <span class="string">"test: exercise semantic evidence package"</span>,
+    <span class="key">"author"</span>: <span class="string">"ascerra"</span>
   },
   <span class="key">"intent"</span>: {
     <span class="key">"source"</span>: <span class="string">"pull_request"</span>,
-    <span class="key">"title"</span>: <span class="string">"test: exercise review rationale evidence"</span>,
-    <span class="key">"statement"</span>: <span class="string">"Verify that the Auto-Merge semantic stage receives the Review Agent rationale with exact-head approval and current risk evidence."</span>
+    <span class="key">"title"</span>: <span class="string">"test: exercise semantic evidence package"</span>,
+    <span class="key">"statement"</span>: <span class="string">"Verify that the semantic stage receives intent, changed-file context, Review Agent rationale, current risk evidence, and optional trace references without raw transcripts."</span>
   },
   <span class="key">"change_context"</span>: {
-    <span class="key">"files"</span>: [{<span class="key">"filename"</span>: <span class="string">"docs/review-rationale-smoke.md"</span>, <span class="key">"status"</span>: <span class="string">"added"</span>, <span class="key">"additions"</span>: <span class="number">5</span>, <span class="key">"deletions"</span>: <span class="number">0</span>, <span class="key">"changes"</span>: <span class="number">5</span>}],
+    <span class="key">"files"</span>: [{<span class="key">"filename"</span>: <span class="string">"docs/semantic-evidence-smoke.md"</span>, <span class="key">"status"</span>: <span class="string">"added"</span>, <span class="key">"additions"</span>: <span class="number">5</span>, <span class="key">"deletions"</span>: <span class="number">0</span>, <span class="key">"changes"</span>: <span class="number">5</span>}],
     <span class="key">"total_files"</span>: <span class="number">1</span>,
     <span class="key">"truncated"</span>: <span class="number">false</span>,
     <span class="key">"additions"</span>: <span class="number">5</span>,
     <span class="key">"deletions"</span>: <span class="number">0</span>
   },
-  <span class="key">"trace_refs"</span>: [{<span class="key">"agent"</span>: <span class="string">"code"</span>, <span class="key">"trace_id"</span>: <span class="string">"trace-example-123"</span>, <span class="key">"purpose"</span>: <span class="string">"implementation evidence"</span>}],
+  <span class="key">"trace_refs"</span>: [],
   <span class="key">"policy"</span>: {
     <span class="key">"repository"</span>: <span class="string">"fullsend-ai/auto-merge"</span>,
     <span class="key">"base_ref"</span>: <span class="string">"main"</span>,
@@ -123,31 +123,31 @@
     <span class="key">"human_signal_associations"</span>: [<span class="string">"COLLABORATOR"</span>, <span class="string">"MEMBER"</span>, <span class="string">"OWNER"</span>]
   },
   <span class="key">"prerequisites"</span>: {
-    <span class="key">"ready_for_semantic_evaluation"</span>: <span class="number">true</span>,
-    <span class="key">"failures"</span>: [],
+    <span class="key">"ready_for_semantic_evaluation"</span>: <span class="number">false</span>,
+    <span class="key">"failures"</span>: [<span class="string">"review_agent_changes_requested"</span>],
     <span class="key">"scm_policy_checked"</span>: <span class="number">false</span>,
     <span class="key">"note"</span>: <span class="string">"SCM owns checks, review counts, conversations, mergeability, branch freshness, and queue policy."</span>
   },
   <span class="key">"semantic_context"</span>: {
     <span class="key">"review_attestation"</span>: {
       <span class="key">"authority"</span>: <span class="string">"fullsend-review-agent"</span>,
-      <span class="key">"decision"</span>: <span class="string">"APPROVE"</span>,
-      <span class="key">"head_sha"</span>: <span class="string">"0000000000000000000000000000000000000000"</span>,
-      <span class="key">"review_id"</span>: <span class="number">123456</span>
+      <span class="key">"decision"</span>: <span class="string">"CHANGES_REQUESTED"</span>,
+      <span class="key">"head_sha"</span>: <span class="string">"295423a9bc5b5e1fa609dd95f3f7ded80fd0f621"</span>,
+      <span class="key">"review_id"</span>: <span class="number">5304591122</span>
     },
     <span class="key">"review_summary"</span>: {
       <span class="key">"status"</span>: <span class="string">"CURRENT"</span>,
-      <span class="key">"head_sha"</span>: <span class="string">"0000000000000000000000000000000000000000"</span>,
-      <span class="key">"comment_id"</span>: <span class="number">123457</span>,
-      <span class="key">"summary"</span>: <span class="string">"The change adds a documentation-only smoke-test fixture and satisfies the stated intent. It introduces no runtime behavior, dependency, security, or deployment impact. The exact head was reviewed and no blocking correctness, security, or operational findings remain."</span>
+      <span class="key">"head_sha"</span>: <span class="string">"295423a9bc5b5e1fa609dd95f3f7ded80fd0f621"</span>,
+      <span class="key">"comment_id"</span>: <span class="number">5814383430</span>,
+      <span class="key">"summary"</span>: <span class="string">"Low finding: the smoke-test document omits current risk evidence from the list of evidence supplied to the semantic stage. Add the structured risk assessment and rationale to the description."</span>
     },
     <span class="key">"risk_assessment"</span>: {
       <span class="key">"authority"</span>: <span class="string">"fullsend-risk-assessment"</span>,
       <span class="key">"status"</span>: <span class="string">"CURRENT"</span>,
       <span class="key">"level"</span>: <span class="string">"low"</span>,
       <span class="key">"score"</span>: <span class="number">1</span>,
-      <span class="key">"comment_id"</span>: <span class="number">123458</span>,
-      <span class="key">"correlated_review_id"</span>: <span class="number">123456</span>
+      <span class="key">"comment_id"</span>: <span class="number">5814383074</span>,
+      <span class="key">"correlated_review_id"</span>: <span class="number">5304591122</span>
     },
     <span class="key">"human_signals"</span>: [],
     <span class="key">"human_signal_integrity"</span>: {<span class="key">"trusted_total"</span>: <span class="number">0</span>, <span class="key">"untrusted_total"</span>: <span class="number">0</span>, <span class="key">"trusted_truncated"</span>: <span class="number">false</span>, <span class="key">"untrusted_truncated"</span>: <span class="number">false</span>},
@@ -155,7 +155,7 @@
   },
   <span class="key">"context_fingerprint"</span>: <span class="string">"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"</span>
 }</code></pre>
-  <p class="foot">This page describes the implementation on commit fc04011 and the current smoke-test evidence available from PR #11. A running review is not the same as an approved semantic attestation, and a passed CI check is not proof that Auto-Merge has submitted or completed a merge.</p>
+  <p class="foot">This page describes the implementation on main and the completed smoke-test run from <a href="https://github.com/fullsend-ai/auto-merge/pull/13" target="_blank">PR #13</a>. The Review Agent found a low-severity documentation gap and therefore did not authorize the change. A passed CI check is not proof that Auto-Merge has submitted or completed a merge.</p>
 </main>
 </body>
 </html>

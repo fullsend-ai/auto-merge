@@ -30,7 +30,7 @@ from auto_merge_finalize import (  # noqa: E402
     receipt_markdown,
     validate_result,
 )
-from auto_merge_gate import build_evidence, canonical_hash, evaluate_snapshot, policy_fingerprint  # noqa: E402
+from auto_merge_gate import build_evidence, canonical_hash, evaluate_snapshot, linked_issue_context, policy_fingerprint  # noqa: E402
 
 
 HEAD = "a" * 40
@@ -111,6 +111,7 @@ def eligible_snapshot() -> dict:
             }
         ],
         "review_quality": {},
+        "linked_issues": [],
     }
 
 
@@ -187,7 +188,75 @@ class SemanticGateTests(unittest.TestCase):
         self.assertEqual(evidence["intent"]["title"], "Document the example behavior")
         self.assertEqual(evidence["change_context"]["files"][0]["filename"], "docs/example-feature.md")
         self.assertEqual(evidence["change_context"]["additions"], 4)
+        self.assertEqual(evidence["linked_issues"], [])
         self.assertEqual(evidence["trace_refs"], [])
+
+    @mock.patch(
+        "auto_merge_gate.gh_json",
+        return_value={
+            "number": 42,
+            "html_url": "https://github.com/fullsend-ai/auto-merge/issues/42",
+            "title": "Add semantic evidence",
+            "body": "The semantic stage should compare intent with the change.",
+            "state": "open",
+            "user": {"login": "ascerra"},
+            "labels": [{"name": "enhancement"}],
+        },
+    )
+    @mock.patch(
+        "auto_merge_gate.gh_pages",
+        return_value=[
+            {
+                "event": "cross-referenced",
+                "source": {
+                    "issue": {
+                        "number": 42,
+                        "repository": {"full_name": "fullsend-ai/auto-merge"},
+                    }
+                },
+            },
+            {
+                "event": "cross-referenced",
+                "source": {
+                    "issue": {
+                        "number": 99,
+                        "repository": {"full_name": "other-org/other-repo"},
+                    }
+                },
+            },
+        ],
+    )
+    def test_linked_issue_context_is_bounded_and_same_repo_only(self, _pages: mock.Mock, _issue: mock.Mock) -> None:
+        linked = linked_issue_context("fullsend-ai/auto-merge", 7)
+        self.assertEqual(len(linked), 1)
+        self.assertEqual(linked[0]["number"], 42)
+        self.assertEqual(linked[0]["statement"], "The semantic stage should compare intent with the change.")
+        _issue.assert_called_once_with("api", "repos/fullsend-ai/auto-merge/issues/42")
+
+    @mock.patch("auto_merge_gate.gh_json")
+    @mock.patch("auto_merge_gate.gh_pages", return_value=[])
+    def test_no_linked_issue_does_not_add_forge_queries(self, _pages: mock.Mock, issue: mock.Mock) -> None:
+        self.assertEqual(linked_issue_context("fullsend-ai/auto-merge", 7), [])
+        issue.assert_not_called()
+
+    @mock.patch("auto_merge_gate.gh_json", return_value={"number": 42, "labels": "malformed"})
+    @mock.patch(
+        "auto_merge_gate.gh_pages",
+        return_value=[
+            {
+                "event": "cross-referenced",
+                "source": {
+                    "issue": {
+                        "number": 42,
+                        "repository": {"full_name": "fullsend-ai/auto-merge"},
+                    }
+                },
+            }
+        ],
+    )
+    def test_malformed_linked_issue_fails_closed(self, _pages: mock.Mock, _issue: mock.Mock) -> None:
+        with self.assertRaises(GateError):
+            linked_issue_context("fullsend-ai/auto-merge", 7)
 
     def test_trace_references_are_optional_and_bounded(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

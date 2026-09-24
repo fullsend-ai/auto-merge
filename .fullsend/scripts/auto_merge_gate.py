@@ -19,7 +19,7 @@ from urllib.parse import quote
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 ISSUE_URL_RE = re.compile(
     r"^https://github\.com/(?P<repo>[A-Za-z0-9._-]+/[A-Za-z0-9._-]+)/"
-    r"(?:pull|issues)/(?P<number>[1-9][0-9]*)$"
+    r"pull/(?P<number>[1-9][0-9]*)$"
 )
 RISK_RE = re.compile(
     r"\*\*Risk Assessment:\s*(?P<level>low|moderate|elevated|high|critical)\s*"
@@ -39,6 +39,8 @@ IGNORED_MARKERS = (
 MAX_COMMENT_CHARS = 4_000
 MAX_CHANGED_FILES = 100
 MAX_TRACE_REFS = 50
+MAX_LINKED_ISSUES = 20
+MAX_ISSUE_BODY_CHARS = 8_000
 MAX_TRUSTED_HUMAN_SIGNALS = 100
 MAX_UNTRUSTED_HUMAN_SIGNALS = 20
 QUALITY_MODES = {"off", "observe", "enforce"}
@@ -160,6 +162,57 @@ def trace_references(path: str) -> list[dict[str, str]]:
     return bounded
 
 
+def linked_issue_context(repository: str, pull_number: int) -> list[dict[str, Any]]:
+    """Resolve same-repository issues explicitly linked to a pull request."""
+    timeline = gh_pages(f"repos/{repository}/issues/{pull_number}/timeline?per_page=100")
+    references: dict[int, str] = {}
+    for event in timeline:
+        if str(event.get("event") or "") not in {"cross-referenced", "connected"}:
+            continue
+        source = event.get("source") or {}
+        issue = source.get("issue") if isinstance(source, dict) else None
+        if not isinstance(issue, dict):
+            continue
+        try:
+            number = int(issue.get("number") or 0)
+        except (TypeError, ValueError):
+            continue
+        if number <= 0 or number == pull_number:
+            continue
+        issue_repository = str((issue.get("repository") or {}).get("full_name") or "")
+        if issue_repository != repository:
+            continue
+        references[number] = str(event.get("event") or "cross-referenced")
+
+    linked: list[dict[str, Any]] = []
+    for number, relationship in sorted(references.items())[:MAX_LINKED_ISSUES]:
+        issue = gh_json("api", f"repos/{repository}/issues/{number}")
+        try:
+            issue_number = int(issue.get("number") or 0) if isinstance(issue, dict) else 0
+        except (TypeError, ValueError):
+            issue_number = 0
+        if not isinstance(issue, dict) or issue_number != number:
+            raise GateError("GitHub returned malformed linked-issue data")
+        labels = issue.get("labels") or []
+        if not isinstance(labels, list):
+            raise GateError("GitHub returned malformed linked-issue labels")
+        linked.append(
+            {
+                "source": "github_linked_issue",
+                "relationship": relationship,
+                "repository": repository,
+                "number": number,
+                "url": str(issue.get("html_url") or "")[:500],
+                "title": str(issue.get("title") or "")[:500],
+                "statement": str(issue.get("body") or "")[:MAX_ISSUE_BODY_CHARS],
+                "state": str(issue.get("state") or "")[:32],
+                "author": str((issue.get("user") or {}).get("login") or "")[:200],
+                "labels": [str((label or {}).get("name") or "")[:100] for label in labels[:50] if isinstance(label, dict)],
+            }
+        )
+    return linked
+
+
 def collect_snapshot(repository: str, number: int, quality: dict[str, Any] | None = None) -> dict[str, Any]:
     pr_before = gh_json("api", f"repos/{repository}/pulls/{number}")
     head_sha = str((pr_before.get("head") or {}).get("sha") or "")
@@ -172,10 +225,12 @@ def collect_snapshot(repository: str, number: int, quality: dict[str, Any] | Non
     comments = gh_pages(f"repos/{repository}/issues/{number}/comments?per_page=100")
     reviews = gh_pages(f"repos/{repository}/pulls/{number}/reviews?per_page=100")
     files_before = gh_pages(f"repos/{repository}/pulls/{number}/files?per_page=100")
+    linked_issues_before = linked_issue_context(repository, number)
 
     pr_after = gh_json("api", f"repos/{repository}/pulls/{number}")
     base_after = gh_json("api", branch_endpoint)
     files_after = gh_pages(f"repos/{repository}/pulls/{number}/files?per_page=100")
+    linked_issues_after = linked_issue_context(repository, number)
     if (pr_after.get("head") or {}).get("sha") != head_sha:
         raise GateError("pull-request head changed while semantic evidence was collected")
     if (pr_after.get("base") or {}).get("ref") != base_ref:
@@ -184,6 +239,8 @@ def collect_snapshot(repository: str, number: int, quality: dict[str, Any] | Non
         raise GateError("base branch changed while semantic evidence was collected")
     if files_before != files_after:
         raise GateError("pull-request files changed while semantic evidence was collected")
+    if linked_issues_before != linked_issues_after:
+        raise GateError("linked issues changed while semantic evidence was collected")
 
     return {
         "pull_request": pr_after,
@@ -191,6 +248,7 @@ def collect_snapshot(repository: str, number: int, quality: dict[str, Any] | Non
         "comments": comments,
         "reviews": reviews,
         "files": files_after,
+        "linked_issues": linked_issues_after,
         "review_quality": quality or {},
     }
 
@@ -405,6 +463,7 @@ def semantic_context(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[s
     summary = review_summary(snapshot, policy, attestation)
     humans = human_context(snapshot, policy)
     return {
+        "linked_issues": snapshot.get("linked_issues") or [],
         "review_attestation": attestation,
         "review_summary": summary,
         "risk_assessment": risk_assessment(snapshot, policy, attestation, summary),
@@ -514,6 +573,7 @@ def build_evidence(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[str
             "statement": str(pr.get("body") or "")[:8_000],
             "title": str(pr.get("title") or "")[:500],
         },
+        "linked_issues": snapshot.get("linked_issues") or [],
         "change_context": change_context(snapshot),
         "trace_refs": trace_references(os.environ.get("AUTO_MERGE_TRACE_REFS_FILE", "")),
         "policy": policy,

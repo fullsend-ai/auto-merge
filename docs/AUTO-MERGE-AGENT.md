@@ -87,7 +87,8 @@ nonzero and fails the run.
 An eligible preflight writes
 `.fullsend-runtime/auto-merge-evidence.json` into the checked-out repository.
 That directory is gitignored, copied into the sandbox by Fullsend, and never
-committed. The document contains bounded intent, changed-file context,
+committed. The document contains bounded pull-request intent, same-repository
+issues explicitly linked to the pull request when present, changed-file context,
 deterministic findings, policy inputs, optional trace references, and this binding:
 
 ```text
