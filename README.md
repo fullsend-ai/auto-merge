@@ -4,16 +4,17 @@ Integration lab for designing and exercising Fullsend's Auto-Merge agent. The
 recorded exercises were run while the repository was private and prove the complete path from an issue through triage, coding,
 review/fix, CI, semantic eligibility evaluation, and an exact-head merge.
 
-The merge agent is intentionally conservative. It may merge only when both
-layers agree:
+The current experiment deliberately does **not** reproduce GitHub's merge
+policy. GitHub remains the only authority for required CI, required reviews,
+conversation resolution, branch freshness, mergeability, and merge-queue
+execution. Fullsend adds one separate policy: whether the current semantic
+context permits unattended merge.
 
-1. deterministic policy checks establish that the pull request is currently
-   eligible; and
-2. a model evaluates the bounded evidence and returns `APPROVE`.
-
-The post-script then repeats every mutable check against the current pull
-request head before it performs the merge. A stale decision can never merge a
-newer commit.
+The Auto-Merge agent consumes the Review Agent's exact-head approval, its risk
+assessment, ordinary human conversation, optional Review quality evidence, and
+repository-specific instructions. Trusted host code binds that decision to the
+exact revision and semantic context, then asks GitHub to use native auto-merge.
+GitHub may wait, queue, reject, or merge according to its own rules.
 
 See [the security contract](docs/AUTO-MERGE-SECURITY-CONTRACT.md) and the
 [living implementation plan](docs/IMPLEMENTATION-PLAN.md).
@@ -41,8 +42,10 @@ python3 scripts/validate_example.py
 ## Safety
 
 - Never commit credentials or local environment files.
-- Do not enable GitHub's standing auto-merge facility for the exercise.
 - The Auto-Merge agent can be requested immediately with `/fs-auto-merge`, or
-  it can wake automatically after an approved review and after the trusted CI
-  readiness workflow adds `fullsend-auto-merge-ready`. These are only
-  evaluation signals; deterministic preflight remains authoritative.
+  wake after the Review Agent approves or a trusted human changes relevant PR
+  conversation. Those events only request semantic reevaluation.
+- The trusted pre-script skips model invocation when required semantic inputs
+  are missing, stale, or outside configured unattended-risk and quality limits.
+- GitHub native auto-merge and the merge queue remain authoritative after
+  Fullsend submits its exact-head authorization.

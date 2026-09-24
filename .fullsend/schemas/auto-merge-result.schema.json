@@ -2,7 +2,7 @@
   "$id": "https://fullsend.sh/schemas/auto-merge-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Structured output from the auto-merge agent, consumed by scripts/post-auto-merge.sh.",
+  "description": "Semantic authorization output consumed by the trusted Auto-Merge post-script.",
   "properties": {
     "binding": {
       "additionalProperties": false,
@@ -13,40 +13,33 @@
         "head_sha": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
         "policy_fingerprint": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
         "pull_request_number": {"minimum": 1, "type": "integer"},
-        "repository": {"const": "fullsend-ai/auto-merge"}
+        "repository": {"const": "fullsend-ai/auto-merge"},
+        "semantic_fingerprint": {"pattern": "^[0-9a-f]{64}$", "type": "string"}
       },
-      "required": ["repository", "pull_request_number", "head_sha", "base_ref", "base_sha", "policy_fingerprint", "context_fingerprint"],
+      "required": ["repository", "pull_request_number", "head_sha", "base_ref", "base_sha", "policy_fingerprint", "semantic_fingerprint", "context_fingerprint"],
       "type": "object"
     },
-    "decision": {
-      "enum": ["APPROVE", "REJECT", "ESCALATE"],
-      "type": "string"
-    },
-    "reasons": {
-      "items": {"maxLength": 500, "minLength": 1, "type": "string"},
-      "maxItems": 5,
-      "minItems": 1,
-      "type": "array"
-    },
-    "risk_signals": {
+    "blocking_signals": {
       "items": {"maxLength": 500, "minLength": 1, "type": "string"},
       "maxItems": 10,
       "type": "array"
     },
-    "summary": {
-      "maxLength": 200,
-      "minLength": 1,
-      "pattern": "^[^\\r\\n]*$",
-      "type": "string"
-    }
+    "decision": {"enum": ["AUTHORIZE", "DEFER", "ESCALATE"], "type": "string"},
+    "evidence_comment_ids": {
+      "items": {"minimum": 1, "type": "integer"},
+      "maxItems": 100,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "reasons": {
+      "items": {"maxLength": 500, "minLength": 1, "type": "string"},
+      "maxItems": 8,
+      "minItems": 1,
+      "type": "array"
+    },
+    "summary": {"maxLength": 240, "minLength": 1, "pattern": "^[^\\r\\n]*$", "type": "string"}
   },
-  "required": [
-    "decision",
-    "binding",
-    "summary",
-    "reasons",
-    "risk_signals"
-  ],
-  "title": "auto-merge Agent Result",
+  "required": ["decision", "binding", "summary", "reasons", "blocking_signals", "evidence_comment_ids"],
+  "title": "Auto-Merge Semantic Authorization Result",
   "type": "object"
 }

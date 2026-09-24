@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Adversarial tests for merge-queue revision authorization."""
+"""Tests that queue reauthorization checks Fullsend semantics, not SCM policy."""
 
 from __future__ import annotations
 
@@ -12,13 +12,10 @@ SCRIPTS = Path(__file__).parents[1] / ".fullsend" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 sys.path.insert(0, str(Path(__file__).parent))
 
-from auto_merge_finalize import idempotency_key, receipt_markdown  # noqa: E402
+from auto_merge_finalize import receipt_markdown  # noqa: E402
 from auto_merge_gate import build_evidence  # noqa: E402
 from auto_merge_queue_gate import evaluate_merge_group  # noqa: E402
-from test_auto_merge import BASE, HEAD, eligible_snapshot, policy  # noqa: E402
-
-
-QUEUE_HEAD = "d" * 40
+from test_auto_merge import BASE, HEAD, QUEUE_HEAD, eligible_snapshot, human_comment, policy, result_for  # noqa: E402
 
 
 def queue_event() -> dict:
@@ -33,128 +30,73 @@ def queue_event() -> dict:
     }
 
 
-def queued_receipt() -> str:
-    evidence = build_evidence(eligible_snapshot(), policy())
-    result = {
-        "decision": "APPROVE",
-        "binding": evidence["binding"],
-        "summary": "The bounded change is approved",
-        "reasons": ["All policy gates passed"],
-        "risk_signals": [],
-    }
-    request_key = idempotency_key(evidence["binding"], "queue")
-    return receipt_markdown(result, evidence, "queued", "GitHub accepted queue enrollment.", request_key)
+def submitted_receipt(snapshot: dict | None = None) -> str:
+    evidence = build_evidence(snapshot or eligible_snapshot(), policy(mode="lab-automatic"))
+    return receipt_markdown(result_for(evidence), evidence, "submitted", "Submitted to GitHub SCM.")
 
 
-def reviews() -> list[dict]:
-    return [
+def snapshot_with_receipt() -> dict:
+    snapshot = eligible_snapshot()
+    snapshot["comments"].append(
         {
-            "id": 1,
-            "state": "APPROVED",
-            "commit_id": HEAD,
-            "submitted_at": "2026-09-16T20:00:00Z",
-            "user": {"login": "fullsend-ai-review[bot]"},
+            "id": 401,
+            "body": submitted_receipt(),
+            "created_at": "2026-09-23T20:02:00Z",
+            "updated_at": "2026-09-23T20:02:00Z",
+            "author_association": "NONE",
+            "user": {"login": "fullsend-ai-coder[bot]", "type": "Bot"},
         }
-    ]
-
-
-def pull_request() -> dict:
-    return {
-        "number": 7,
-        "state": "open",
-        "draft": False,
-        "head": {"sha": HEAD, "repo": {"full_name": "fullsend-ai/auto-merge"}},
-        "base": {"ref": "main"},
-        "labels": [{"name": "risk/low"}],
-    }
-
-
-def rulesets() -> list[dict]:
-    return [{"enforcement": "active", "rules": [{"type": "merge_queue"}]}]
-
-
-def evaluate(comments: list[dict], **overrides: object) -> dict:
-    inputs = {
-        "event": queue_event(),
-        "pull_request": pull_request(),
-        "comments": comments,
-        "reviews": reviews(),
-        "rulesets": rulesets(),
-        "repository": "fullsend-ai/auto-merge",
-        "allowed_risk_levels": {"low", "moderate"},
-        "semantic_reviewer": "fullsend-ai-review[bot]",
-    }
-    inputs.update(overrides)
-    return evaluate_merge_group(**inputs)
+    )
+    return snapshot
 
 
 class MergeQueueAuthorizationTests(unittest.TestCase):
-    def test_canonical_machine_receipt_authorizes_queue_revision(self) -> None:
-        comments = [{"body": queued_receipt(), "user": {"login": "fullsend-ai-coder[bot]"}}]
-        result = evaluate(comments)
+    def evaluate(self, snapshot: dict | None = None, event: dict | None = None) -> dict:
+        return evaluate_merge_group(event or queue_event(), snapshot or snapshot_with_receipt(), policy(mode="lab-automatic"))
+
+    def test_matching_semantic_receipt_authorizes_queue_revision(self) -> None:
+        result = self.evaluate()
         self.assertTrue(result["authorized"], result["failures"])
+        self.assertFalse(result["scm_policy_checked"])
+
+    def test_queue_gate_does_not_need_rulesets_or_check_runs(self) -> None:
+        snapshot = snapshot_with_receipt()
+        self.assertNotIn("rulesets", snapshot)
+        self.assertNotIn("check_runs", snapshot)
+        self.assertTrue(self.evaluate(snapshot)["authorized"])
 
     def test_human_authored_receipt_is_rejected(self) -> None:
-        comments = [{"body": queued_receipt(), "user": {"login": "ascerra"}}]
-        self.assertFalse(evaluate(comments)["authorized"])
+        snapshot = snapshot_with_receipt()
+        snapshot["comments"][-1]["user"] = {"login": "ascerra", "type": "User"}
+        self.assertFalse(self.evaluate(snapshot)["authorized"])
 
-    def test_marker_embedded_in_trusted_comment_is_rejected(self) -> None:
-        comments = [
-            {
-                "body": "Earlier bot output that must not count.\n\n" + queued_receipt(),
-                "user": {"login": "fullsend-ai-coder[bot]"},
-            }
-        ]
-        self.assertFalse(evaluate(comments)["authorized"])
+    def test_embedded_receipt_marker_is_rejected(self) -> None:
+        snapshot = snapshot_with_receipt()
+        snapshot["comments"][-1]["body"] = "Earlier output\n\n" + snapshot["comments"][-1]["body"]
+        self.assertFalse(self.evaluate(snapshot)["authorized"])
 
-    def test_self_consistent_but_unbound_request_key_is_rejected(self) -> None:
-        forged_key = "f" * 64
-        receipt = queued_receipt()
-        marker_key = receipt.split(":", 3)[2]
-        forged = receipt.replace(marker_key, forged_key)
-        comments = [{"body": forged, "user": {"login": "fullsend-ai-coder[bot]"}}]
-        self.assertFalse(evaluate(comments)["authorized"])
-
-    def test_receipt_for_different_base_is_rejected(self) -> None:
+    def test_changed_head_or_base_is_rejected(self) -> None:
+        snapshot = snapshot_with_receipt()
+        snapshot["pull_request"]["head"]["sha"] = "d" * 40
+        self.assertFalse(self.evaluate(snapshot)["authorized"])
         event = queue_event()
-        event["merge_group"]["base_sha"] = "f" * 40
-        comments = [{"body": queued_receipt(), "user": {"login": "fullsend-ai-coder[bot]"}}]
-        self.assertFalse(evaluate(comments, event=event)["authorized"])
+        event["merge_group"]["base_sha"] = "e" * 40
+        self.assertFalse(self.evaluate(event=event)["authorized"])
 
-    def test_receipt_for_different_head_is_rejected(self) -> None:
-        pr = pull_request()
-        pr["head"]["sha"] = "f" * 40
-        comments = [{"body": queued_receipt(), "user": {"login": "fullsend-ai-coder[bot]"}}]
-        self.assertFalse(evaluate(comments, pull_request=pr)["authorized"])
+    def test_new_human_context_invalidates_prior_semantic_receipt(self) -> None:
+        snapshot = snapshot_with_receipt()
+        snapshot["comments"].append(human_comment("Please pause; deployment sequencing is unresolved.", comment_id=402))
+        self.assertFalse(self.evaluate(snapshot)["authorized"])
+
+    def test_changed_risk_assessment_invalidates_prior_semantic_receipt(self) -> None:
+        snapshot = snapshot_with_receipt()
+        snapshot["comments"][0]["body"] = snapshot["comments"][0]["body"].replace("low (1/5)", "high (4/5)")
+        self.assertFalse(self.evaluate(snapshot)["authorized"])
 
     def test_fork_pull_request_is_rejected(self) -> None:
-        pr = pull_request()
-        pr["head"]["repo"]["full_name"] = "outsider/auto-merge"
-        comments = [{"body": queued_receipt(), "user": {"login": "fullsend-ai-coder[bot]"}}]
-        self.assertFalse(evaluate(comments, pull_request=pr)["authorized"])
-
-    def test_missing_active_queue_rule_is_rejected(self) -> None:
-        comments = [{"body": queued_receipt(), "user": {"login": "fullsend-ai-coder[bot]"}}]
-        self.assertFalse(evaluate(comments, rulesets=[])["authorized"])
-
-    def test_disallowed_risk_is_rejected(self) -> None:
-        pr = pull_request()
-        pr["labels"] = [{"name": "risk/high"}]
-        comments = [{"body": queued_receipt(), "user": {"login": "fullsend-ai-coder[bot]"}}]
-        self.assertFalse(evaluate(comments, pull_request=pr)["authorized"])
-
-    def test_withdrawn_semantic_approval_is_rejected(self) -> None:
-        comments = [{"body": queued_receipt(), "user": {"login": "fullsend-ai-coder[bot]"}}]
-        withdrawn = reviews() + [
-            {
-                "id": 2,
-                "state": "DISMISSED",
-                "commit_id": HEAD,
-                "submitted_at": "2026-09-16T20:01:00Z",
-                "user": {"login": "fullsend-ai-review[bot]"},
-            }
-        ]
-        self.assertFalse(evaluate(comments, reviews=withdrawn)["authorized"])
+        snapshot = snapshot_with_receipt()
+        snapshot["pull_request"]["head"]["repo"]["full_name"] = "outsider/auto-merge"
+        self.assertFalse(self.evaluate(snapshot)["authorized"])
 
 
 if __name__ == "__main__":

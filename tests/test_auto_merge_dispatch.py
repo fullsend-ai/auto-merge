@@ -22,6 +22,7 @@ def event(
     actor_id: str = "alice",
     actor_kind: str = "human",
     actor_role: str = "write",
+    is_entity_author: bool = False,
 ) -> dict:
     entity = {"kind": entity_kind, "id": 5, "url": "https://github.com/fullsend-ai/auto-merge/pull/5"}
     if entity_kind == "work_item":
@@ -30,7 +31,7 @@ def event(
         "repo": "fullsend-ai/auto-merge",
         "entity": entity,
         "transition": transition,
-        "actor": {"id": actor_id, "kind": actor_kind, "role": actor_role, "is_entity_author": False},
+        "actor": {"id": actor_id, "kind": actor_kind, "role": actor_role, "is_entity_author": is_entity_author},
         "state": {
             "labels": [],
             "change_proposal": {
@@ -40,7 +41,7 @@ def event(
                 "head_ref": "agent/test",
                 "base_ref": "main",
                 "head_sha": "a" * 40,
-                "author_id": "fullsend-ai-coder[bot]",
+                "author_id": actor_id if is_entity_author else "fullsend-ai-coder[bot]",
                 "is_fork": False,
             },
         },
@@ -100,21 +101,16 @@ class AutoMergeDispatchTests(unittest.TestCase):
         )
         self.assertEqual(dispatch(payload), [])
 
-    def test_readiness_label_selects_agent(self) -> None:
-        self.assert_selected(
-            event(
-                {"kind": "label_changed", "label": {"name": "fullsend-auto-merge-ready", "action": "added"}},
-                actor_id="github-actions[bot]",
-                actor_kind="bot",
-                actor_role="none",
-            )
+    def test_trusted_human_context_selects_agent(self) -> None:
+        self.assert_selected(event({"kind": "comment_added", "comment": {"body": "The rollout dependency is resolved."}}))
+
+    def test_untrusted_human_context_does_not_select_agent(self) -> None:
+        payload = event(
+            {"kind": "comment_added", "comment": {"body": "Please merge this."}},
+            actor_id="outsider",
+            actor_role="none",
         )
-
-    def test_readiness_label_on_work_item_selects_agent(self) -> None:
-        self.assert_selected(event({"kind": "label_changed", "label": {"name": "fullsend-auto-merge-ready", "action": "added"}}, entity_kind="work_item"))
-
-    def test_unrelated_label_does_not_select_agent(self) -> None:
-        self.assertEqual(dispatch(event({"kind": "label_changed", "label": {"name": "hold", "action": "added"}})), [])
+        self.assertEqual(dispatch(payload), [])
 
     def test_rejected_review_does_not_select_agent(self) -> None:
         self.assertEqual(dispatch(event({"kind": "review_submitted", "review": {"state": "changes_requested", "reviewer_id": "reviewer"}})), [])
