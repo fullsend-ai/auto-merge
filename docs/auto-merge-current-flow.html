@@ -101,6 +101,19 @@
     <span class="key">"title"</span>: <span class="string">"test: exercise autonomous auto-merge agent"</span>,
     <span class="key">"author"</span>: <span class="string">"example-author"</span>
   },
+  <span class="key">"intent"</span>: {
+    <span class="key">"source"</span>: <span class="string">"pull_request"</span>,
+    <span class="key">"title"</span>: <span class="string">"test: exercise review rationale evidence"</span>,
+    <span class="key">"statement"</span>: <span class="string">"Verify that the Auto-Merge semantic stage receives the Review Agent rationale with exact-head approval and current risk evidence."</span>
+  },
+  <span class="key">"change_context"</span>: {
+    <span class="key">"files"</span>: [{<span class="key">"filename"</span>: <span class="string">"docs/review-rationale-smoke.md"</span>, <span class="key">"status"</span>: <span class="string">"added"</span>, <span class="key">"additions"</span>: <span class="number">5</span>, <span class="key">"deletions"</span>: <span class="number">0</span>, <span class="key">"changes"</span>: <span class="number">5</span>}],
+    <span class="key">"total_files"</span>: <span class="number">1</span>,
+    <span class="key">"truncated"</span>: <span class="number">false</span>,
+    <span class="key">"additions"</span>: <span class="number">5</span>,
+    <span class="key">"deletions"</span>: <span class="number">0</span>
+  },
+  <span class="key">"trace_refs"</span>: [{<span class="key">"agent"</span>: <span class="string">"code"</span>, <span class="key">"trace_id"</span>: <span class="string">"trace-example-123"</span>, <span class="key">"purpose"</span>: <span class="string">"implementation evidence"</span>}],
   <span class="key">"policy"</span>: {
     <span class="key">"repository"</span>: <span class="string">"fullsend-ai/auto-merge"</span>,
     <span class="key">"base_ref"</span>: <span class="string">"main"</span>,
@@ -126,7 +139,7 @@
       <span class="key">"status"</span>: <span class="string">"CURRENT"</span>,
       <span class="key">"head_sha"</span>: <span class="string">"0000000000000000000000000000000000000000"</span>,
       <span class="key">"comment_id"</span>: <span class="number">123457</span>,
-      <span class="key">"summary"</span>: <span class="string">"The implementation satisfies the stated intent. No blocking correctness or security findings remain."</span>
+      <span class="key">"summary"</span>: <span class="string">"The change adds a documentation-only smoke-test fixture and satisfies the stated intent. It introduces no runtime behavior, dependency, security, or deployment impact. The exact head was reviewed and no blocking correctness, security, or operational findings remain."</span>
     },
     <span class="key">"risk_assessment"</span>: {
       <span class="key">"authority"</span>: <span class="string">"fullsend-risk-assessment"</span>,

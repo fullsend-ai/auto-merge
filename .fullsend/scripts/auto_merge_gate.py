@@ -37,6 +37,8 @@ IGNORED_MARKERS = (
     "<!-- fullsend:review-agent -->",
 )
 MAX_COMMENT_CHARS = 4_000
+MAX_CHANGED_FILES = 100
+MAX_TRACE_REFS = 50
 MAX_TRUSTED_HUMAN_SIGNALS = 100
 MAX_UNTRUSTED_HUMAN_SIGNALS = 20
 QUALITY_MODES = {"off", "observe", "enforce"}
@@ -108,6 +110,56 @@ def gh_pages(endpoint: str) -> list[dict[str, Any]]:
     return [item for page in pages for item in page if isinstance(item, dict)]
 
 
+def change_context(snapshot: dict[str, Any]) -> dict[str, Any]:
+    files = snapshot.get("files") or []
+    if not isinstance(files, list):
+        raise GateError("pull-request files response is malformed")
+    bounded: list[dict[str, Any]] = []
+    for item in files[:MAX_CHANGED_FILES]:
+        if not isinstance(item, dict) or not item.get("filename"):
+            continue
+        bounded.append(
+            {
+                "filename": str(item.get("filename"))[:500],
+                "status": str(item.get("status") or "unknown")[:32],
+                "additions": int(item.get("additions") or 0),
+                "deletions": int(item.get("deletions") or 0),
+                "changes": int(item.get("changes") or 0),
+            }
+        )
+    return {
+        "files": bounded,
+        "total_files": len(files),
+        "truncated": len(files) > MAX_CHANGED_FILES,
+        "additions": sum(int(item.get("additions") or 0) for item in files if isinstance(item, dict)),
+        "deletions": sum(int(item.get("deletions") or 0) for item in files if isinstance(item, dict)),
+    }
+
+
+def trace_references(path: str) -> list[dict[str, str]]:
+    if not path:
+        return []
+    try:
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise GateError("trace references file is missing or invalid JSON") from exc
+    refs = raw.get("refs") if isinstance(raw, dict) else raw
+    if not isinstance(refs, list):
+        raise GateError("trace references must be a JSON array or an object with refs")
+    bounded: list[dict[str, str]] = []
+    for item in refs[:MAX_TRACE_REFS]:
+        if not isinstance(item, dict):
+            raise GateError("trace reference is not an object")
+        bounded.append(
+            {
+                key: str(item.get(key) or "")[:500]
+                for key in ("agent", "run_id", "trace_id", "purpose", "url")
+                if item.get(key) is not None
+            }
+        )
+    return bounded
+
+
 def collect_snapshot(repository: str, number: int, quality: dict[str, Any] | None = None) -> dict[str, Any]:
     pr_before = gh_json("api", f"repos/{repository}/pulls/{number}")
     head_sha = str((pr_before.get("head") or {}).get("sha") or "")
@@ -119,21 +171,26 @@ def collect_snapshot(repository: str, number: int, quality: dict[str, Any] | Non
 
     comments = gh_pages(f"repos/{repository}/issues/{number}/comments?per_page=100")
     reviews = gh_pages(f"repos/{repository}/pulls/{number}/reviews?per_page=100")
+    files_before = gh_pages(f"repos/{repository}/pulls/{number}/files?per_page=100")
 
     pr_after = gh_json("api", f"repos/{repository}/pulls/{number}")
     base_after = gh_json("api", branch_endpoint)
+    files_after = gh_pages(f"repos/{repository}/pulls/{number}/files?per_page=100")
     if (pr_after.get("head") or {}).get("sha") != head_sha:
         raise GateError("pull-request head changed while semantic evidence was collected")
     if (pr_after.get("base") or {}).get("ref") != base_ref:
         raise GateError("pull-request base ref changed while semantic evidence was collected")
     if (base_before.get("commit") or {}).get("sha") != (base_after.get("commit") or {}).get("sha"):
         raise GateError("base branch changed while semantic evidence was collected")
+    if files_before != files_after:
+        raise GateError("pull-request files changed while semantic evidence was collected")
 
     return {
         "pull_request": pr_after,
         "base_branch": base_after,
         "comments": comments,
         "reviews": reviews,
+        "files": files_after,
         "review_quality": quality or {},
     }
 
@@ -452,6 +509,13 @@ def build_evidence(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[str
             "body": str(pr.get("body") or "")[:8_000],
             "author": str((pr.get("user") or {}).get("login") or ""),
         },
+        "intent": {
+            "source": "pull_request",
+            "statement": str(pr.get("body") or "")[:8_000],
+            "title": str(pr.get("title") or "")[:500],
+        },
+        "change_context": change_context(snapshot),
+        "trace_refs": trace_references(os.environ.get("AUTO_MERGE_TRACE_REFS_FILE", "")),
         "policy": policy,
         "prerequisites": evaluation,
         "semantic_context": evaluation["semantic_context"],

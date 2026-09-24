@@ -95,6 +95,9 @@ def eligible_snapshot() -> dict:
             "base": {"sha": BASE, "ref": "main", "repo": {"full_name": "fullsend-ai/auto-merge"}},
         },
         "base_branch": {"commit": {"sha": BASE}},
+        "files": [
+            {"filename": "docs/example-feature.md", "status": "modified", "additions": 4, "deletions": 1, "changes": 5},
+        ],
         "comments": [risk_comment(), review_summary_comment()],
         "reviews": [
             {
@@ -178,6 +181,21 @@ class SemanticGateTests(unittest.TestCase):
         self.assertIn("Looks good to me", summary["summary"])
         self.assertNotIn("fullsend:review-agent", summary["summary"])
         self.assertNotIn("Head SHA", summary["summary"])
+
+    def test_evidence_contains_intent_and_bounded_change_context(self) -> None:
+        evidence = build_evidence(eligible_snapshot(), policy())
+        self.assertEqual(evidence["intent"]["title"], "Document the example behavior")
+        self.assertEqual(evidence["change_context"]["files"][0]["filename"], "docs/example-feature.md")
+        self.assertEqual(evidence["change_context"]["additions"], 4)
+        self.assertEqual(evidence["trace_refs"], [])
+
+    def test_trace_references_are_optional_and_bounded(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace-refs.json"
+            path.write_text(json.dumps({"refs": [{"agent": "code", "trace_id": "trace-123", "purpose": "implementation evidence"}]}), encoding="utf-8")
+            with mock.patch.dict(os.environ, {"AUTO_MERGE_TRACE_REFS_FILE": str(path)}):
+                evidence = build_evidence(eligible_snapshot(), policy())
+        self.assertEqual(evidence["trace_refs"][0]["trace_id"], "trace-123")
 
     def test_review_summary_text_is_bounded(self) -> None:
         snapshot = eligible_snapshot()

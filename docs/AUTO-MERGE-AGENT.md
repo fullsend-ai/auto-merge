@@ -87,8 +87,8 @@ nonzero and fails the run.
 An eligible preflight writes
 `.fullsend-runtime/auto-merge-evidence.json` into the checked-out repository.
 That directory is gitignored, copied into the sandbox by Fullsend, and never
-committed. The document contains only bounded pull-request metadata,
-deterministic findings, policy inputs, and this binding:
+committed. The document contains bounded intent, changed-file context,
+deterministic findings, policy inputs, optional trace references, and this binding:
 
 ```text
 repository
@@ -106,7 +106,8 @@ context_fingerprint
 controls. `context_fingerprint` hashes the complete canonical evidence after
 its context-fingerprint fields are removed. The post-script recomputes both
 before trusting the evidence. No token, credential, raw workflow environment,
-or complete event payload enters the document.
+raw trace transcript, or complete event payload enters the document. Trace
+references are advisory pointers only; malformed references fail closed.
 
 ## Review attestation verification
 
