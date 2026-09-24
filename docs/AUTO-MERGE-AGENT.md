@@ -186,19 +186,17 @@ The dispatch test is `tests/test_auto_merge_dispatch.py`.
 ## Known lab constraints
 
 - The lab runs in a public organization repository with an active merge-queue
-  ruleset. The scripts still recheck exact-head readiness because queue entry is
-  race-prone and because the trusted attestation must not outlive the revision
-  it approved.
+  ruleset. The portable agent submits native auto-merge before queue entry and
+  does not install a queue-specific callback or required check; GitHub owns the
+  queue and all queue-time SCM checks after that handoff.
 - The reusable Fullsend workflow loads custom harness configuration from
   `github.event.pull_request.base.sha`. For long-lived PRs this can be stale;
   run #99 loaded `307b6f9` even though the workflow itself ran from
   `main@5975b78`. Production dispatch must use current trusted base-branch
   configuration while preserving the untrusted-head boundary.
-- GitHub marks a pull request `unstable` while the Auto-Merge check itself is
-  pending. Requiring only `clean` therefore self-deadlocks the agent. The lab
-  accepts `clean` or `unstable`, still rejects `behind`, `dirty`, `blocked`, and
-  unknown states, and independently validates each required check by exact
-  name, conclusion, and head SHA.
+- The demo's queue behavior comes from GitHub's native merge queue and the
+  repository's ordinary required checks; those checks are illustrative CI, not
+  dependencies of the portable Auto-Merge agent.
 - The hosted `coder` identity is broader than the eventual dedicated
   Auto-Merge identity. The repository/path/method/SHA boundary is enforced in
   code for this lab; capability separation must be enforced by credentials in

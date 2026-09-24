@@ -35,9 +35,6 @@ from auto_merge_gate import build_evidence, canonical_hash, evaluate_snapshot, p
 
 HEAD = "a" * 40
 BASE = "b" * 40
-QUEUE_HEAD = "c" * 40
-
-
 def policy(**overrides: object) -> dict:
     result = {
         "repository": "fullsend-ai/auto-merge",
@@ -389,27 +386,13 @@ class RepositoryBoundaryTests(unittest.TestCase):
     def test_removed_readiness_workflow_cannot_duplicate_ci_scheduling(self) -> None:
         self.assertFalse((ROOT / ".github/workflows/auto-merge-ready.yml").exists())
 
-    def test_harness_and_queue_use_identical_semantic_policy(self) -> None:
+    def test_harness_is_self_contained_and_queue_gate_is_not_required(self) -> None:
         harness = yaml.safe_load((ROOT / ".fullsend/harness/auto-merge.yaml").read_text(encoding="utf-8"))
         ci = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
-        queue_env = ci["jobs"]["queue-authorization"]["steps"][1]["env"]
-        harness_env = harness["env"]["runner"]
-        mappings = {
-            "AUTO_MERGE_BASE_REF": "AUTO_MERGE_BASE_REF",
-            "AUTO_MERGE_POLICY_VERSION": "AUTO_MERGE_POLICY_VERSION",
-            "AUTO_MERGE_MODE": "AUTO_MERGE_MODE",
-            "AUTO_MERGE_SEMANTIC_REVIEWER": "AUTO_MERGE_SEMANTIC_REVIEWER",
-            "AUTO_MERGE_RISK_ASSESSMENT_PRODUCER": "AUTO_MERGE_RISK_ASSESSMENT_PRODUCER",
-            "AUTO_MERGE_ARTIFACT_CORRELATION_MINUTES": "AUTO_MERGE_ARTIFACT_CORRELATION_MINUTES",
-            "AUTO_MERGE_MAXIMUM_UNATTENDED_RISK": "AUTO_MERGE_MAXIMUM_UNATTENDED_RISK",
-            "AUTO_MERGE_HUMAN_SIGNAL_ASSOCIATIONS": "AUTO_MERGE_HUMAN_SIGNAL_ASSOCIATIONS",
-            "AUTO_MERGE_REVIEW_QUALITY_MODE": "AUTO_MERGE_REVIEW_QUALITY_MODE",
-            "AUTO_MERGE_REVIEW_QUALITY_MINIMUM_SCORE": "AUTO_MERGE_REVIEW_QUALITY_MINIMUM_SCORE",
-            "AUTO_MERGE_REVIEW_QUALITY_MINIMUM_SAMPLES": "AUTO_MERGE_REVIEW_QUALITY_MINIMUM_SAMPLES",
-            "AUTO_MERGE_CUSTOM_INSTRUCTIONS": "AUTO_MERGE_CUSTOM_INSTRUCTIONS",
-        }
-        for harness_key, queue_key in mappings.items():
-            self.assertEqual(str(harness_env[harness_key]), str(queue_env[queue_key]), harness_key)
+        self.assertNotIn("queue-authorization", ci["jobs"])
+        self.assertEqual(harness["trigger"].count("review_submitted"), 1)
+        self.assertIn('event.actor.id == "fullsend-ai-review[bot]"', harness["trigger"])
+        self.assertFalse((ROOT / ".fullsend/scripts/auto_merge_queue_gate.py").exists())
 
     def test_collector_does_not_fetch_scm_policy_surfaces(self) -> None:
         source = (SCRIPTS / "auto_merge_gate.py").read_text(encoding="utf-8")

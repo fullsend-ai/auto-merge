@@ -22,9 +22,10 @@ repository's native direct or merge-queue path without recreating SCM policy.
    validates an exact revision/context binding and requests native auto-merge.
    GitHub still chooses whether to wait, queue, reject, or merge.
 4. **Queue repositories use their queue.** A Fullsend authorization must not
-   bypass or replace merge-queue policy. Queue-time Fullsend reauthorization is
-   limited to ensuring that the semantic receipt remains valid for the
-   queue-generated context.
+   bypass or replace merge-queue policy. The portable Auto-Merge agent submits
+   the native request before queue entry; GitHub then owns queue-time checks and
+   final merge. A future platform integration may reauthorize semantic state on
+   a queue-generated revision, but that is not required by this agent.
 5. **Review risk is an input, not an SCM replacement.** Repositories may set a
    maximum unattended-risk level. Auto-Merge consumes Review's assessment; it
    does not perform a second code review.
@@ -35,10 +36,6 @@ repository's native direct or merge-queue path without recreating SCM policy.
 7. **Review quality is optional.** A repository may ignore, observe, or enforce
    trusted aggregate evaluation evidence such as `review_correctly_approved`.
    Repositories without that evaluation system remain supported.
-8. **Queue reauthorization covers every queued change.** A one-PR queue may
-   validate one receipt. Any forge configuration that batches multiple PRs
-   requires the trusted runtime to resolve every member and validate each
-   member's semantic authorization before its queue check succeeds.
 
 ## Wording to remove or avoid
 
@@ -54,6 +51,6 @@ repository's native direct or merge-queue path without recreating SCM policy.
 ## Details that belong outside the ADR
 
 Keep exact JSON schemas, comment markers, trigger CEL, quality-provider
-adapters, receipt phases, correlation windows, and GitHub CLI commands in the
+adapters, receipt phases, correlation windows, queue integrations, and GitHub CLI commands in the
 implementation contract. The ADR should define ownership and authority, not
 freeze this POC's mechanics.

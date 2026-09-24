@@ -37,9 +37,10 @@ Fullsend exclusively adds:
 - a revision-bound authorization receipt that can be invalidated when any of
   that semantic context changes.
 
-The collector and queue gate intentionally do not fetch check runs, required
-reviews, rulesets, unresolved-thread state, mergeability, or native auto-merge
-state. Those facts remain GitHub's job.
+The collector intentionally does not fetch check runs, required reviews,
+rulesets, unresolved-thread state, mergeability, or native auto-merge state.
+Those facts remain GitHub's job. The portable agent has no queue-time callback;
+GitHub owns the queue after native auto-merge is requested.
 
 ## Authority boundary
 
@@ -152,10 +153,11 @@ the repository requires a merge queue, GitHub enrolls the PR. If direct merge
 is permitted, GitHub follows that path. If SCM policy is unsatisfied, GitHub
 waits or rejects the request.
 
-For a queue-generated revision, the required Fullsend status check only proves
-that a trusted `AUTHORIZE` receipt still matches the PR head, queue base,
-semantic policy, and current semantic fingerprint. It does not repeat GitHub's
-other queue checks.
+The portable agent has no queue-specific callback or required status check. Once
+the trusted post-script requests native auto-merge, GitHub owns the direct or
+merge-queue path and all checks on any queue-generated revision. A future
+platform-owned integration may reauthorize semantic state on a queue-generated
+revision, but that is outside this repository's shippable agent contract.
 
 ## Fail-closed behavior
 
@@ -165,7 +167,6 @@ No SCM request is made when:
 - the Review approval or risk assessment is missing or stale;
 - risk or enforced Review quality exceeds repository policy;
 - semantic context changes after the model decision;
-- a trusted authorization receipt does not match queue context;
 - the target is a fork or outside the configured lab repository; or
 - GitHub rejects the exact-head native auto-merge request.
 
