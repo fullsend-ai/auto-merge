@@ -37,20 +37,15 @@ if ! jq -e '.prerequisites.ready_for_semantic_evaluation == true' "${EVIDENCE_FI
   # Keep this a single line: FULLSEND_PRESCRIPT_OUTPUT is a line-oriented
   # key=value protocol. The evidence file retains the full structured checks;
   # this compact rendering keeps the hosted skip status readable and ordered.
-  passed=$(jq -r '[.prerequisites.checks[] | select(.status == "pass") | "• ✅ " + .label] | join(" ")' "${EVIDENCE_FILE}")
-  informational=$(jq -r '[.prerequisites.checks[] | select(.status == "not_applicable") | "• ℹ️ " + .label + ": " + .detail] | join(" ")' "${EVIDENCE_FILE}")
-  failed=$(jq -r '[.prerequisites.checks[] | select(.status == "fail") | "• ❌ " + .label + ": " + .detail] | join(" ")' "${EVIDENCE_FILE}")
-  # The Fullsend status comment renders `reason=` as one compact line and can
-  # truncate a long value. Put blockers first so a skip never looks like a
-  # successful run with an unexplained generic error. The complete ordered
-  # array remains available in auto_merge_checks for the agent and receipt.
-  suffix="${passed} ${informational}"
-  if (( ${#failed} >= 1000 )); then
-    reason="${failed:0:1000}"
-  else
-    available=$((1000 - ${#failed} - 1))
-    reason="${failed} ${suffix:0:${available}}"
-  fi
+  failed=$(jq -r '[.prerequisites.checks[] | select(.status == "fail") | "• ❌ " + .label] | join(" ")' "${EVIDENCE_FILE}")
+  passed_count=$(jq '[.prerequisites.checks[] | select(.status == "pass")] | length' "${EVIDENCE_FILE}")
+  informational_count=$(jq '[.prerequisites.checks[] | select(.status == "not_applicable")] | length' "${EVIDENCE_FILE}")
+  # The Fullsend status comment renders `reason=` as one sanitized line, not a
+  # Markdown block. Put every blocker first as compact bullet items, then use
+  # counts for the potentially long pass/N-A lists. The complete ordered array
+  # remains available in auto_merge_checks for the agent and full receipt.
+  reason="${failed} • ✅ ${passed_count} checks passed • ℹ️ ${informational_count} not applicable"
+  reason="${reason:0:1000}"
   checks_json=$(jq -c '.prerequisites.checks' "${EVIDENCE_FILE}")
   if [[ -n "${FULLSEND_PRESCRIPT_OUTPUT:-}" ]]; then
     {
