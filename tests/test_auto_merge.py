@@ -154,6 +154,36 @@ class SemanticGateTests(unittest.TestCase):
         self.assertNotIn("rulesets", snapshot)
         self.assertNotIn("mergeable", snapshot["pull_request"])
 
+    def test_prerequisite_checks_have_stable_order_and_pass_fail_status(self) -> None:
+        evaluation = evaluate_snapshot(eligible_snapshot(), policy())
+        checks = evaluation["checks"]
+        self.assertEqual(
+            [check["id"] for check in checks],
+            [
+                "mode", "review_quality_mode", "pr_open", "head_sha", "base_sha",
+                "base_ref", "base_repository", "head_repository", "review_attestation",
+                "review_summary", "risk_assessment", "human_context_bound", "risk_policy",
+                "risk_ceiling", "review_quality_policy",
+            ],
+        )
+        self.assertTrue(all(check["status"] == "pass" for check in checks), checks)
+        self.assertTrue(all(set(check) == {"id", "label", "status", "detail"} for check in checks))
+
+    def test_skipped_receipt_lists_passes_then_failures(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["comments"] = [review_summary_comment(head="d" * 40)]
+        evidence = build_evidence(snapshot, policy())
+        body = receipt_markdown(
+            result_for(evidence, decision="DEFER", blockers=["missing evidence"]),
+            evidence,
+            "deferred",
+            "Semantic prerequisites are not ready.",
+        )
+        self.assertLess(body.index("## Checks passed"), body.index("## Checks that blocked Auto-Merge"))
+        self.assertLess(body.index("✅ Pull request is open"), body.index("❌ Exact-head"))
+        self.assertIn("❌ Exact-head review summary is current", body)
+        self.assertIn("## Checks not applicable", body)
+
     def test_stale_review_attestation_is_rejected(self) -> None:
         snapshot = eligible_snapshot()
         snapshot["reviews"][0]["commit_id"] = "d" * 40

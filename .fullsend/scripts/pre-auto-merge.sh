@@ -34,11 +34,21 @@ python3 "${SCRIPT_DIR}/auto_merge_gate.py" collect \
   --output "${EVIDENCE_FILE}"
 
 if ! jq -e '.prerequisites.ready_for_semantic_evaluation == true' "${EVIDENCE_FILE}" >/dev/null; then
-  reason=$(jq -r '.prerequisites.failures | join("; ")' "${EVIDENCE_FILE}")
+  # Keep this a single line: FULLSEND_PRESCRIPT_OUTPUT is a line-oriented
+  # key=value protocol. The evidence file retains the full structured checks;
+  # this compact rendering keeps the hosted skip status readable and ordered.
+  reason=$(jq -r '
+    ([.prerequisites.checks[] | select(.status == "pass") | "• ✅ " + .label] +
+     [.prerequisites.checks[] | select(.status == "not_applicable") | "• ℹ️ " + .label + ": " + .detail] +
+     [.prerequisites.checks[] | select(.status == "fail") | "• ❌ " + .label + ": " + .detail])
+    | join(" ")
+  ' "${EVIDENCE_FILE}")
+  checks_json=$(jq -c '.prerequisites.checks' "${EVIDENCE_FILE}")
   if [[ -n "${FULLSEND_PRESCRIPT_OUTPUT:-}" ]]; then
     {
       printf 'skipped=true\n'
       printf 'reason=%s\n' "${reason:0:1000}"
+      printf 'auto_merge_checks=%s\n' "${checks_json:0:100000}"
     } >> "${FULLSEND_PRESCRIPT_OUTPUT}"
   fi
   printf 'auto-merge semantic prerequisites not ready: %s\n' "${reason}" >&2

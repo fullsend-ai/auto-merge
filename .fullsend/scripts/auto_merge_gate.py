@@ -543,44 +543,72 @@ def evaluate_snapshot(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[
     live_base_sha = str((snapshot.get("base_branch") or {}).get("commit", {}).get("sha") or "")
     context = semantic_context(snapshot, policy)
     failures: list[str] = []
+    checks: list[dict[str, str]] = []
 
-    def require(condition: bool, reason: str) -> None:
+    def require(check_id: str, label: str, condition: bool, reason: str, detail: str | None = None) -> None:
+        checks.append(
+            {
+                "id": check_id,
+                "label": label,
+                "status": "pass" if condition else "fail",
+                "detail": (detail if condition and detail else ("passed" if condition else reason)),
+            }
+        )
         if not condition:
             failures.append(reason)
 
-    require(policy.get("mode") in {"observe", "lab-automatic"}, "POC mode is unsupported")
-    require(policy.get("review_quality_mode") in QUALITY_MODES, "review quality mode is unsupported")
-    require(pr.get("state") == "open", "pull request is not open")
-    require(pr.get("draft") is False, "pull request is a draft")
-    require(SHA_RE.fullmatch(head_sha) is not None, "head SHA is invalid")
-    require(SHA_RE.fullmatch(live_base_sha) is not None, "live base SHA is invalid")
-    require((pr.get("base") or {}).get("ref") == policy["base_ref"], "base ref is outside the configured scope")
-    require((pr.get("base") or {}).get("repo", {}).get("full_name") == repository, "base repository mismatch")
-    require((pr.get("head") or {}).get("repo", {}).get("full_name") == repository, "fork pull requests are outside this lab's security scope")
+    require("mode", "Auto-Merge mode is supported", policy.get("mode") in {"observe", "lab-automatic"}, "POC mode is unsupported")
+    require("review_quality_mode", "Review-quality mode is supported", policy.get("review_quality_mode") in QUALITY_MODES, "review quality mode is unsupported")
+    require("pr_open", "Pull request is open and not a draft", pr.get("state") == "open" and pr.get("draft") is False, "pull request is not open or is a draft")
+    require("head_sha", "Pull-request head SHA is valid", SHA_RE.fullmatch(head_sha) is not None, "head SHA is invalid")
+    require("base_sha", "Live base SHA is valid", SHA_RE.fullmatch(live_base_sha) is not None, "live base SHA is invalid")
+    require("base_ref", "Base branch is in the configured scope", (pr.get("base") or {}).get("ref") == policy["base_ref"], "base ref is outside the configured scope")
+    require("base_repository", "Base repository is the configured repository", (pr.get("base") or {}).get("repo", {}).get("full_name") == repository, "base repository mismatch")
+    require("head_repository", "Pull request is not from a fork", (pr.get("head") or {}).get("repo", {}).get("full_name") == repository, "fork pull requests are outside this lab's security scope")
     authority_label = "Review Agent" if context["review_attestation"].get("authority") == "fullsend-review-agent" else "configured semantic reviewer"
-    require(context["review_attestation"]["decision"] == "APPROVE", f"exact-head {authority_label} attestation is missing or stale")
-    require(context["review_summary"]["status"] == "CURRENT", "exact-head Review summary is missing or stale")
-    require(context["risk_assessment"]["status"] == "CURRENT", "exact-head risk assessment is missing or cannot be bound to the Review run")
-    require(not context["human_signal_integrity"]["trusted_truncated"], "trusted human context exceeds the safe evidence bound")
+    require("review_attestation", f"Exact-head {authority_label} attestation is current", context["review_attestation"]["decision"] == "APPROVE", f"exact-head {authority_label} attestation is missing or stale")
+    require("review_summary", "Exact-head review summary is current", context["review_summary"]["status"] == "CURRENT", "exact-head Review summary is missing or stale")
+    require("risk_assessment", "Exact-head risk assessment is current", context["risk_assessment"]["status"] == "CURRENT", "exact-head risk assessment is missing or cannot be bound to the Review run")
+    require("human_context_bound", "Trusted human context is within the evidence bound", not context["human_signal_integrity"]["trusted_truncated"], "trusted human context exceeds the safe evidence bound")
     risk_level = context["risk_assessment"].get("level")
     maximum_risk = policy.get("maximum_unattended_risk")
-    require(maximum_risk in RISK_LEVELS, "maximum unattended risk policy is invalid")
+    require("risk_policy", "Maximum unattended-risk policy is valid", maximum_risk in RISK_LEVELS, "maximum unattended risk policy is invalid")
     if context["risk_assessment"]["status"] == "CURRENT" and maximum_risk in RISK_LEVELS:
         require(
+            "risk_ceiling",
+            "Risk is within the unattended-merge policy",
             risk_level in RISK_LEVELS and RISK_LEVELS[risk_level] <= RISK_LEVELS[maximum_risk],
             f"risk assessment {risk_level or 'unknown'} exceeds unattended policy {maximum_risk}",
         )
+    else:
+        require(
+            "risk_ceiling",
+            "Risk is within the unattended-merge policy",
+            True,
+            "risk ceiling could not be evaluated",
+            "not applicable until the risk assessment is current and the policy is valid",
+        )
+        checks[-1]["status"] = "not_applicable"
 
     quality = context["review_quality"]
     if policy["review_quality_mode"] == "enforce":
-        require(quality.get("status") == "AVAILABLE", "required Review quality evidence is unavailable")
+        require("review_quality_available", "Required review-quality evidence is available", quality.get("status") == "AVAILABLE", "required Review quality evidence is unavailable")
         if quality.get("status") == "AVAILABLE":
-            require(quality["sample_count"] >= policy["review_quality_minimum_samples"], "Review quality evidence has too few samples")
-            require(quality["score"] >= policy["review_quality_minimum_score"], "Review quality score is below repository policy")
+            require("review_quality_samples", "Review-quality sample count meets policy", quality["sample_count"] >= policy["review_quality_minimum_samples"], "Review quality evidence has too few samples")
+            require("review_quality_score", "Review-quality score meets policy", quality["score"] >= policy["review_quality_minimum_score"], "Review quality score is below repository policy")
+    else:
+        require(
+            "review_quality_policy",
+            "Optional review-quality policy is not blocking",
+            True,
+            "review quality policy is blocking",
+            f"not enforced (mode: {policy['review_quality_mode']})",
+        )
 
     return {
         "ready_for_semantic_evaluation": not failures,
         "failures": failures,
+        "checks": checks,
         "scm_policy_checked": False,
         "note": "SCM owns checks, review counts, conversations, mergeability, branch freshness, and queue policy.",
         "semantic_context": context,
