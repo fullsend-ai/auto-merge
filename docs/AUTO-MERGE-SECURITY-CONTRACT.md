@@ -110,9 +110,10 @@ retained as a compact machine-readable list.
 
 Receipts render that ordered evidence as `✅` passed checks, `ℹ️` checks that are
 not applicable because a prerequisite is missing, and `❌` checks that blocked
-Auto-Merge. The Fullsend pre-script puts the blocking `❌` checks first in its
-single-line skip reason so the hosted status cannot hide the reason behind a
-long list of passes; it relays the complete ordered array as
+Auto-Merge. The Fullsend pre-script puts only the blocking `❌` checks in its
+single-line skip reason so the hosted status stays focused on the actionable
+reason; it relays the complete ordered array, including passes and
+not-applicable checks, as
 `auto_merge_checks`, because the line-oriented pre-script protocol does not
 support multiline values.
 

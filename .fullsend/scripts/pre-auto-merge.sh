@@ -36,15 +36,13 @@ python3 "${SCRIPT_DIR}/auto_merge_gate.py" collect \
 if ! jq -e '.prerequisites.ready_for_semantic_evaluation == true' "${EVIDENCE_FILE}" >/dev/null; then
   # Keep this a single line: FULLSEND_PRESCRIPT_OUTPUT is a line-oriented
   # key=value protocol. The evidence file retains the full structured checks;
-  # this compact rendering keeps the hosted skip status readable and ordered.
+  # this compact rendering keeps only the actionable blockers visible.
   failed=$(jq -r '[.prerequisites.checks[] | select(.status == "fail") | "• ❌ " + .label] | join(" ")' "${EVIDENCE_FILE}")
-  passed_count=$(jq '[.prerequisites.checks[] | select(.status == "pass")] | length' "${EVIDENCE_FILE}")
-  informational_count=$(jq '[.prerequisites.checks[] | select(.status == "not_applicable")] | length' "${EVIDENCE_FILE}")
   # The Fullsend status comment renders `reason=` as one sanitized line, not a
-  # Markdown block. Put every blocker first as compact bullet items, then use
-  # counts for the potentially long pass/N-A lists. The complete ordered array
-  # remains available in auto_merge_checks for the agent and full receipt.
-  reason="${failed} • ✅ ${passed_count} checks passed • ℹ️ ${informational_count} not applicable"
+  # Markdown block. Show only actionable blockers here; the complete ordered
+  # pass/N-A/fail array remains available in auto_merge_checks for the agent
+  # and full receipt.
+  reason="${failed:-• ❌ Semantic prerequisites are not ready}"
   reason="${reason:0:1000}"
   checks_json=$(jq -c '.prerequisites.checks' "${EVIDENCE_FILE}")
   if [[ -n "${FULLSEND_PRESCRIPT_OUTPUT:-}" ]]; then
