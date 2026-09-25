@@ -21,3 +21,4 @@ result is legible and bound to this revision before queue entry.
 
 Run `python3 scripts/validate_example.py` and confirm both pull-request CI jobs
 complete successfully. Failed validation returns a nonzero status.
+This line exercises the fast review path without changing merge policy.
