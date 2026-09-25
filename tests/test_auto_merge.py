@@ -154,6 +154,36 @@ class SemanticGateTests(unittest.TestCase):
         self.assertNotIn("rulesets", snapshot)
         self.assertNotIn("mergeable", snapshot["pull_request"])
 
+    def test_prerequisite_checks_have_stable_order_and_pass_fail_status(self) -> None:
+        evaluation = evaluate_snapshot(eligible_snapshot(), policy())
+        checks = evaluation["checks"]
+        self.assertEqual(
+            [check["id"] for check in checks],
+            [
+                "mode", "review_quality_mode", "pr_open", "head_sha", "base_sha",
+                "base_ref", "base_repository", "head_repository", "review_attestation",
+                "review_summary", "risk_assessment", "human_context_bound", "risk_policy",
+                "risk_ceiling", "review_quality_policy",
+            ],
+        )
+        self.assertTrue(all(check["status"] == "pass" for check in checks), checks)
+        self.assertTrue(all(set(check) == {"id", "label", "status", "detail"} for check in checks))
+
+    def test_skipped_receipt_lists_passes_then_failures(self) -> None:
+        snapshot = eligible_snapshot()
+        snapshot["comments"] = [review_summary_comment(head="d" * 40)]
+        evidence = build_evidence(snapshot, policy())
+        body = receipt_markdown(
+            result_for(evidence, decision="DEFER", blockers=["missing evidence"]),
+            evidence,
+            "deferred",
+            "Semantic prerequisites are not ready.",
+        )
+        self.assertLess(body.index("## Checks passed"), body.index("## Checks that blocked Auto-Merge"))
+        self.assertLess(body.index("✅ Pull request is open"), body.index("❌ Exact-head"))
+        self.assertIn("❌ Exact-head review summary is current", body)
+        self.assertIn("## Checks not applicable", body)
+
     def test_stale_review_attestation_is_rejected(self) -> None:
         snapshot = eligible_snapshot()
         snapshot["reviews"][0]["commit_id"] = "d" * 40
@@ -343,6 +373,12 @@ class SemanticGateTests(unittest.TestCase):
         self.assert_not_ready(snapshot, "below", policy(review_quality_mode="enforce"))
         snapshot["review_quality"] = {"score": 0.99, "sample_count": 80, "metric": "review_correctly_approved"}
         self.assertTrue(evaluate_snapshot(snapshot, policy(review_quality_mode="enforce"))["ready_for_semantic_evaluation"])
+
+    def test_enforced_quality_checks_remain_in_sequence_when_evidence_is_missing(self) -> None:
+        checks = evaluate_snapshot(eligible_snapshot(), policy(review_quality_mode="enforce"))["checks"]
+        quality_checks = checks[-3:]
+        self.assertEqual([check["id"] for check in quality_checks], ["review_quality_available", "review_quality_samples", "review_quality_score"])
+        self.assertEqual([check["status"] for check in quality_checks], ["fail", "not_applicable", "not_applicable"])
 
     def test_semantic_fingerprint_changes_with_human_context(self) -> None:
         before = build_evidence(eligible_snapshot(), policy())["binding"]["semantic_fingerprint"]

@@ -212,6 +212,15 @@ def receipt_markdown(
     run_id = os.environ.get("GITHUB_RUN_ID", "local")
     reasons = "\n".join(f"- {reason}" for reason in result["reasons"])
     blockers = "\n".join(f"- Blocking: {signal}" for signal in result["blocking_signals"])
+    checks = evidence.get("prerequisites", {}).get("checks", [])
+    passed_checks = "\n".join(f"- ✅ {check['label']} — {check['detail']}" for check in checks if check.get("status") == "pass")
+    informational_checks = "\n".join(f"- ℹ️ {check['label']} — {check['detail']}" for check in checks if check.get("status") == "not_applicable")
+    failed_checks = "\n".join(f"- ❌ {check['label']} — {check['detail']}" for check in checks if check.get("status") == "fail")
+    check_section = (
+        "## Checks passed\n" + (passed_checks or "- None")
+        + "\n\n## Checks not applicable\n" + (informational_checks or "- None")
+        + "\n\n## Checks that blocked Auto-Merge\n" + (failed_checks or "- None")
+    )
     return (
         f"<!-- fullsend:auto-merge-receipt:{key}:{phase} -->\n"
         f"### Auto-Merge: {phase}\n\n"
@@ -224,7 +233,7 @@ def receipt_markdown(
         f"- Idempotency key: `{key}`\n"
         f"- Workflow: {workflow}/actions/runs/{run_id}\n"
         f"- Recorded: `{dt.datetime.now(dt.timezone.utc).isoformat().replace('+00:00', 'Z')}`\n\n"
-        f"{detail}\n\n{reasons}\n{blockers}\n"
+        f"{detail}\n\n{check_section}\n\n{reasons}\n{blockers}\n"
     )
 
 

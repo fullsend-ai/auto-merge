@@ -100,6 +100,20 @@ It does not wait for CI or inspect branch policy. Running before CI finishes is
 safe because `gh pr merge --auto` delegates waiting and queue admission to
 GitHub.
 
+The prerequisite evaluator runs a fixed sequence and writes a structured
+`prerequisites.checks` array. Each entry has an `id`, `label`, `status`, and
+`detail`; the sequence covers supported modes, pull-request state and revision
+identity, repository/base scope, current semantic attestation and review
+summary, current risk evidence, bounded human context, risk-policy validity and
+ceiling, and optional review-quality policy. The existing `failures` array is
+retained as a compact machine-readable list.
+
+Receipts render that ordered evidence as `✅` passed checks, `ℹ️` checks that are
+not applicable because a prerequisite is missing, and `❌` checks that blocked
+Auto-Merge. The Fullsend pre-script uses the same ordering in its single-line
+skip reason and relays the full array as `auto_merge_checks`, because the
+line-oriented pre-script protocol does not support multiline values.
+
 ## Semantic decision
 
 - `AUTHORIZE`: the current semantic context permits unattended merge.
