@@ -29,3 +29,24 @@ jobs:
         run: sleep 240
       - name: Validate example document after the delay
         run: python3 scripts/validate_example.py
+
+  merge-group-proof:
+    name: Merge group proof
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Prove the evaluated ref
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          MERGE_GROUP_SHA: ${{ github.event.merge_group.head_sha || '' }}
+        run: |
+          set -euo pipefail
+          test -n "${SHA}"
+          if [[ "${EVENT_NAME}" == "merge_group" ]]; then
+            test -n "${MERGE_GROUP_SHA}"
+            echo "merge-group proof: synthetic ref=${REF_NAME} head_sha=${MERGE_GROUP_SHA}"
+          else
+            echo "merge-group proof: pre-queue pull_request ref=${REF_NAME} head_sha=${SHA}"
+          fi
