@@ -596,6 +596,23 @@ def evaluate_snapshot(snapshot: dict[str, Any], policy: dict[str, Any]) -> dict[
         if quality.get("status") == "AVAILABLE":
             require("review_quality_samples", "Review-quality sample count meets policy", quality["sample_count"] >= policy["review_quality_minimum_samples"], "Review quality evidence has too few samples")
             require("review_quality_score", "Review-quality score meets policy", quality["score"] >= policy["review_quality_minimum_score"], "Review quality score is below repository policy")
+        else:
+            require(
+                "review_quality_samples",
+                "Review-quality sample count meets policy",
+                True,
+                "review quality sample count could not be evaluated",
+                "not applicable until valid review-quality evidence is available",
+            )
+            checks[-1]["status"] = "not_applicable"
+            require(
+                "review_quality_score",
+                "Review-quality score meets policy",
+                True,
+                "review quality score could not be evaluated",
+                "not applicable until valid review-quality evidence is available",
+            )
+            checks[-1]["status"] = "not_applicable"
     else:
         require(
             "review_quality_policy",

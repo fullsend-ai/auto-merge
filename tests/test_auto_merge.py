@@ -374,6 +374,12 @@ class SemanticGateTests(unittest.TestCase):
         snapshot["review_quality"] = {"score": 0.99, "sample_count": 80, "metric": "review_correctly_approved"}
         self.assertTrue(evaluate_snapshot(snapshot, policy(review_quality_mode="enforce"))["ready_for_semantic_evaluation"])
 
+    def test_enforced_quality_checks_remain_in_sequence_when_evidence_is_missing(self) -> None:
+        checks = evaluate_snapshot(eligible_snapshot(), policy(review_quality_mode="enforce"))["checks"]
+        quality_checks = checks[-3:]
+        self.assertEqual([check["id"] for check in quality_checks], ["review_quality_available", "review_quality_samples", "review_quality_score"])
+        self.assertEqual([check["status"] for check in quality_checks], ["fail", "not_applicable", "not_applicable"])
+
     def test_semantic_fingerprint_changes_with_human_context(self) -> None:
         before = build_evidence(eligible_snapshot(), policy())["binding"]["semantic_fingerprint"]
         snapshot = eligible_snapshot()

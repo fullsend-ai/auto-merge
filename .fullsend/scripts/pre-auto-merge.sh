@@ -37,12 +37,18 @@ if ! jq -e '.prerequisites.ready_for_semantic_evaluation == true' "${EVIDENCE_FI
   # Keep this a single line: FULLSEND_PRESCRIPT_OUTPUT is a line-oriented
   # key=value protocol. The evidence file retains the full structured checks;
   # this compact rendering keeps the hosted skip status readable and ordered.
-  reason=$(jq -r '
-    ([.prerequisites.checks[] | select(.status == "pass") | "• ✅ " + .label] +
-     [.prerequisites.checks[] | select(.status == "not_applicable") | "• ℹ️ " + .label + ": " + .detail] +
-     [.prerequisites.checks[] | select(.status == "fail") | "• ❌ " + .label + ": " + .detail])
-    | join(" ")
-  ' "${EVIDENCE_FILE}")
+  passed=$(jq -r '[.prerequisites.checks[] | select(.status == "pass") | "• ✅ " + .label] | join(" ")' "${EVIDENCE_FILE}")
+  informational=$(jq -r '[.prerequisites.checks[] | select(.status == "not_applicable") | "• ℹ️ " + .label + ": " + .detail] | join(" ")' "${EVIDENCE_FILE}")
+  failed=$(jq -r '[.prerequisites.checks[] | select(.status == "fail") | "• ❌ " + .label + ": " + .detail] | join(" ")' "${EVIDENCE_FILE}")
+  # Keep the requested pass -> informational -> fail order whenever it fits,
+  # but reserve space for every blocker so truncation cannot hide why we skip.
+  prefix="${passed} ${informational}"
+  if (( ${#failed} >= 1000 )); then
+    reason="${failed:0:1000}"
+  else
+    available=$((1000 - ${#failed} - 1))
+    reason="${prefix:0:${available}} ${failed}"
+  fi
   checks_json=$(jq -c '.prerequisites.checks' "${EVIDENCE_FILE}")
   if [[ -n "${FULLSEND_PRESCRIPT_OUTPUT:-}" ]]; then
     {
