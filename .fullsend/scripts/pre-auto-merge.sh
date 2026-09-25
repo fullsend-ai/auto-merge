@@ -40,14 +40,16 @@ if ! jq -e '.prerequisites.ready_for_semantic_evaluation == true' "${EVIDENCE_FI
   passed=$(jq -r '[.prerequisites.checks[] | select(.status == "pass") | "• ✅ " + .label] | join(" ")' "${EVIDENCE_FILE}")
   informational=$(jq -r '[.prerequisites.checks[] | select(.status == "not_applicable") | "• ℹ️ " + .label + ": " + .detail] | join(" ")' "${EVIDENCE_FILE}")
   failed=$(jq -r '[.prerequisites.checks[] | select(.status == "fail") | "• ❌ " + .label + ": " + .detail] | join(" ")' "${EVIDENCE_FILE}")
-  # Keep the requested pass -> informational -> fail order whenever it fits,
-  # but reserve space for every blocker so truncation cannot hide why we skip.
-  prefix="${passed} ${informational}"
+  # The Fullsend status comment renders `reason=` as one compact line and can
+  # truncate a long value. Put blockers first so a skip never looks like a
+  # successful run with an unexplained generic error. The complete ordered
+  # array remains available in auto_merge_checks for the agent and receipt.
+  suffix="${passed} ${informational}"
   if (( ${#failed} >= 1000 )); then
     reason="${failed:0:1000}"
   else
     available=$((1000 - ${#failed} - 1))
-    reason="${prefix:0:${available}} ${failed}"
+    reason="${failed} ${suffix:0:${available}}"
   fi
   checks_json=$(jq -c '.prerequisites.checks' "${EVIDENCE_FILE}")
   if [[ -n "${FULLSEND_PRESCRIPT_OUTPUT:-}" ]]; then
