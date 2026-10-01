@@ -11,8 +11,8 @@ requirements passed.
 
 The question it answers is:
 
-> Given the Review Agent's decision, assessed risk, current human context, and
-> repository instructions, is unattended merge appropriate for this exact
+> Given the configured review provider's decision, assessed risk, current human
+> context, and repository instructions, is unattended merge appropriate for this exact
 > revision now?
 
 ## Separation of responsibilities
@@ -90,7 +90,7 @@ safe, meaningful semantic decision:
 
 1. The target is an open, non-draft, same-repository pull request within the
    configured repository and base branch.
-2. The Review Agent approved the exact head SHA.
+2. The configured semantic review provider approved the exact head SHA.
 3. A trusted risk artifact can be correlated to that Review run and is within
    the repository's configured unattended-risk ceiling.
 4. When Review quality mode is `enforce`, the supplied metric meets the

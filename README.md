@@ -16,8 +16,11 @@ repository-specific instructions. Trusted host code binds that decision to the
 exact revision and semantic context, then asks GitHub to use native auto-merge.
 GitHub may wait, queue, reject, or merge according to its own rules.
 
-See [the security contract](docs/AUTO-MERGE-SECURITY-CONTRACT.md) and the
-[living implementation plan](docs/IMPLEMENTATION-PLAN.md).
+Start with the [documentation hub](docs/README.md). It distinguishes current
+contracts, future production design, historical lab evidence, and presentation
+assets. The [security contract](docs/AUTO-MERGE-SECURITY-CONTRACT.md) and
+[living requirements](docs/AUTO-MERGE-REQUIREMENTS-AND-CONSTRAINTS.md) are the
+next documents to read.
 
 The detailed design intentionally removed from
 [Fullsend ADR 0110](https://github.com/fullsend-ai/fullsend/blob/main/docs/ADRs/0110-dedicated-auto-merge-authority-boundary.md)
@@ -25,7 +28,7 @@ is preserved here for follow-up implementation work:
 
 - [future implementation contract](docs/AUTO-MERGE-FUTURE-CONTRACT.md)
 - [future implementation plan](docs/AUTO-MERGE-FUTURE-IMPLEMENTATION-PLAN.md)
-- [architecture working note](docs/FULLSEND-AUTO-MERGE-ARCHITECTURE-WORKING-NOTE.md)
+- [architecture working note](docs/history/FULLSEND-AUTO-MERGE-ARCHITECTURE-WORKING-NOTE.md)
 
 ## Exercise fixture
 

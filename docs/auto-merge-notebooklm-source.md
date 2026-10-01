@@ -1012,7 +1012,7 @@ session. Their essential content is summarized in this document.
 
 ## Local companion documents
 
-- `docs/IMPLEMENTATION-PLAN.md`
+- `docs/history/IMPLEMENTATION-PLAN.md`
 - `docs/AUTO-MERGE-SECURITY-CONTRACT.md`
 - `docs/AUTO-MERGE-AGENT.md`
 - `docs/auto-merge-lab-report-standard.html`

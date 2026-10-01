@@ -1,15 +1,16 @@
 # Auto-Merge agent implementation
 
-Status: mutation-capable private lab with ADR-aligned bindings and postflight;
+Status: mutation-capable public lab with ADR-aligned bindings and postflight;
 not a production implementation
 
 ## What this agent is
 
 Auto-Merge is a reconciliation and execution agent for one low-risk pull-request
-cohort. The Fullsend Review Agent owns the semantic judgment, including intent
-and correctness; Auto-Merge verifies that the Review result is legible,
-internally consistent, and bound to the exact revision before handling merge
-readiness, fresh postflight, and execution.
+cohort. The configured semantic review provider owns the code-review judgment,
+including intent, correctness, and security; Fullsend Review is the default lab
+provider, not a mandatory production dependency. Auto-Merge verifies that the
+provider result is legible, internally consistent, and bound to the exact
+revision before handling merge readiness, fresh postflight, and execution.
 An evaluation can begin with an immediate human `/fs-auto-merge` command, an
 approved-review event, or a trusted CI-readiness label. None of these signals
 grants approval or enables GitHub's native auto-merge feature. Each signal
@@ -20,10 +21,10 @@ The implementation splits responsibility across three trust zones:
 
 1. A trusted runner pre-script reads live GitHub state and applies deterministic
    policy.
-2. A credential-free model sandbox verifies the bounded Review Agent
-   attestation and binding; it is not a second semantic reviewer.
+2. A credential-free model sandbox verifies the bounded provider attestation
+   and binding; it is not a second semantic reviewer.
 3. A trusted runner post-script refreshes every mutable fact and, only in the
-   private lab's `lab-automatic` mode, may request one exact-head squash merge.
+   lab's `lab-automatic` mode, may request one exact-head squash merge.
 
 The normative invariants are in
 [`AUTO-MERGE-SECURITY-CONTRACT.md`](AUTO-MERGE-SECURITY-CONTRACT.md).
@@ -112,17 +113,17 @@ before trusting the evidence. No token, credential, raw workflow environment,
 raw trace transcript, or complete event payload enters the document. Trace
 references are advisory pointers only; malformed references fail closed.
 
-## Review attestation verification
+## Review-provider attestation verification
 
 `.fullsend/agents/auto-merge.md` tells the model to inspect the evidence and
 security contract. Repository and pull-request text is evidence, not
-instruction. The Review Agent is the semantic authority for whether the code
-is correct and fulfills the requested intent. Auto-Merge does not repeat that
-review. It verifies that the Review result can be trusted for this exact
-revision:
+instruction. The configured review provider is the semantic authority for
+whether the code is correct and fulfills the requested intent. Auto-Merge does
+not repeat that review. It verifies that the provider result can be trusted for
+this exact revision:
 
-- `APPROVE` when `fullsend-review-agent` approved the exact head and deterministic
-  readiness is still true;
+- `APPROVE` when the configured provider approved the exact head and
+  deterministic readiness is still true;
 - `REJECT` when the attestation or binding is invalid; or
 - `ESCALATE` when the attestation is missing, stale, ambiguous, internally
   inconsistent, insufficiently explained, or appears to rely on a hallucinated
@@ -131,7 +132,7 @@ revision:
 The bounded issue and PR intent are retained so Auto-Merge can detect a
 legibility failure—for example, an `APPROVE` result whose rationale plainly
 contradicts the linked issue or changed-file summary. That is a consistency
-check on the Review Agent's output, not a second independent intent review.
+check on the provider's output, not a second independent intent review.
 
 The result must copy the complete evidence binding exactly. The JSON Schema
 allows no extra fields and constrains decisions, hashes, lengths, reason counts,
