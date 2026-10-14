@@ -1,0 +1,4 @@
+github.com/gemaraproj/go-gemara v0.11.1-0.20261009030221-5e33fda460a8 h1:F+L8Q2YgGBG1WtMGWg9NkB7Rqs0A+EEciIp6CAEkc0o=
+github.com/gemaraproj/go-gemara v0.11.1-0.20261009030221-5e33fda460a8/go.mod h1:f2Z92OdIEsxvt6LYud/qxJ0gSRGsZUD6pv+epM2Iytw=
+github.com/goccy/go-yaml v1.19.2 h1:PmFC1S6h8ljIz6gMRBopkjP1TVT7xuwrButHID66PoM=
+github.com/goccy/go-yaml v1.19.2/go.mod h1:XBurs7gK8ATbW4ZPGKgcbrY1Br56PdM69F7LkFRi1kA=

@@ -1,0 +1,30 @@
+{
+  "attempt": "01-agent-led",
+  "commit": "c06d5b8ba0f1be703ed83415986c179d97f3329c",
+  "repository": "https://github.com/fullsend-ai/auto-merge",
+  "status": "historical lab baseline; not a production release",
+  "documents": {
+    "docs/AUTO-MERGE-AGENT.md": "955f1d99fc0a1a811b3722fb51429f5f9024f1d7455b1f5a171527c864adab78",
+    "docs/AUTO-MERGE-FUTURE-CONTRACT.md": "03c1ec4d6ec325937cccb564603773929990356ca36a607c1b565aaf80d00080",
+    "docs/AUTO-MERGE-FUTURE-IMPLEMENTATION-PLAN.md": "5d23613d0b77aa078acee5a015874b7fe0b1f1d2d1f68e0590eb6da5392e91b4",
+    "docs/AUTO-MERGE-REQUIREMENTS-AND-CONSTRAINTS.md": "f1d85de2a99d84d90e311b6ad5f1f0ab3ab6189fd22cfdb90b168adef173a626",
+    "docs/AUTO-MERGE-SECURITY-CONTRACT.md": "8017cba1fc7cebd310b3adcb419880f2c89c56c3ef7fbcaefbb15dbe5735c8bf",
+    "docs/README.md": "e781e4e869dde9f7dbcf714bd7df3d6f79d684ddc0f6db27ae935211c533023c",
+    "docs/auto-merge-lab-report-standard.html": "76e0f7cb0f1b0b0ea64debc901cd1ad8f0532b9ffca064496d3fc066cecfeb93",
+    "docs/auto-merge-notebooklm-source.md": "8f4f09128c8e82f116c71e75beb37c796798e8ca1627a00d7e3b9de896b60345",
+    "docs/auto-merge-real-flow.html": "7cc861e8c6472f819a894713bef0ef29db0e76ab4a6b6abcd4fc8b52ca341a07",
+    "docs/example-feature.md": "94ea1d69aa201e97609e3b5520b3c3c1d8915dc2b5fc356d433614706dfc8765",
+    "docs/demo/auto-merge-lab-demo-script.md": "94f60a2d44eff4cc55e6f46edb4b923141747469d0caef9b198ff5817f98b7d9",
+    "docs/evidence/auto-merge-agent-smoke.md": "6b81b4e99fffda415680d104f892ac26214e8ec3b65bc641e007f40b8ca7324f",
+    "docs/evidence/auto-merge-queue-proof-2026-09-23.html": "d8ddd3f5473bb30e2e9ba797bbd213fe64d60f22f6c168b03544b025ce9d7628",
+    "docs/evidence/linked-issue-evidence-smoke.md": "55e6973914ca526a27b31b07cbc8259453505d33fc1f2a4bc67529b46f402c1f",
+    "docs/evidence/merge-queue-proof.md": "e15c3c86ebbc8d25d52a8bd34bee479230a6e8a1995718ac09acb005d4005031",
+    "docs/evidence/queue-human-context-proof.md": "59ca9a21a891c64ab8c69d58a2654d72e764c0302203ecbc400860e2c4fe845b",
+    "docs/evidence/structured-output-receipt-proof.md": "1dc2c8a2657b78c66789157350a5c84953a59bdc090785be5606c98611d7728b",
+    "docs/history/ADR-0110-SCM-NATIVE-UPDATE.md": "df305ffe2968b407acc61944435443edb72954837b4efc4128f20f08529988b6",
+    "docs/history/FULLSEND-AUTO-MERGE-ARCHITECTURE-WORKING-NOTE.md": "ea59e15c0c1f26dfe0e2644cd695a576321fc4cf2d733359df9780f66fd6e2e7",
+    "docs/history/IMPLEMENTATION-PLAN.md": "01cb55ae6baeb9d47765754c5cbbaf0ad285b1e96a7a7273ce360eb7e2c061c5",
+    "docs/history/auto-merge-current-flow.html": "110fabe0f4d91dc30f7b140ea3203556707df38b5f5a4f043afa369956a18da6",
+    "docs/history/auto-merge-lab-report.html": "12f2a9d72fc242de46c8da1b76429f43455f8aa7ef7462e5d6b3aff03d730535"
+  }
+}

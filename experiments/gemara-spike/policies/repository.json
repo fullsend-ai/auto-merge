@@ -1,0 +1,112 @@
+{
+  "title": "Synthetic repository policy",
+  "metadata": {
+    "id": "demo-policy-repository",
+    "type": "Policy",
+    "gemara-version": "1.6.0",
+    "version": "0.1.0",
+    "description": "Effective requirements are resolved by custom demo code, not by schema validation.",
+    "author": {
+      "id": "demo-evaluator",
+      "name": "Synthetic evidence evaluator",
+      "type": "Software",
+      "version": "0.1.0"
+    },
+    "draft": true,
+    "mapping-references": [
+      {
+        "id": "demo-controls",
+        "title": "Synthetic auto-merge prerequisites",
+        "version": "0.1.0",
+        "url": "urn:gemara-spike:catalog:demo-controls"
+      }
+    ]
+  },
+  "contacts": {
+    "responsible": [
+      {
+        "name": "Fixture evaluator owner"
+      }
+    ],
+    "accountable": [
+      {
+        "name": "Fixture policy owner"
+      }
+    ]
+  },
+  "scope": {
+    "in": {
+      "technologies": [
+        "synthetic-auto-merge-fixture"
+      ]
+    }
+  },
+  "imports": {
+    "catalogs": [
+      {
+        "reference-id": "demo-controls"
+      }
+    ]
+  },
+  "adherence": {
+    "evaluation-methods": [
+      {
+        "id": "local-python",
+        "type": "Intent",
+        "mode": "Automated",
+        "required": true,
+        "description": "Custom offline fixture evaluator; no LLM and no forge operation.",
+        "executor": {
+          "id": "demo-evaluator",
+          "name": "Synthetic evidence evaluator",
+          "type": "Software",
+          "version": "0.1.0"
+        }
+      }
+    ],
+    "assessment-plans": [
+      {
+        "id": "AM-CI-plan",
+        "requirement-id": "AM-CI-1",
+        "frequency": "Each local fixture evaluation",
+        "evaluation-methods": [
+          {
+            "id": "local-python",
+            "type": "Intent",
+            "mode": "Automated",
+            "required": true
+          }
+        ],
+        "evidence-requirements": "Synthetic evidence bound to the current candidate and collected within ten minutes."
+      },
+      {
+        "id": "AM-REVIEW-plan",
+        "requirement-id": "AM-REVIEW-1",
+        "frequency": "Each local fixture evaluation",
+        "evaluation-methods": [
+          {
+            "id": "local-python",
+            "type": "Intent",
+            "mode": "Automated",
+            "required": true
+          }
+        ],
+        "evidence-requirements": "Synthetic evidence bound to the current candidate and collected within ten minutes."
+      },
+      {
+        "id": "AM-REPO-plan",
+        "requirement-id": "AM-REPO-1",
+        "frequency": "Each local fixture evaluation",
+        "evaluation-methods": [
+          {
+            "id": "local-python",
+            "type": "Intent",
+            "mode": "Automated",
+            "required": true
+          }
+        ],
+        "evidence-requirements": "Synthetic evidence bound to the current candidate and collected within ten minutes."
+      }
+    ]
+  }
+}

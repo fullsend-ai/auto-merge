@@ -1,4 +1,21 @@
-# Auto-Merge Agent Lab
+# Auto-Merge Experiments Lab
+
+## Attempts and current work
+
+- [Attempt 1: agent-led authorization](docs/attempts/01-agent-led/README.md)
+  preserves the installed lab at an immutable baseline commit. Existing
+  contracts, evidence and recordings retain their paths.
+- [Attempt 2: policy evaluation](docs/attempts/02-policy-evaluation/README.md)
+  includes a fixture demo and [platform experiments](experiments/autonomy-platform/README.md)
+  for readiness, four modes, SDK reuse and an independent adapter. Read-only
+  GitHub observations and native vendor-content preparation are retained.
+  No experiment authorizes a merge or invokes the installed agent.
+
+The local setup disables the legacy agent registration and supplementary route,
+preserves its scripts, and adds an unprivileged fixture CI definition. Main
+adoption requires human review; fixture CI does not enable live merging. Read
+[Attempt 2's safety boundary](experiments/gemara-spike/SECURITY.md) before running
+or publishing it. The existing lab description below applies to Attempt 1.
 
 Integration lab for designing and exercising Fullsend's Auto-Merge agent. The
 recorded exercises were run while the repository was private and prove the complete path from an issue through triage, coding,
@@ -23,7 +40,7 @@ assets. The [security contract](docs/AUTO-MERGE-SECURITY-CONTRACT.md) and
 next documents to read.
 
 The detailed design intentionally removed from
-[Fullsend ADR 0110](https://github.com/fullsend-ai/fullsend/blob/main/docs/ADRs/0110-dedicated-auto-merge-authority-boundary.md)
+[Fullsend ADR proposal (PR #7151)](https://github.com/fullsend-ai/fullsend/pull/7151)
 is preserved here for follow-up implementation work:
 
 - [future implementation contract](docs/AUTO-MERGE-FUTURE-CONTRACT.md)

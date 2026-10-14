@@ -1,0 +1,19 @@
+{
+  "provenance": "synthetic",
+  "format": "fixture-provider-a/v1",
+  "candidate": {
+    "forge": "github",
+    "repository": "example/demo",
+    "number": 1,
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "base_ref": "main",
+    "author_id": "fixture-author"
+  },
+  "collected_at": "2026-10-14T12:00:00Z",
+  "review": {
+    "verdict": "APPROVE",
+    "reviewer": "fixture-reviewer",
+    "blocking_findings": 0,
+    "verified_fixture": true
+  }
+}

@@ -17,7 +17,8 @@ permissions: {}
 jobs:
   prepare:
     if: >-
-      github.event.issue.pull_request
+      false
+      && github.event.issue.pull_request
       && (
         (github.event.comment.user.login == 'fullsend-ai-review[bot]'
          && contains(github.event.comment.body, '<!-- fullsend:risk-assessment -->'))

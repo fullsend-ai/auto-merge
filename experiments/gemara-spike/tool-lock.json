@@ -1,0 +1,39 @@
+{
+  "gemara": {
+    "version": "v1.6.0",
+    "commit": "14a8b1c02e1b7152781c0af7b6bcd07012f9763c",
+    "url": "https://github.com/gemaraproj/gemara/tree/14a8b1c02e1b7152781c0af7b6bcd07012f9763c",
+    "license": "Apache-2.0",
+    "schema_files": {
+      "vectorcatalog.cue": "c192718f0214ed6a16f2747d37d4131e2478f5bbd272cd9a969b4ab2fa1caeb3",
+      "threatcatalog.cue": "0fb7a694cd38f3d3bf24d914e6d828ee3a74bf09397f38ae26ec97ff4fbd5e9e",
+      "riskcatalog.cue": "a0d94bad0ed20a105a9f4afc9fdbda586ce0189e57f4f3a6fdcef82e7d9d7c89",
+      "principlecatalog.cue": "969da7f26bac9ac21ede651ef4e3c76c163bd2073091ab12991617e9d2944ed9",
+      "policy.cue": "d657e33ec817014f383c73d3a80f2ca0ce0de6d15979b4ea55f78d7d4276b805",
+      "metadata.cue": "5f9542acd11868bde4ea5620d16d8a4e260168f1ef12980befdab2bc6ce0f006",
+      "mappingdocument.cue": "bb86f71461701e83e17cd3e28205dcce0f1a0b0ea0bfb598d55b9215387a3d8b",
+      "mapping_inline.cue": "c3dedad5811ad52ad9d05c460021b26b63768c8361f7be758b64280b43608ddf",
+      "lexicon.cue": "fd683cdb047b849db97618f2524c0b27eddcdcdfe04e86e7efe2c9956c27bb90",
+      "guidancecatalog.cue": "991dc0421e865607add489e1bbd49ae8d7da47346d7af46beaa233392dee92e3",
+      "evaluationlog.cue": "9dd93a1ccc96d9465ace1922e84528e2ab976edde1b59b0e49978221c93643dc",
+      "entities.cue": "e77df2e2d0145dab43b4be0874a0c75fd3b8221e88dec2eb8d0339d53a0c6a50",
+      "enforcementlog.cue": "4f8639e2cc13d9fc930362fafa4c6f19a213cda4eb897464144f31f4a3370d04",
+      "controlcatalog.cue": "9393d621f4396bdc00284ac2de83f35e2586ae6eb2befbd29b50bb6b6a2b40dc",
+      "collections.cue": "2efd6c799c033b916f5914aab1c40a814d9d253132398290cb37657fbcfc4d81",
+      "capabilitycatalog.cue": "8d3ccf008e06e78187b83180af46328e3fb9311d019ef8db31b50308f48d615a",
+      "auditlog.cue": "4c614b7f9823b01202738c470c2d26fa5ec08253290f38df063d6f3dc49dcc5f",
+      "LICENSE": "61af2cc3e1ae43a3726330458213caf02af0b2cf2259c3de7595cc4dba459d32",
+      "cue.mod/module.cue": "05b3805ca20059fe40ae4891a743ab8b5571a19849ea0cb4c3b1f9dd5ad6b8c8"
+    }
+  },
+  "cue": {
+    "version": "v0.17.1",
+    "archive_url": "https://github.com/cue-lang/cue/releases/download/v0.17.1/cue_v0.17.1_linux_amd64.tar.gz",
+    "archive_sha256": "a39b0c97695069d95d276d99be0f5dbabb081d801bfdc9ba49b76efaf94e2369",
+    "binary_sha256": "b1e73b13d87ed1812de7626108324600f478b9b862bc926f9a360ffd01d19297"
+  },
+  "evaluator": {
+    "version": "0.1.0",
+    "implementation": "custom Python standard-library demo; no LLM"
+  }
+}

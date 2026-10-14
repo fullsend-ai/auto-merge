@@ -1,0 +1,1878 @@
+{
+  "provenance": "synthetic",
+  "source_digests": {
+    "platform_lab.py": "65f63870dbd801b16b0f233f217134afc6e45511d31510a39f5ca6b95a2b4176",
+    "github_observe.py": "5083efd8c69b29abb23620e06402bc23665e1616b3aa531d4d2faf15dd9fdc87",
+    "sdk/main.go": "e38b28ebea437625ed5b77a3883855eb0e33fa23c48562f35937ea316fa04c0d",
+    "sdk/go.mod": "397fba51320783ab94df4c422c52044b9c57121bb355e4caac23f0c6fba3c20f",
+    "sdk/go.sum": "b1969f1a7f76871215067edc079f990442ce5d58cf1aa9ecbadf1e748b723a87"
+  },
+  "effective_policy": {
+    "version": 1,
+    "maximum_age_seconds": 600,
+    "maximum_risk": 1,
+    "classes": [
+      "dependency-digest",
+      "documentation"
+    ],
+    "light_classes": [
+      "dependency-digest"
+    ],
+    "readiness": [
+      {
+        "id": "AR-RULES",
+        "kind": "boolean",
+        "expected": true
+      },
+      {
+        "id": "AR-CHECKS",
+        "kind": "boolean",
+        "expected": true
+      },
+      {
+        "id": "AR-REVIEWS",
+        "kind": "boolean",
+        "expected": true
+      },
+      {
+        "id": "AR-STATUS",
+        "kind": "boolean",
+        "expected": true
+      },
+      {
+        "id": "AR-TESTS",
+        "kind": "boolean",
+        "expected": true
+      },
+      {
+        "id": "AR-ISOLATION",
+        "kind": "boolean",
+        "expected": true
+      },
+      {
+        "id": "AR-QUEUE",
+        "kind": "boolean",
+        "expected": true
+      },
+      {
+        "id": "AR-HISTORY",
+        "kind": "boolean",
+        "expected": true
+      }
+    ],
+    "candidate": [
+      {
+        "id": "AM-CI",
+        "kind": "boolean",
+        "expected": true
+      },
+      {
+        "id": "AM-REVIEW",
+        "kind": "boolean",
+        "expected": true
+      },
+      {
+        "id": "AM-FINDINGS",
+        "kind": "boolean",
+        "expected": true
+      },
+      {
+        "id": "AM-RISK",
+        "kind": "maximum",
+        "expected": 1
+      },
+      {
+        "id": "AM-CLASS",
+        "kind": "member",
+        "expected": [
+          "dependency-digest",
+          "documentation"
+        ]
+      },
+      {
+        "id": "AM-PROTECTED",
+        "kind": "boolean",
+        "expected": true
+      }
+    ],
+    "sources": {
+      "shared_sha256": "1913cd086c0edfe2837f1e48c04f1b8bf22a53bba0227a4b74f3cee0b4d305d9",
+      "repository_sha256": "fd64d6e9fe0e6fc43e49af273e6c342e30581c91c7179389e458285090a223d4"
+    },
+    "effective_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a"
+  },
+  "request": {
+    "schema_version": "adapter-request/v1",
+    "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+    "as_of": "2026-10-14T18:00:00Z",
+    "maximum_age_seconds": 600,
+    "rules": [
+      {
+        "id": "AM-CI",
+        "kind": "boolean",
+        "expected": true
+      },
+      {
+        "id": "AM-REVIEW",
+        "kind": "boolean",
+        "expected": true
+      },
+      {
+        "id": "AM-FINDINGS",
+        "kind": "boolean",
+        "expected": true
+      },
+      {
+        "id": "AM-RISK",
+        "kind": "maximum",
+        "expected": 1
+      },
+      {
+        "id": "AM-CLASS",
+        "kind": "member",
+        "expected": [
+          "dependency-digest",
+          "documentation"
+        ]
+      },
+      {
+        "id": "AM-PROTECTED",
+        "kind": "boolean",
+        "expected": true
+      }
+    ],
+    "observations": {
+      "AM-CI": {
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "collected_at": "2026-10-14T18:00:00Z",
+        "trusted_source": true,
+        "value": true
+      },
+      "AM-REVIEW": {
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "collected_at": "2026-10-14T18:00:00Z",
+        "trusted_source": true,
+        "value": true
+      },
+      "AM-FINDINGS": {
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "collected_at": "2026-10-14T18:00:00Z",
+        "trusted_source": true,
+        "value": true
+      },
+      "AM-RISK": {
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "collected_at": "2026-10-14T18:00:00Z",
+        "trusted_source": true,
+        "value": 1
+      },
+      "AM-CLASS": {
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "collected_at": "2026-10-14T18:00:00Z",
+        "trusted_source": true,
+        "value": "dependency-digest"
+      },
+      "AM-PROTECTED": {
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "collected_at": "2026-10-14T18:00:00Z",
+        "trusted_source": true,
+        "value": true
+      }
+    }
+  },
+  "gemara": {
+    "catalog": {
+      "title": "Autonomy platform lab controls",
+      "metadata": {
+        "id": "platform-controls",
+        "type": "ControlCatalog",
+        "gemara-version": "1.6.0",
+        "version": "0.1.0",
+        "description": "Experimental readiness and eligibility controls; not an accepted platform standard.",
+        "author": {
+          "id": "demo-evaluator",
+          "name": "Synthetic evidence evaluator",
+          "type": "Software",
+          "version": "0.1.0"
+        },
+        "draft": true,
+        "applicability-groups": [
+          {
+            "id": "lab",
+            "title": "Autonomy lab",
+            "description": "Experimental observations; no merge authority."
+          }
+        ]
+      },
+      "groups": [
+        {
+          "id": "merge-prerequisites",
+          "title": "Merge prerequisites",
+          "description": "Representative evidence requirements."
+        }
+      ],
+      "controls": [
+        {
+          "id": "AM-CI",
+          "title": "AM-CI",
+          "objective": "The selected verification must have executed successfully for the exact candidate.",
+          "group": "merge-prerequisites",
+          "assessment-requirements": [
+            {
+              "id": "AM-CI-1",
+              "text": "The selected verification must have executed successfully for the exact candidate.",
+              "applicability": [
+                "lab"
+              ],
+              "state": "Active"
+            }
+          ],
+          "state": "Active"
+        },
+        {
+          "id": "AM-REVIEW",
+          "title": "AM-REVIEW",
+          "objective": "Current independent Review must satisfy the trusted provider contract.",
+          "group": "merge-prerequisites",
+          "assessment-requirements": [
+            {
+              "id": "AM-REVIEW-1",
+              "text": "Current independent Review must satisfy the trusted provider contract.",
+              "applicability": [
+                "lab"
+              ],
+              "state": "Active"
+            }
+          ],
+          "state": "Active"
+        },
+        {
+          "id": "AM-FINDINGS",
+          "title": "AM-FINDINGS",
+          "objective": "A complete current finding ledger must have no unresolved blocking findings.",
+          "group": "merge-prerequisites",
+          "assessment-requirements": [
+            {
+              "id": "AM-FINDINGS-1",
+              "text": "A complete current finding ledger must have no unresolved blocking findings.",
+              "applicability": [
+                "lab"
+              ],
+              "state": "Active"
+            }
+          ],
+          "state": "Active"
+        },
+        {
+          "id": "AM-RISK",
+          "title": "AM-RISK",
+          "objective": "Trusted candidate risk must not exceed the effective policy threshold.",
+          "group": "merge-prerequisites",
+          "assessment-requirements": [
+            {
+              "id": "AM-RISK-1",
+              "text": "Trusted candidate risk must not exceed the effective policy threshold.",
+              "applicability": [
+                "lab"
+              ],
+              "state": "Active"
+            }
+          ],
+          "state": "Active"
+        },
+        {
+          "id": "AM-CLASS",
+          "title": "AM-CLASS",
+          "objective": "The candidate must belong to an approved change class.",
+          "group": "merge-prerequisites",
+          "assessment-requirements": [
+            {
+              "id": "AM-CLASS-1",
+              "text": "The candidate must belong to an approved change class.",
+              "applicability": [
+                "lab"
+              ],
+              "state": "Active"
+            }
+          ],
+          "state": "Active"
+        },
+        {
+          "id": "AM-PROTECTED",
+          "title": "AM-PROTECTED",
+          "objective": "The candidate must not alter paths requiring human governance.",
+          "group": "merge-prerequisites",
+          "assessment-requirements": [
+            {
+              "id": "AM-PROTECTED-1",
+              "text": "The candidate must not alter paths requiring human governance.",
+              "applicability": [
+                "lab"
+              ],
+              "state": "Active"
+            }
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    "policy": {
+      "title": "Autonomy platform lab effective policy",
+      "metadata": {
+        "id": "platform-policy",
+        "type": "Policy",
+        "gemara-version": "1.6.0",
+        "version": "0.1.0",
+        "description": "Local experimental profile; no merge authority.",
+        "author": {
+          "id": "demo-evaluator",
+          "name": "Synthetic evidence evaluator",
+          "type": "Software",
+          "version": "0.1.0"
+        },
+        "draft": true,
+        "mapping-references": [
+          {
+            "id": "platform-controls",
+            "title": "Autonomy platform lab controls",
+            "version": "0.1.0",
+            "url": "urn:sha256:6a9c444fb87997469ba686446797e2dc2c5b2f61454757d08d5f9815412a27fa"
+          }
+        ]
+      },
+      "contacts": {
+        "responsible": [
+          {
+            "name": "Fixture evaluator owner"
+          }
+        ],
+        "accountable": [
+          {
+            "name": "Fixture policy owner"
+          }
+        ]
+      },
+      "scope": {
+        "in": {
+          "technologies": [
+            "autonomy-platform-lab"
+          ]
+        }
+      },
+      "imports": {
+        "catalogs": [
+          {
+            "reference-id": "platform-controls"
+          }
+        ]
+      },
+      "adherence": {
+        "evaluation-methods": [
+          {
+            "id": "gemara-sdk",
+            "type": "Intent",
+            "mode": "Automated",
+            "required": true,
+            "description": "Pinned native SDK checks normalized observations; no forge mutation or LLM.",
+            "executor": {
+              "id": "platform-lab",
+              "name": "Autonomy platform lab",
+              "type": "Software",
+              "version": "0.1.0"
+            }
+          }
+        ],
+        "assessment-plans": [
+          {
+            "id": "AM-CI-plan",
+            "requirement-id": "AM-CI-1",
+            "frequency": "Each experimental evaluation",
+            "evaluation-methods": [
+              {
+                "id": "gemara-sdk",
+                "type": "Intent",
+                "mode": "Automated",
+                "required": true
+              }
+            ],
+            "evidence-requirements": "Current subject-bound normalized observation; trust labels alone are not authentication."
+          },
+          {
+            "id": "AM-REVIEW-plan",
+            "requirement-id": "AM-REVIEW-1",
+            "frequency": "Each experimental evaluation",
+            "evaluation-methods": [
+              {
+                "id": "gemara-sdk",
+                "type": "Intent",
+                "mode": "Automated",
+                "required": true
+              }
+            ],
+            "evidence-requirements": "Current subject-bound normalized observation; trust labels alone are not authentication."
+          },
+          {
+            "id": "AM-FINDINGS-plan",
+            "requirement-id": "AM-FINDINGS-1",
+            "frequency": "Each experimental evaluation",
+            "evaluation-methods": [
+              {
+                "id": "gemara-sdk",
+                "type": "Intent",
+                "mode": "Automated",
+                "required": true
+              }
+            ],
+            "evidence-requirements": "Current subject-bound normalized observation; trust labels alone are not authentication."
+          },
+          {
+            "id": "AM-RISK-plan",
+            "requirement-id": "AM-RISK-1",
+            "frequency": "Each experimental evaluation",
+            "evaluation-methods": [
+              {
+                "id": "gemara-sdk",
+                "type": "Intent",
+                "mode": "Automated",
+                "required": true
+              }
+            ],
+            "evidence-requirements": "Current subject-bound normalized observation; trust labels alone are not authentication."
+          },
+          {
+            "id": "AM-CLASS-plan",
+            "requirement-id": "AM-CLASS-1",
+            "frequency": "Each experimental evaluation",
+            "evaluation-methods": [
+              {
+                "id": "gemara-sdk",
+                "type": "Intent",
+                "mode": "Automated",
+                "required": true
+              }
+            ],
+            "evidence-requirements": "Current subject-bound normalized observation; trust labels alone are not authentication."
+          },
+          {
+            "id": "AM-PROTECTED-plan",
+            "requirement-id": "AM-PROTECTED-1",
+            "frequency": "Each experimental evaluation",
+            "evaluation-methods": [
+              {
+                "id": "gemara-sdk",
+                "type": "Intent",
+                "mode": "Automated",
+                "required": true
+              }
+            ],
+            "evidence-requirements": "Current subject-bound normalized observation; trust labels alone are not authentication."
+          }
+        ]
+      }
+    },
+    "evaluation": {
+      "metadata": {
+        "id": "platform-evaluation",
+        "type": "EvaluationLog",
+        "gemara-version": "1.6.0",
+        "version": "0.1.0",
+        "date": "2026-10-14T20:16:32Z",
+        "description": "Experimental normalized observations; no mutation authority.",
+        "author": {
+          "id": "platform-lab",
+          "name": "Autonomy platform lab",
+          "type": "Software",
+          "version": "0.1.0"
+        },
+        "mapping-references": [
+          {
+            "id": "platform-controls",
+            "title": "Autonomy platform lab controls",
+            "version": "0.1.0",
+            "url": "urn:sha256:6a9c444fb87997469ba686446797e2dc2c5b2f61454757d08d5f9815412a27fa"
+          },
+          {
+            "id": "platform-policy",
+            "title": "Autonomy platform lab effective policy",
+            "version": "0.1.0",
+            "url": "urn:sha256:8d41ea5f0448d8efd809df6adc1a01c49a27d63b3cc2119c84bc1dbc2a620b80"
+          },
+          {
+            "id": "observations",
+            "title": "Normalized observations",
+            "version": "1",
+            "url": "urn:sha256:dbbbb9a671d9b97a98f7fd7a25bb5e25c600eb27e67275522017e23deb823e8b"
+          }
+        ]
+      },
+      "target": {
+        "id": "subject-f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "name": "Autonomy assessment subject",
+        "type": "Software",
+        "version": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "uri": "urn:sha256:f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "environment": "experimental"
+      },
+      "result": "Passed",
+      "evaluations": [
+        {
+          "name": "AM-CI",
+          "result": "Passed",
+          "message": "satisfied",
+          "control": {
+            "reference-id": "platform-controls",
+            "entry-id": "AM-CI"
+          },
+          "assessment-logs": [
+            {
+              "requirement": {
+                "reference-id": "platform-controls",
+                "entry-id": "AM-CI-1"
+              },
+              "plan": {
+                "reference-id": "platform-policy",
+                "entry-id": "AM-CI-plan"
+              },
+              "description": "Assess one normalized observation",
+              "result": "Passed",
+              "message": "satisfied",
+              "applicability": [
+                "lab"
+              ],
+              "steps": [
+                "assess-normalized-observation"
+              ],
+              "steps-executed": 1,
+              "start": "2026-10-14T16:16:32-04:00",
+              "end": "2026-10-14T16:16:32-04:00",
+              "evidence": [
+                {
+                  "id": "AM-CI",
+                  "type": "normalized-observation",
+                  "collected-at": "2026-10-14T18:00:00Z",
+                  "payload": {
+                    "collected_at": "2026-10-14T18:00:00Z",
+                    "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+                    "trusted_source": true,
+                    "value": true
+                  },
+                  "source": {
+                    "reference-id": "observations",
+                    "coordinate": "AM-CI",
+                    "digest": "sha256:0afb5a6af3a9dbc401732fb5a1f0e4980c2763aa84b4fb90596cf952a32b376c"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "AM-REVIEW",
+          "result": "Passed",
+          "message": "satisfied",
+          "control": {
+            "reference-id": "platform-controls",
+            "entry-id": "AM-REVIEW"
+          },
+          "assessment-logs": [
+            {
+              "requirement": {
+                "reference-id": "platform-controls",
+                "entry-id": "AM-REVIEW-1"
+              },
+              "plan": {
+                "reference-id": "platform-policy",
+                "entry-id": "AM-REVIEW-plan"
+              },
+              "description": "Assess one normalized observation",
+              "result": "Passed",
+              "message": "satisfied",
+              "applicability": [
+                "lab"
+              ],
+              "steps": [
+                "assess-normalized-observation"
+              ],
+              "steps-executed": 1,
+              "start": "2026-10-14T16:16:32-04:00",
+              "end": "2026-10-14T16:16:32-04:00",
+              "evidence": [
+                {
+                  "id": "AM-REVIEW",
+                  "type": "normalized-observation",
+                  "collected-at": "2026-10-14T18:00:00Z",
+                  "payload": {
+                    "collected_at": "2026-10-14T18:00:00Z",
+                    "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+                    "trusted_source": true,
+                    "value": true
+                  },
+                  "source": {
+                    "reference-id": "observations",
+                    "coordinate": "AM-REVIEW",
+                    "digest": "sha256:0afb5a6af3a9dbc401732fb5a1f0e4980c2763aa84b4fb90596cf952a32b376c"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "AM-FINDINGS",
+          "result": "Passed",
+          "message": "satisfied",
+          "control": {
+            "reference-id": "platform-controls",
+            "entry-id": "AM-FINDINGS"
+          },
+          "assessment-logs": [
+            {
+              "requirement": {
+                "reference-id": "platform-controls",
+                "entry-id": "AM-FINDINGS-1"
+              },
+              "plan": {
+                "reference-id": "platform-policy",
+                "entry-id": "AM-FINDINGS-plan"
+              },
+              "description": "Assess one normalized observation",
+              "result": "Passed",
+              "message": "satisfied",
+              "applicability": [
+                "lab"
+              ],
+              "steps": [
+                "assess-normalized-observation"
+              ],
+              "steps-executed": 1,
+              "start": "2026-10-14T16:16:32-04:00",
+              "end": "2026-10-14T16:16:32-04:00",
+              "evidence": [
+                {
+                  "id": "AM-FINDINGS",
+                  "type": "normalized-observation",
+                  "collected-at": "2026-10-14T18:00:00Z",
+                  "payload": {
+                    "collected_at": "2026-10-14T18:00:00Z",
+                    "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+                    "trusted_source": true,
+                    "value": true
+                  },
+                  "source": {
+                    "reference-id": "observations",
+                    "coordinate": "AM-FINDINGS",
+                    "digest": "sha256:0afb5a6af3a9dbc401732fb5a1f0e4980c2763aa84b4fb90596cf952a32b376c"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "AM-RISK",
+          "result": "Passed",
+          "message": "satisfied",
+          "control": {
+            "reference-id": "platform-controls",
+            "entry-id": "AM-RISK"
+          },
+          "assessment-logs": [
+            {
+              "requirement": {
+                "reference-id": "platform-controls",
+                "entry-id": "AM-RISK-1"
+              },
+              "plan": {
+                "reference-id": "platform-policy",
+                "entry-id": "AM-RISK-plan"
+              },
+              "description": "Assess one normalized observation",
+              "result": "Passed",
+              "message": "satisfied",
+              "applicability": [
+                "lab"
+              ],
+              "steps": [
+                "assess-normalized-observation"
+              ],
+              "steps-executed": 1,
+              "start": "2026-10-14T16:16:32-04:00",
+              "end": "2026-10-14T16:16:32-04:00",
+              "evidence": [
+                {
+                  "id": "AM-RISK",
+                  "type": "normalized-observation",
+                  "collected-at": "2026-10-14T18:00:00Z",
+                  "payload": {
+                    "collected_at": "2026-10-14T18:00:00Z",
+                    "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+                    "trusted_source": true,
+                    "value": 1
+                  },
+                  "source": {
+                    "reference-id": "observations",
+                    "coordinate": "AM-RISK",
+                    "digest": "sha256:83ce1d1cb013536c5c00226b5102103fd1a9fcc9addf6a377fbaade93eb45e73"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "AM-CLASS",
+          "result": "Passed",
+          "message": "satisfied",
+          "control": {
+            "reference-id": "platform-controls",
+            "entry-id": "AM-CLASS"
+          },
+          "assessment-logs": [
+            {
+              "requirement": {
+                "reference-id": "platform-controls",
+                "entry-id": "AM-CLASS-1"
+              },
+              "plan": {
+                "reference-id": "platform-policy",
+                "entry-id": "AM-CLASS-plan"
+              },
+              "description": "Assess one normalized observation",
+              "result": "Passed",
+              "message": "satisfied",
+              "applicability": [
+                "lab"
+              ],
+              "steps": [
+                "assess-normalized-observation"
+              ],
+              "steps-executed": 1,
+              "start": "2026-10-14T16:16:32-04:00",
+              "end": "2026-10-14T16:16:32-04:00",
+              "evidence": [
+                {
+                  "id": "AM-CLASS",
+                  "type": "normalized-observation",
+                  "collected-at": "2026-10-14T18:00:00Z",
+                  "payload": {
+                    "collected_at": "2026-10-14T18:00:00Z",
+                    "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+                    "trusted_source": true,
+                    "value": "dependency-digest"
+                  },
+                  "source": {
+                    "reference-id": "observations",
+                    "coordinate": "AM-CLASS",
+                    "digest": "sha256:003f6d1a03ff2a3216500784ce9acf5e7efe619218bfcfd6155d934617714a91"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "AM-PROTECTED",
+          "result": "Passed",
+          "message": "satisfied",
+          "control": {
+            "reference-id": "platform-controls",
+            "entry-id": "AM-PROTECTED"
+          },
+          "assessment-logs": [
+            {
+              "requirement": {
+                "reference-id": "platform-controls",
+                "entry-id": "AM-PROTECTED-1"
+              },
+              "plan": {
+                "reference-id": "platform-policy",
+                "entry-id": "AM-PROTECTED-plan"
+              },
+              "description": "Assess one normalized observation",
+              "result": "Passed",
+              "message": "satisfied",
+              "applicability": [
+                "lab"
+              ],
+              "steps": [
+                "assess-normalized-observation"
+              ],
+              "steps-executed": 1,
+              "start": "2026-10-14T16:16:32-04:00",
+              "end": "2026-10-14T16:16:32-04:00",
+              "evidence": [
+                {
+                  "id": "AM-PROTECTED",
+                  "type": "normalized-observation",
+                  "collected-at": "2026-10-14T18:00:00Z",
+                  "payload": {
+                    "collected_at": "2026-10-14T18:00:00Z",
+                    "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+                    "trusted_source": true,
+                    "value": true
+                  },
+                  "source": {
+                    "reference-id": "observations",
+                    "coordinate": "AM-PROTECTED",
+                    "digest": "sha256:0afb5a6af3a9dbc401732fb5a1f0e4980c2763aa84b4fb90596cf952a32b376c"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "case": "off",
+      "adapter": "gemara-sdk",
+      "result": {
+        "mode": "off",
+        "adapter": "gemara-sdk",
+        "decision": "hold",
+        "reasons": [
+          "mode_off"
+        ],
+        "evaluation": null,
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "shadow",
+      "adapter": "gemara-sdk",
+      "result": {
+        "mode": "shadow",
+        "adapter": "gemara-sdk",
+        "decision": "would_allow",
+        "reasons": [],
+        "evaluation": {
+          "adapter": "gemara-sdk",
+          "assessments": [
+            {
+              "id": "AM-CI",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-CLASS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-FINDINGS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-PROTECTED",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-REVIEW",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-RISK",
+              "state": "passed",
+              "reason": "satisfied"
+            }
+          ],
+          "decision": "eligible",
+          "mutation_permitted": false,
+          "sdk_aggregate": "Passed",
+          "sdk_schema_version": "v1.5.0",
+          "request_sha256": "dbbbb9a671d9b97a98f7fd7a25bb5e25c600eb27e67275522017e23deb823e8b"
+        },
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "light",
+      "adapter": "gemara-sdk",
+      "result": {
+        "mode": "light",
+        "adapter": "gemara-sdk",
+        "decision": "would_allow",
+        "reasons": [],
+        "evaluation": {
+          "adapter": "gemara-sdk",
+          "assessments": [
+            {
+              "id": "AM-CI",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-CLASS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-FINDINGS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-PROTECTED",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-REVIEW",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-RISK",
+              "state": "passed",
+              "reason": "satisfied"
+            }
+          ],
+          "decision": "eligible",
+          "mutation_permitted": false,
+          "sdk_aggregate": "Passed",
+          "sdk_schema_version": "v1.5.0",
+          "request_sha256": "dbbbb9a671d9b97a98f7fd7a25bb5e25c600eb27e67275522017e23deb823e8b"
+        },
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "policy",
+      "adapter": "gemara-sdk",
+      "result": {
+        "mode": "policy",
+        "adapter": "gemara-sdk",
+        "decision": "would_allow",
+        "reasons": [],
+        "evaluation": {
+          "adapter": "gemara-sdk",
+          "assessments": [
+            {
+              "id": "AM-CI",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-CLASS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-FINDINGS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-PROTECTED",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-REVIEW",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-RISK",
+              "state": "passed",
+              "reason": "satisfied"
+            }
+          ],
+          "decision": "eligible",
+          "mutation_permitted": false,
+          "sdk_aggregate": "Passed",
+          "sdk_schema_version": "v1.5.0",
+          "request_sha256": "dbbbb9a671d9b97a98f7fd7a25bb5e25c600eb27e67275522017e23deb823e8b"
+        },
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "missing-review",
+      "adapter": "gemara-sdk",
+      "result": {
+        "mode": "shadow",
+        "adapter": "gemara-sdk",
+        "decision": "hold",
+        "reasons": [
+          "candidate_held"
+        ],
+        "evaluation": {
+          "adapter": "gemara-sdk",
+          "assessments": [
+            {
+              "id": "AM-CI",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-CLASS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-FINDINGS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-PROTECTED",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-REVIEW",
+              "state": "unknown",
+              "reason": "missing"
+            },
+            {
+              "id": "AM-RISK",
+              "state": "passed",
+              "reason": "satisfied"
+            }
+          ],
+          "decision": "hold",
+          "mutation_permitted": false,
+          "sdk_aggregate": "Unknown",
+          "sdk_schema_version": "v1.5.0",
+          "request_sha256": "e26494a86ffa4c520d79ea99b2022e31bd5411c4f01fac694bf758ee2b1c44cf"
+        },
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "failed-ci",
+      "adapter": "gemara-sdk",
+      "result": {
+        "mode": "shadow",
+        "adapter": "gemara-sdk",
+        "decision": "hold",
+        "reasons": [
+          "candidate_held"
+        ],
+        "evaluation": {
+          "adapter": "gemara-sdk",
+          "assessments": [
+            {
+              "id": "AM-CI",
+              "state": "failed",
+              "reason": "condition_failed"
+            },
+            {
+              "id": "AM-CLASS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-FINDINGS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-PROTECTED",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-REVIEW",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-RISK",
+              "state": "passed",
+              "reason": "satisfied"
+            }
+          ],
+          "decision": "hold",
+          "mutation_permitted": false,
+          "sdk_aggregate": "Failed",
+          "sdk_schema_version": "v1.5.0",
+          "request_sha256": "9ee1bd44bb928c9e381c0768e6b3d3a803e8e6de83cbd0bcaec2465a49a8cdf2"
+        },
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "changed-configuration",
+      "adapter": "gemara-sdk",
+      "result": {
+        "mode": "shadow",
+        "adapter": "gemara-sdk",
+        "decision": "hold",
+        "reasons": [
+          "qualification_unavailable",
+          "candidate_held"
+        ],
+        "evaluation": {
+          "adapter": "gemara-sdk",
+          "assessments": [
+            {
+              "id": "AM-CI",
+              "state": "unknown",
+              "reason": "untrusted_or_wrong_subject"
+            },
+            {
+              "id": "AM-CLASS",
+              "state": "unknown",
+              "reason": "untrusted_or_wrong_subject"
+            },
+            {
+              "id": "AM-FINDINGS",
+              "state": "unknown",
+              "reason": "untrusted_or_wrong_subject"
+            },
+            {
+              "id": "AM-PROTECTED",
+              "state": "unknown",
+              "reason": "untrusted_or_wrong_subject"
+            },
+            {
+              "id": "AM-REVIEW",
+              "state": "unknown",
+              "reason": "untrusted_or_wrong_subject"
+            },
+            {
+              "id": "AM-RISK",
+              "state": "unknown",
+              "reason": "untrusted_or_wrong_subject"
+            }
+          ],
+          "decision": "hold",
+          "mutation_permitted": false,
+          "sdk_aggregate": "Unknown",
+          "sdk_schema_version": "v1.5.0",
+          "request_sha256": "9bcaa6f05c829bbc81fdf58a9520aae3a37e11b63b90d696d73c8f0e6bcba149"
+        },
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "d327d3595429448140ecf01989834528888bbbaf7786f9fee2f16fbb92263fba",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "expired-qualification",
+      "adapter": "gemara-sdk",
+      "result": {
+        "mode": "shadow",
+        "adapter": "gemara-sdk",
+        "decision": "hold",
+        "reasons": [
+          "qualification_expired",
+          "candidate_held"
+        ],
+        "evaluation": {
+          "adapter": "gemara-sdk",
+          "assessments": [
+            {
+              "id": "AM-CI",
+              "state": "unknown",
+              "reason": "stale_or_future"
+            },
+            {
+              "id": "AM-CLASS",
+              "state": "unknown",
+              "reason": "stale_or_future"
+            },
+            {
+              "id": "AM-FINDINGS",
+              "state": "unknown",
+              "reason": "stale_or_future"
+            },
+            {
+              "id": "AM-PROTECTED",
+              "state": "unknown",
+              "reason": "stale_or_future"
+            },
+            {
+              "id": "AM-REVIEW",
+              "state": "unknown",
+              "reason": "stale_or_future"
+            },
+            {
+              "id": "AM-RISK",
+              "state": "unknown",
+              "reason": "stale_or_future"
+            }
+          ],
+          "decision": "hold",
+          "mutation_permitted": false,
+          "sdk_aggregate": "Unknown",
+          "sdk_schema_version": "v1.5.0",
+          "request_sha256": "601ae28f2fa5658f11ab9dec51745cd91370a8212b7e316b6bb1639af184a16b"
+        },
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "outside-light",
+      "adapter": "gemara-sdk",
+      "result": {
+        "mode": "light",
+        "adapter": "gemara-sdk",
+        "decision": "hold",
+        "reasons": [
+          "outside_light_class"
+        ],
+        "evaluation": {
+          "adapter": "gemara-sdk",
+          "assessments": [
+            {
+              "id": "AM-CI",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-CLASS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-FINDINGS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-PROTECTED",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-REVIEW",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-RISK",
+              "state": "passed",
+              "reason": "satisfied"
+            }
+          ],
+          "decision": "eligible",
+          "mutation_permitted": false,
+          "sdk_aggregate": "Passed",
+          "sdk_schema_version": "v1.5.0",
+          "request_sha256": "2044e05e3fcc637108ae2b500baaefb71179670a2c5f0c34cbfae548925d5a3f"
+        },
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "protected-policy-change",
+      "adapter": "gemara-sdk",
+      "result": {
+        "mode": "shadow",
+        "adapter": "gemara-sdk",
+        "decision": "hold",
+        "reasons": [
+          "candidate_held"
+        ],
+        "evaluation": {
+          "adapter": "gemara-sdk",
+          "assessments": [
+            {
+              "id": "AM-CI",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-CLASS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-FINDINGS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-PROTECTED",
+              "state": "failed",
+              "reason": "condition_failed"
+            },
+            {
+              "id": "AM-REVIEW",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-RISK",
+              "state": "passed",
+              "reason": "satisfied"
+            }
+          ],
+          "decision": "hold",
+          "mutation_permitted": false,
+          "sdk_aggregate": "Failed",
+          "sdk_schema_version": "v1.5.0",
+          "request_sha256": "e03c0dee7a48f25e6f30c565ba4e252ec633e09bad873f9074285f40e64e919b"
+        },
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "off",
+      "adapter": "native-json-reference",
+      "result": {
+        "mode": "off",
+        "adapter": "native-json-reference",
+        "decision": "hold",
+        "reasons": [
+          "mode_off"
+        ],
+        "evaluation": null,
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "shadow",
+      "adapter": "native-json-reference",
+      "result": {
+        "mode": "shadow",
+        "adapter": "native-json-reference",
+        "decision": "would_allow",
+        "reasons": [],
+        "evaluation": {
+          "adapter": "native-json-reference",
+          "decision": "eligible",
+          "assessments": [
+            {
+              "id": "AM-CI",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-CLASS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-FINDINGS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-PROTECTED",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-REVIEW",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-RISK",
+              "state": "passed",
+              "reason": "satisfied"
+            }
+          ],
+          "mutation_permitted": false,
+          "request_sha256": "dbbbb9a671d9b97a98f7fd7a25bb5e25c600eb27e67275522017e23deb823e8b"
+        },
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "light",
+      "adapter": "native-json-reference",
+      "result": {
+        "mode": "light",
+        "adapter": "native-json-reference",
+        "decision": "would_allow",
+        "reasons": [],
+        "evaluation": {
+          "adapter": "native-json-reference",
+          "decision": "eligible",
+          "assessments": [
+            {
+              "id": "AM-CI",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-CLASS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-FINDINGS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-PROTECTED",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-REVIEW",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-RISK",
+              "state": "passed",
+              "reason": "satisfied"
+            }
+          ],
+          "mutation_permitted": false,
+          "request_sha256": "dbbbb9a671d9b97a98f7fd7a25bb5e25c600eb27e67275522017e23deb823e8b"
+        },
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "policy",
+      "adapter": "native-json-reference",
+      "result": {
+        "mode": "policy",
+        "adapter": "native-json-reference",
+        "decision": "would_allow",
+        "reasons": [],
+        "evaluation": {
+          "adapter": "native-json-reference",
+          "decision": "eligible",
+          "assessments": [
+            {
+              "id": "AM-CI",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-CLASS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-FINDINGS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-PROTECTED",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-REVIEW",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-RISK",
+              "state": "passed",
+              "reason": "satisfied"
+            }
+          ],
+          "mutation_permitted": false,
+          "request_sha256": "dbbbb9a671d9b97a98f7fd7a25bb5e25c600eb27e67275522017e23deb823e8b"
+        },
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "missing-review",
+      "adapter": "native-json-reference",
+      "result": {
+        "mode": "shadow",
+        "adapter": "native-json-reference",
+        "decision": "hold",
+        "reasons": [
+          "candidate_held"
+        ],
+        "evaluation": {
+          "adapter": "native-json-reference",
+          "decision": "hold",
+          "assessments": [
+            {
+              "id": "AM-CI",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-CLASS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-FINDINGS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-PROTECTED",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-REVIEW",
+              "state": "unknown",
+              "reason": "missing"
+            },
+            {
+              "id": "AM-RISK",
+              "state": "passed",
+              "reason": "satisfied"
+            }
+          ],
+          "mutation_permitted": false,
+          "request_sha256": "e26494a86ffa4c520d79ea99b2022e31bd5411c4f01fac694bf758ee2b1c44cf"
+        },
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "failed-ci",
+      "adapter": "native-json-reference",
+      "result": {
+        "mode": "shadow",
+        "adapter": "native-json-reference",
+        "decision": "hold",
+        "reasons": [
+          "candidate_held"
+        ],
+        "evaluation": {
+          "adapter": "native-json-reference",
+          "decision": "hold",
+          "assessments": [
+            {
+              "id": "AM-CI",
+              "state": "failed",
+              "reason": "condition_failed"
+            },
+            {
+              "id": "AM-CLASS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-FINDINGS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-PROTECTED",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-REVIEW",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-RISK",
+              "state": "passed",
+              "reason": "satisfied"
+            }
+          ],
+          "mutation_permitted": false,
+          "request_sha256": "9ee1bd44bb928c9e381c0768e6b3d3a803e8e6de83cbd0bcaec2465a49a8cdf2"
+        },
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "changed-configuration",
+      "adapter": "native-json-reference",
+      "result": {
+        "mode": "shadow",
+        "adapter": "native-json-reference",
+        "decision": "hold",
+        "reasons": [
+          "qualification_unavailable",
+          "candidate_held"
+        ],
+        "evaluation": {
+          "adapter": "native-json-reference",
+          "decision": "hold",
+          "assessments": [
+            {
+              "id": "AM-CI",
+              "state": "unknown",
+              "reason": "untrusted_or_wrong_subject"
+            },
+            {
+              "id": "AM-CLASS",
+              "state": "unknown",
+              "reason": "untrusted_or_wrong_subject"
+            },
+            {
+              "id": "AM-FINDINGS",
+              "state": "unknown",
+              "reason": "untrusted_or_wrong_subject"
+            },
+            {
+              "id": "AM-PROTECTED",
+              "state": "unknown",
+              "reason": "untrusted_or_wrong_subject"
+            },
+            {
+              "id": "AM-REVIEW",
+              "state": "unknown",
+              "reason": "untrusted_or_wrong_subject"
+            },
+            {
+              "id": "AM-RISK",
+              "state": "unknown",
+              "reason": "untrusted_or_wrong_subject"
+            }
+          ],
+          "mutation_permitted": false,
+          "request_sha256": "9bcaa6f05c829bbc81fdf58a9520aae3a37e11b63b90d696d73c8f0e6bcba149"
+        },
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "d327d3595429448140ecf01989834528888bbbaf7786f9fee2f16fbb92263fba",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "expired-qualification",
+      "adapter": "native-json-reference",
+      "result": {
+        "mode": "shadow",
+        "adapter": "native-json-reference",
+        "decision": "hold",
+        "reasons": [
+          "qualification_expired",
+          "candidate_held"
+        ],
+        "evaluation": {
+          "adapter": "native-json-reference",
+          "decision": "hold",
+          "assessments": [
+            {
+              "id": "AM-CI",
+              "state": "unknown",
+              "reason": "stale_or_future"
+            },
+            {
+              "id": "AM-CLASS",
+              "state": "unknown",
+              "reason": "stale_or_future"
+            },
+            {
+              "id": "AM-FINDINGS",
+              "state": "unknown",
+              "reason": "stale_or_future"
+            },
+            {
+              "id": "AM-PROTECTED",
+              "state": "unknown",
+              "reason": "stale_or_future"
+            },
+            {
+              "id": "AM-REVIEW",
+              "state": "unknown",
+              "reason": "stale_or_future"
+            },
+            {
+              "id": "AM-RISK",
+              "state": "unknown",
+              "reason": "stale_or_future"
+            }
+          ],
+          "mutation_permitted": false,
+          "request_sha256": "601ae28f2fa5658f11ab9dec51745cd91370a8212b7e316b6bb1639af184a16b"
+        },
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "outside-light",
+      "adapter": "native-json-reference",
+      "result": {
+        "mode": "light",
+        "adapter": "native-json-reference",
+        "decision": "hold",
+        "reasons": [
+          "outside_light_class"
+        ],
+        "evaluation": {
+          "adapter": "native-json-reference",
+          "decision": "eligible",
+          "assessments": [
+            {
+              "id": "AM-CI",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-CLASS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-FINDINGS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-PROTECTED",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-REVIEW",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-RISK",
+              "state": "passed",
+              "reason": "satisfied"
+            }
+          ],
+          "mutation_permitted": false,
+          "request_sha256": "2044e05e3fcc637108ae2b500baaefb71179670a2c5f0c34cbfae548925d5a3f"
+        },
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    },
+    {
+      "case": "protected-policy-change",
+      "adapter": "native-json-reference",
+      "result": {
+        "mode": "shadow",
+        "adapter": "native-json-reference",
+        "decision": "hold",
+        "reasons": [
+          "candidate_held"
+        ],
+        "evaluation": {
+          "adapter": "native-json-reference",
+          "decision": "hold",
+          "assessments": [
+            {
+              "id": "AM-CI",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-CLASS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-FINDINGS",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-PROTECTED",
+              "state": "failed",
+              "reason": "condition_failed"
+            },
+            {
+              "id": "AM-REVIEW",
+              "state": "passed",
+              "reason": "satisfied"
+            },
+            {
+              "id": "AM-RISK",
+              "state": "passed",
+              "reason": "satisfied"
+            }
+          ],
+          "mutation_permitted": false,
+          "request_sha256": "e03c0dee7a48f25e6f30c565ba4e252ec633e09bad873f9074285f40e64e919b"
+        },
+        "policy_sha256": "def9952136c1fa4b3a549eed516b602dd712d9c305781ae0e40cd3b276839d0a",
+        "subject_sha256": "f297408dfd4d90c9670a86a55add71753e54253853909a379e7e831e849fd076",
+        "mutation_permitted": false,
+        "authorized_actions": [],
+        "qualification_receipt_is_local_unsigned": true
+      }
+    }
+  ],
+  "sdk_build": {
+    "sdk_commit": "5e33fda460a80ffa99e9efbe19afb43e7d4c4dd2",
+    "sdk_module": "v0.11.1-0.20261009030221-5e33fda460a8",
+    "sdk_schema_version": "v1.5.0",
+    "output_schema_version": "v1.6.0",
+    "adapter_binary_sha256": "e5098c85576de57c9c528ecf9ffd9b6e780d3c6a1641c2710fc2de8a1dd75ef8",
+    "adapter_sources": {
+      "sdk/main.go": "e38b28ebea437625ed5b77a3883855eb0e33fa23c48562f35937ea316fa04c0d",
+      "sdk/go.mod": "397fba51320783ab94df4c422c52044b9c57121bb355e4caac23f0c6fba3c20f",
+      "sdk/go.sum": "b1969f1a7f76871215067edc079f990442ce5d58cf1aa9ecbadf1e748b723a87"
+    }
+  },
+  "mutation_permitted": false
+}

@@ -1,0 +1,546 @@
+{
+  "provenance": "synthetic",
+  "scenario_run": "satisfied-baseline",
+  "artifacts": {
+    "artifact-hashes.json": {
+      "input.json": "575c29a3e2dca96616a3f7c3ef00ad99c4d63671de076b6934dd8570f37e6afd",
+      "catalog.json": "49b23a3c42e6dbf9aa01332a8e37551efff0def9d9236d850ce4d95dcf6ea78a",
+      "policy.json": "c23390625c31a0aef1984f6c947b9fac83ba47c1def90076812ee8780d92760c",
+      "effective-policy.json": "4da9ae8dd8b979ad47700ec2e0924005c65c024907d07fface39bf0826d8220d",
+      "recommendation.json": "fc162090721a8095ffb1b8f8c6a622ba32e668fbc20d67e98a6fcb87d19189e9",
+      "evaluation.json": "805cdb543d53609eb724389e63fd531afa8d42339922b4ff545c2e0393943988",
+      "plain-baseline.json": "f17f9fab129755c0ebaa69dd15dd2b991edfcb9f245601fc35de0cf43ce91785",
+      "comparison.json": "a12bec5ff29bd114989f46c76206503785a40724f8be5bcffe236e894f3b9601",
+      "run.json": "5bf232eed9fa2398c62f952bcd0b762d40ce436dcab317529af92e230e119dc7"
+    },
+    "catalog.json": {
+      "title": "Synthetic auto-merge prerequisites",
+      "metadata": {
+        "id": "demo-controls",
+        "type": "ControlCatalog",
+        "gemara-version": "1.6.0",
+        "version": "0.1.0",
+        "description": "Three representative prerequisites, not the complete autonomy safety contract.",
+        "author": {
+          "id": "demo-evaluator",
+          "name": "Synthetic evidence evaluator",
+          "type": "Software",
+          "version": "0.1.0"
+        },
+        "draft": true,
+        "applicability-groups": [
+          {
+            "id": "synthetic-pr",
+            "title": "Synthetic PR",
+            "description": "Local fixture candidate; never a live merge authorization."
+          }
+        ]
+      },
+      "groups": [
+        {
+          "id": "merge-prerequisites",
+          "title": "Merge prerequisites",
+          "description": "Representative evidence requirements."
+        }
+      ],
+      "controls": [
+        {
+          "id": "AM-CI",
+          "title": "Required CI executed and passed",
+          "objective": "The named CI check MUST execute and pass for the current candidate.",
+          "group": "merge-prerequisites",
+          "assessment-requirements": [
+            {
+              "id": "AM-CI-1",
+              "text": "The named CI check MUST execute and pass for the current candidate.",
+              "applicability": [
+                "synthetic-pr"
+              ],
+              "state": "Active"
+            }
+          ],
+          "state": "Active"
+        },
+        {
+          "id": "AM-REVIEW",
+          "title": "Independent current review",
+          "objective": "An independent authorized review MUST approve the current candidate with no blocking finding.",
+          "group": "merge-prerequisites",
+          "assessment-requirements": [
+            {
+              "id": "AM-REVIEW-1",
+              "text": "An independent authorized review MUST approve the current candidate with no blocking finding.",
+              "applicability": [
+                "synthetic-pr"
+              ],
+              "state": "Active"
+            }
+          ],
+          "state": "Active"
+        },
+        {
+          "id": "AM-REPO",
+          "title": "Repository-specific security scan",
+          "objective": "The repository-specific security scan MUST execute and pass for the current candidate.",
+          "group": "merge-prerequisites",
+          "assessment-requirements": [
+            {
+              "id": "AM-REPO-1",
+              "text": "The repository-specific security scan MUST execute and pass for the current candidate.",
+              "applicability": [
+                "synthetic-pr"
+              ],
+              "state": "Active"
+            }
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    "comparison.json": {
+      "method": "same custom evaluator; compare plain JSON representation with validated Gemara representation",
+      "decisions_match": true,
+      "plain_json_bytes": 121,
+      "gemara_log_bytes": 4408,
+      "evaluation_ms": 0.165,
+      "input_schema_validation_ms": 63.911,
+      "evaluation_log_validation_ms": 27.967,
+      "llm_calls": 0
+    },
+    "effective-policy.json": {
+      "schema_version": "effective-policy/v1",
+      "catalog_id": "demo-controls",
+      "policy_id": "demo-policy-baseline",
+      "catalog_sha256": "49b23a3c42e6dbf9aa01332a8e37551efff0def9d9236d850ce4d95dcf6ea78a",
+      "policy_sha256": "c23390625c31a0aef1984f6c947b9fac83ba47c1def90076812ee8780d92760c",
+      "controls": [
+        "AM-CI",
+        "AM-REVIEW"
+      ],
+      "minimum_controls": [
+        "AM-CI",
+        "AM-REVIEW"
+      ],
+      "maximum_age_seconds": 600,
+      "trust_domain": "synthetic-only",
+      "evaluator_version": "0.1.0",
+      "mutation_permitted": false
+    },
+    "evaluation.json": {
+      "metadata": {
+        "id": "evaluation-satisfied",
+        "type": "EvaluationLog",
+        "gemara-version": "1.6.0",
+        "version": "0.1.0",
+        "date": "2026-10-14T17:54:14Z",
+        "description": "Local synthetic policy evaluation. No merge authority. Evidence freshness uses the fixture evaluation_as_of value.",
+        "author": {
+          "id": "demo-evaluator",
+          "name": "Custom offline evaluator",
+          "type": "Software",
+          "version": "0.1.0"
+        },
+        "mapping-references": [
+          {
+            "id": "demo-controls",
+            "title": "Synthetic auto-merge prerequisites",
+            "version": "0.1.0",
+            "url": "urn:gemara-spike:catalog:49b23a3c42e6dbf9aa01332a8e37551efff0def9d9236d850ce4d95dcf6ea78a"
+          },
+          {
+            "id": "demo-policy-baseline",
+            "title": "Synthetic baseline policy",
+            "version": "0.1.0",
+            "url": "urn:gemara-spike:policy:c23390625c31a0aef1984f6c947b9fac83ba47c1def90076812ee8780d92760c"
+          },
+          {
+            "id": "demo-evidence",
+            "title": "Synthetic normalized input",
+            "version": "1",
+            "url": "urn:sha256:575c29a3e2dca96616a3f7c3ef00ad99c4d63671de076b6934dd8570f37e6afd"
+          }
+        ]
+      },
+      "target": {
+        "id": "candidate-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "name": "Synthetic candidate",
+        "type": "Software",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "uri": "urn:gemara-spike:candidate:4ac661c6de2dc932bf3b4481e29bf230dbc70043ff0543ebe9c78cfff7e66ee3",
+        "environment": "local-fixture"
+      },
+      "result": "Passed",
+      "evaluations": [
+        {
+          "name": "Required CI executed and passed",
+          "result": "Passed",
+          "message": "synthetic-only; requirements satisfied in fixture",
+          "control": {
+            "reference-id": "demo-controls",
+            "entry-id": "AM-CI"
+          },
+          "assessment-logs": [
+            {
+              "requirement": {
+                "reference-id": "demo-controls",
+                "entry-id": "AM-CI-1"
+              },
+              "plan": {
+                "reference-id": "demo-policy-baseline",
+                "entry-id": "AM-CI-plan"
+              },
+              "description": "Custom deterministic assessment of synthetic input, not live verification.",
+              "result": "Passed",
+              "message": "synthetic-only; requirements satisfied in fixture",
+              "applicability": [
+                "synthetic-pr"
+              ],
+              "steps": [
+                "check binding, logical freshness, fixture trust, result and independence"
+              ],
+              "steps-executed": 1,
+              "start": "2026-10-14T17:54:14Z",
+              "end": "2026-10-14T17:54:14Z",
+              "evidence": [
+                {
+                  "id": "ci-unit",
+                  "type": "synthetic-normalized-evidence",
+                  "collected-at": "2026-10-14T12:00:00Z",
+                  "payload": {
+                    "id": "ci-unit",
+                    "kind": "ci",
+                    "subject": "unit",
+                    "status": "passed",
+                    "candidate": {
+                      "forge": "github",
+                      "repository": "example/demo",
+                      "number": 1,
+                      "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "base_ref": "main",
+                      "author_id": "fixture-author"
+                    },
+                    "collected_at": "2026-10-14T12:00:00Z",
+                    "producer": "synthetic-ci",
+                    "verification": "synthetic-trusted"
+                  },
+                  "source": {
+                    "reference-id": "demo-evidence",
+                    "coordinate": "records/ci-unit",
+                    "digest": "sha256:e8780632ef41f60eacfe7069dcc53a0cd7dfc5c76d903ab8350d45a8f7655025"
+                  },
+                  "description": "Synthetic fixture. This trust label is not a production authentication mechanism."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Independent current review",
+          "result": "Passed",
+          "message": "synthetic-only; requirements satisfied in fixture",
+          "control": {
+            "reference-id": "demo-controls",
+            "entry-id": "AM-REVIEW"
+          },
+          "assessment-logs": [
+            {
+              "requirement": {
+                "reference-id": "demo-controls",
+                "entry-id": "AM-REVIEW-1"
+              },
+              "plan": {
+                "reference-id": "demo-policy-baseline",
+                "entry-id": "AM-REVIEW-plan"
+              },
+              "description": "Custom deterministic assessment of synthetic input, not live verification.",
+              "result": "Passed",
+              "message": "synthetic-only; requirements satisfied in fixture",
+              "applicability": [
+                "synthetic-pr"
+              ],
+              "steps": [
+                "check binding, logical freshness, fixture trust, result and independence"
+              ],
+              "steps-executed": 1,
+              "start": "2026-10-14T17:54:14Z",
+              "end": "2026-10-14T17:54:14Z",
+              "evidence": [
+                {
+                  "id": "review-1",
+                  "type": "synthetic-normalized-evidence",
+                  "collected-at": "2026-10-14T12:00:00Z",
+                  "payload": {
+                    "id": "review-1",
+                    "kind": "review",
+                    "subject": "independent-review",
+                    "status": "approved",
+                    "candidate": {
+                      "forge": "github",
+                      "repository": "example/demo",
+                      "number": 1,
+                      "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "base_ref": "main",
+                      "author_id": "fixture-author"
+                    },
+                    "collected_at": "2026-10-14T12:00:00Z",
+                    "producer": "synthetic-review",
+                    "verification": "synthetic-trusted",
+                    "reviewer_id": "fixture-reviewer",
+                    "blocking_findings": 0
+                  },
+                  "source": {
+                    "reference-id": "demo-evidence",
+                    "coordinate": "records/review-1",
+                    "digest": "sha256:9fc953ccbe31f432d8596835a59d7b22365f021819f3c7a90d6aeafc9ed7ae25"
+                  },
+                  "description": "Synthetic fixture. This trust label is not a production authentication mechanism."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "input.json": {
+      "schema_version": "synthetic-evidence/v1",
+      "provenance": "synthetic",
+      "scenario": "satisfied",
+      "evaluation_time": "2026-10-14T12:01:00Z",
+      "candidate": {
+        "forge": "github",
+        "repository": "example/demo",
+        "number": 1,
+        "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "base_ref": "main",
+        "author_id": "fixture-author"
+      },
+      "records": [
+        {
+          "id": "ci-unit",
+          "kind": "ci",
+          "subject": "unit",
+          "status": "passed",
+          "candidate": {
+            "forge": "github",
+            "repository": "example/demo",
+            "number": 1,
+            "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "base_ref": "main",
+            "author_id": "fixture-author"
+          },
+          "collected_at": "2026-10-14T12:00:00Z",
+          "producer": "synthetic-ci",
+          "verification": "synthetic-trusted"
+        },
+        {
+          "id": "review-1",
+          "kind": "review",
+          "subject": "independent-review",
+          "status": "approved",
+          "candidate": {
+            "forge": "github",
+            "repository": "example/demo",
+            "number": 1,
+            "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "base_ref": "main",
+            "author_id": "fixture-author"
+          },
+          "collected_at": "2026-10-14T12:00:00Z",
+          "producer": "synthetic-review",
+          "verification": "synthetic-trusted",
+          "reviewer_id": "fixture-reviewer",
+          "blocking_findings": 0
+        },
+        {
+          "id": "repo-scan",
+          "kind": "repository",
+          "subject": "security-scan",
+          "status": "passed",
+          "candidate": {
+            "forge": "github",
+            "repository": "example/demo",
+            "number": 1,
+            "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "base_ref": "main",
+            "author_id": "fixture-author"
+          },
+          "collected_at": "2026-10-14T12:00:00Z",
+          "producer": "synthetic-ci",
+          "verification": "synthetic-trusted"
+        }
+      ]
+    },
+    "plain-baseline.json": {
+      "decision": "eligible_for_demo_only",
+      "mutation_permitted": false,
+      "states": {
+        "AM-CI": "passed",
+        "AM-REVIEW": "passed"
+      }
+    },
+    "policy.json": {
+      "title": "Synthetic baseline policy",
+      "metadata": {
+        "id": "demo-policy-baseline",
+        "type": "Policy",
+        "gemara-version": "1.6.0",
+        "version": "0.1.0",
+        "description": "Effective requirements are resolved by custom demo code, not by schema validation.",
+        "author": {
+          "id": "demo-evaluator",
+          "name": "Synthetic evidence evaluator",
+          "type": "Software",
+          "version": "0.1.0"
+        },
+        "draft": true,
+        "mapping-references": [
+          {
+            "id": "demo-controls",
+            "title": "Synthetic auto-merge prerequisites",
+            "version": "0.1.0",
+            "url": "urn:gemara-spike:catalog:demo-controls"
+          }
+        ]
+      },
+      "contacts": {
+        "responsible": [
+          {
+            "name": "Fixture evaluator owner"
+          }
+        ],
+        "accountable": [
+          {
+            "name": "Fixture policy owner"
+          }
+        ]
+      },
+      "scope": {
+        "in": {
+          "technologies": [
+            "synthetic-auto-merge-fixture"
+          ]
+        }
+      },
+      "imports": {
+        "catalogs": [
+          {
+            "reference-id": "demo-controls",
+            "exclusions": [
+              "AM-REPO"
+            ]
+          }
+        ]
+      },
+      "adherence": {
+        "evaluation-methods": [
+          {
+            "id": "local-python",
+            "type": "Intent",
+            "mode": "Automated",
+            "required": true,
+            "description": "Custom offline fixture evaluator; no LLM and no forge operation.",
+            "executor": {
+              "id": "demo-evaluator",
+              "name": "Synthetic evidence evaluator",
+              "type": "Software",
+              "version": "0.1.0"
+            }
+          }
+        ],
+        "assessment-plans": [
+          {
+            "id": "AM-CI-plan",
+            "requirement-id": "AM-CI-1",
+            "frequency": "Each local fixture evaluation",
+            "evaluation-methods": [
+              {
+                "id": "local-python",
+                "type": "Intent",
+                "mode": "Automated",
+                "required": true
+              }
+            ],
+            "evidence-requirements": "Synthetic evidence bound to the current candidate and collected within ten minutes."
+          },
+          {
+            "id": "AM-REVIEW-plan",
+            "requirement-id": "AM-REVIEW-1",
+            "frequency": "Each local fixture evaluation",
+            "evaluation-methods": [
+              {
+                "id": "local-python",
+                "type": "Intent",
+                "mode": "Automated",
+                "required": true
+              }
+            ],
+            "evidence-requirements": "Synthetic evidence bound to the current candidate and collected within ten minutes."
+          }
+        ]
+      }
+    },
+    "recommendation.json": {
+      "schema_version": "demo-recommendation/v1",
+      "scenario": "satisfied",
+      "decision": "eligible_for_demo_only",
+      "candidate": {
+        "forge": "github",
+        "repository": "example/demo",
+        "number": 1,
+        "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "base_ref": "main",
+        "author_id": "fixture-author"
+      },
+      "evaluation_as_of": "2026-10-14T12:01:00Z",
+      "effective_policy_sha256": "4da9ae8dd8b979ad47700ec2e0924005c65c024907d07fface39bf0826d8220d",
+      "evidence_sha256": "575c29a3e2dca96616a3f7c3ef00ad99c4d63671de076b6934dd8570f37e6afd",
+      "evaluator": {
+        "name": "custom-offline-python",
+        "version": "0.1.0",
+        "llm_used": false
+      },
+      "provenance": "synthetic",
+      "mutation_permitted": false,
+      "authorized_actions": [],
+      "assessments": [
+        {
+          "control_id": "AM-CI",
+          "requirement_id": "AM-CI-1",
+          "state": "passed",
+          "reasons": [],
+          "evidence_ids": [
+            "ci-unit"
+          ]
+        },
+        {
+          "control_id": "AM-REVIEW",
+          "requirement_id": "AM-REVIEW-1",
+          "state": "passed",
+          "reasons": [],
+          "evidence_ids": [
+            "review-1"
+          ]
+        }
+      ]
+    },
+    "run.json": {
+      "evaluator_version": "0.1.0",
+      "started_at": "2026-10-14T17:54:14Z",
+      "ended_at": "2026-10-14T17:54:14Z",
+      "evaluation_as_of": "2026-10-14T12:01:00Z",
+      "provenance": "synthetic",
+      "profile": "baseline",
+      "evaluator_sources": {
+        "engine.py": "12453be3a939edfca752da7e7e339b18457bc97c93e948a9995f645d60945a5d",
+        "run.py": "f9771c6fd66334346c5799f0af91ae49fa5bed685a582f921e4939cc4ae5f3a4",
+        "adapters.py": "f3eb0a8a779f88694b02cbc3a7efb280bdf9040ab987b95859a19df256e1e7cd",
+        "validate.py": "38507f7fa8ed4dacc1c03b94ed12bf2dce5669aee1fbe233cb94fbcb9a9799bc"
+      },
+      "tool_lock_sha256": "91074865e897c6e5b0f505417aedd42bf6df6a047674674f8574f7189fd10416",
+      "official_schema_validation": "passed",
+      "network_used_by_evaluator": false,
+      "llm_used": false,
+      "mutation_permitted": false
+    }
+  }
+}

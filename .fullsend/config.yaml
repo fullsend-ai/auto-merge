@@ -12,6 +12,7 @@ roles:
     - fix
 agents:
     - name: auto-merge
+      enabled: false
       source: harness/auto-merge.yaml
       runtime: claude
 allowed_remote_resources:
