@@ -289,7 +289,7 @@ def trusted_source(client, base_sha, phase, group_sha=None):
     if source != base_sha or not re.fullmatch("[0-9a-f]{40}", source or ""):
         return False
     if phase == "enroll" and (
-        os.environ.get("PILOT_EVENT_NAME") != "workflow_dispatch"
+        os.environ.get("PILOT_EVENT_NAME") not in {"workflow_dispatch", "workflow_run"}
         or os.environ.get("PILOT_REF") != "refs/heads/main"
     ):
         return False
@@ -318,7 +318,6 @@ def trusted_source(client, base_sha, phase, group_sha=None):
     paths += [
         ".github/workflows/autonomy-pilot.yml",
         ".github/workflows/autonomy-queue.yml",
-        ".github/workflows/gemara-writer.yml",
     ]
     for name in paths:
         path = ROOT.parents[1] / name

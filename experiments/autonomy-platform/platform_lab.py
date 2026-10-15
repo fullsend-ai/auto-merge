@@ -83,6 +83,8 @@ def source_digests():
             "platform_lab.py",
             "github_observe.py",
             "live_pilot.py",
+            "app_token.py",
+            "resolve_pilot.py",
             "fullsend_evidence.py",
             "verify_live_trial.py",
             "schema.py",

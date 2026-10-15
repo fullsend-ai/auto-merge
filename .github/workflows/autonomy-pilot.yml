@@ -23,13 +23,38 @@ on:
         description: Exact-head maintenance authorization; repository admin or maintainer only
         type: boolean
         default: false
+  workflow_run:
+    workflows: [CI, fullsend]
+    types: [completed]
 permissions: {}
 concurrency:
   group: autonomy-live-pilot
   cancel-in-progress: false
 jobs:
+  resolve:
+    if: github.repository == 'fullsend-ai/auto-merge' && github.ref == 'refs/heads/main' && !inputs.probe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      ready: ${{ steps.target.outputs.ready }}
+      pr: ${{ steps.target.outputs.pr }}
+      head: ${{ steps.target.outputs.head }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Resolve a current PR from forge-owned event metadata
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 experiments/autonomy-platform/resolve_pilot.py
   evaluate:
-    if: github.repository == 'fullsend-ai/auto-merge' && github.ref == 'refs/heads/main'
+    needs: resolve
+    if: needs.resolve.outputs.ready == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -59,24 +84,24 @@ jobs:
           PILOT_SOURCE_SHA: ${{ github.sha }}
           PILOT_EVENT_NAME: ${{ github.event_name }}
           PILOT_REF: ${{ github.ref }}
-          PILOT_PR: ${{ inputs.pr }}
-          PILOT_HEAD: ${{ inputs.head }}
+          PILOT_PR: ${{ needs.resolve.outputs.pr }}
+          PILOT_HEAD: ${{ needs.resolve.outputs.head }}
           PILOT_MAINTENANCE: ${{ inputs.maintenance }}
         run: python3 experiments/autonomy-platform/live_pilot.py --phase enroll --pr "$PILOT_PR" --head "$PILOT_HEAD"
   enqueue:
-    needs: evaluate
-    if: inputs.execute && github.ref == 'refs/heads/main'
+    needs: [resolve, evaluate]
+    if: (inputs.execute || github.event_name == 'workflow_run') && github.ref == 'refs/heads/main'
     permissions:
       contents: read
       pull-requests: read
       actions: read
       checks: read
       id-token: write
-    uses: ./.github/workflows/gemara-writer.yml
+    uses: fullsend-ai/fullsend/.github/workflows/reusable-gemara-pilot-writer.yml@b9bdd4a0b2642fcbeb78b4bd96c89b0b6c7fe70a
     with:
-      pr: ${{ inputs.pr }}
-      head: ${{ inputs.head }}
-      maintenance: ${{ inputs.maintenance }}
+      pr: ${{ needs.resolve.outputs.pr }}
+      head: ${{ needs.resolve.outputs.head }}
+      maintenance: ${{ inputs.maintenance || false }}
   token-probe:
     if: inputs.probe
     permissions:
@@ -85,7 +110,7 @@ jobs:
       actions: read
       checks: read
       id-token: write
-    uses: ./.github/workflows/gemara-writer.yml
+    uses: fullsend-ai/fullsend/.github/workflows/reusable-gemara-pilot-writer.yml@b9bdd4a0b2642fcbeb78b4bd96c89b0b6c7fe70a
     with:
       pr: ${{ inputs.pr }}
       head: ${{ inputs.head }}
