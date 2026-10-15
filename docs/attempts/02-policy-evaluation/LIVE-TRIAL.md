@@ -100,7 +100,7 @@ Follow [setup](../../../experiments/autonomy-platform/README.md#run), then:
 python3 experiments/autonomy-platform/verify_live_trial.py
 ```
 
-Or dispatch **Autonomy shadow observation** on main with `pr=28` and
+Or dispatch **Gemara shadow observation** on main with `pr=28` and
 `verify_example=true`. Read its Summary, not just the workflow's green check.
 The verifier requires a stable, complete collection, all positive candidate
 assessments passed, the negative CI failure detected, readiness held, and no merge

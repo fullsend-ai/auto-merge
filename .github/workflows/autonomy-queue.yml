@@ -1,4 +1,4 @@
-name: Autonomy pilot queue validation
+name: Gemara merge queue validation
 on:
   pull_request:
   merge_group:

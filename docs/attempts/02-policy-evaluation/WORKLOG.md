@@ -393,3 +393,23 @@ PR-metadata job guard and read-only permissions. Documented which responsibiliti
 belong to native Gemara versus our evidence collector, executable assessment
 methods, controller and GitHub. Corrected the experiment README's obsolete claim
 that the separate completed live pilot was also read-only. No runtime code changed.
+
+
+## 2026-10-15 workflow simplification and readiness explanation
+
+Owner requested retaining shadow/live paths, adding Gemara to their display names
+and removing older workflows. Renamed the three current evaluation/merge workflows;
+kept filenames, triggers, permissions and required CI context names unchanged.
+Moved synthetic fixture tests into the existing CI workflow as a PR-only job;
+removed the separate fixture file, unused Prioritize file and disabled legacy
+agent-context file. Preserved all historical run evidence and the Fullsend dispatcher.
+
+Corrected the current-state documentation: main protections were restored from the
+saved snapshot under ruleset 25172387 after the owner's correction. The one-shot
+grant remains disabled. Explained that readiness holds on deliberately unknown
+AR-TESTS, AR-ISOLATION, AR-STATUS and AR-HISTORY inputs, rather than an independently
+discovered repository defect or a failed Gemara installation.
+
+Validation: all 56 local Python tests passed; all five workflow files parsed;
+required CI context names and shadow/live triggers/permissions were preserved.
+Public-content and diff-whitespace checks passed.

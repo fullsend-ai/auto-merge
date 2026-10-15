@@ -69,12 +69,12 @@ a lab receipt contract, not an upstream feature or a new model agent. See the
 [evidence update](../../docs/attempts/02-policy-evaluation/LIVE-TRIAL.md#evidence-and-trust-boundaries)
 for verified sources and the remaining evidence owners.
 
-The `Autonomy shadow observation` workflow runs trusted main code after
+The `Gemara shadow observation` workflow runs trusted main code after
 CI, and after Fullsend runs when GitHub associates a PR. Manual dispatch on main
 with a PR number handles Review commands that have no associated PR in the
 workflow event. The Summary lists each native policy/plan and its result. A green
 workflow means evaluation completed; read the decision, which can still hold.
-The separate fixture workflow uses synthetic data only. Neither workflow installs
+The Gemara integration-test job in CI uses synthetic data only. Neither path installs
 merge rules or publishes an authoritative eligibility check.
 
 ## Supported policy semantics
@@ -116,7 +116,7 @@ After the configured official Review finishes for PR #28:
 python3 experiments/autonomy-platform/verify_live_trial.py
 ```
 
-Or dispatch `Autonomy shadow observation` on main with `pr=28` and
+Or dispatch `Gemara shadow observation` on main with `pr=28` and
 `verify_example=true`. It verifies PR #28 passes every native candidate assessment,
 PR #29's intentional CI failure holds, and neither candidate overrides missing
 repository readiness. The workflow needs actions:read only to verify producer run
