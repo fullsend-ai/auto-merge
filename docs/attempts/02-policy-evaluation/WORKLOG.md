@@ -465,3 +465,30 @@ requires the completed evaluation job, not completion of its concurrent writer.
 Dispatch lookup paginates to the age boundary with a hard cap. Both base and
 reviewed maintenance entries must be ordinary files or absent. Writer concurrency
 is per PR, so irrelevant completion events cannot displace maintainer dispatches.
+
+
+## Scope correction: auto-merge repository only
+
+The owner explicitly restricted all further repository actions to
+fullsend-ai/auto-merge. The external draft was outside the intended scope; the owner
+will close it. No action to close, update, push or merge that external repository
+is authorized. Removed the external unmerged workflow dependency from this branch
+and restored a repository-owned reusable writer. The earlier external probe is
+not accepted as completion of the repository-only App-token handoff.
+
+Repository-hosted read-only mint probes returned 401. No token, PAT fallback or
+new secret was installed. The writer remains blocked; installation/bootstrap and
+live positive/negative proofs are not complete. Keep this implementation draft
+while investigating options confined to this repository. Main/protections are
+not changed by this correction.
+
+### Repository-only correction validation
+
+PR #32 is now a draft with no auto-merge request. Its description explicitly
+excludes the external-workflow prototype from the repository-only proof. The
+local correction restores a repository-owned reusable writer and includes its
+blob in trusted-source verification. All 68 local Python tests and actionlint
+for the pilot, writer and queue workflows pass. The diff secret scan passes.
+The owner authorized committing and pushing these repository-only corrections
+to PR #32. Hosted checks will evaluate the pushed revision.
+No bootstrap bypass, new live merge or change to main is claimed.

@@ -135,5 +135,5 @@ production threshold or approval is invented from the two test PRs.
 See [pilot-config.json](policies/pilot-config.json) and the
 [live walkthrough](../../docs/attempts/02-policy-evaluation/LIVE-PILOT.md).
 The common and repository policies still govern automatic candidates; the separate
-maintenance policy requires an exact-head, current maintainer dispatch. The OIDC
-writer remains a pinned upstream spike proposal, not a released Fullsend capability.
+maintenance policy requires an exact-head, current maintainer dispatch. The repository-hosted OIDC writer is blocked by the deployed mint trust policy.
+This draft does not depend on an unmerged upstream workflow or a personal token.

@@ -354,6 +354,7 @@ def trusted_source(client, base_sha, phase, group_sha=None):
     paths += [
         ".github/workflows/autonomy-pilot.yml",
         ".github/workflows/autonomy-queue.yml",
+        ".github/workflows/gemara-writer.yml",
     ]
     for name in paths:
         path = ROOT.parents[1] / name

@@ -1,6 +1,6 @@
 # Auto-Merge Experiments Lab
 
-## Current experiment: native Gemara policy and a verified live merge
+## Current experiment: native Gemara policy and a repeatable pilot draft
 
 [Attempt 2](experiments/autonomy-platform/README.md) evaluates native Gemara
 catalogs and imported common/repository policies against readiness and real PR
@@ -8,10 +8,13 @@ evidence. Input artifacts and generated EvaluationLogs are schema-validated.
 Start with the [shadow walkthrough](docs/attempts/02-policy-evaluation/LIVE-TRIAL.md)
 or the [live trial and its limits](docs/attempts/02-policy-evaluation/LIVE-PILOT.md).
 
+**Current status:** the repeatable implementation is a draft on PR #32, not installed
+on main. The earlier one-PR live merge is historical evidence.
+
 The [repeatable pilot](docs/attempts/02-policy-evaluation/LIVE-PILOT.md) introduces
 an owner-enabled documentation cohort and a separate exact-head maintainer
-maintenance policy. The live writer uses a pinned upstream Fullsend spike component
-for a short-lived App token; no personal token is installed in Actions. Read the
+maintenance policy. The repository-only live writer is still blocked by the configured mint trust
+policy; no unmerged upstream workflow or personal token is used. Read the
 trial record for the actual hosted proof and limits. Main requires the Gemara queue
 gate and ordinary CI. Production readiness remains a separate qualification.
 

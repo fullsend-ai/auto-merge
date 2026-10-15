@@ -4,10 +4,12 @@ This is a bounded public-repository experiment with an explicit owner-enabled la
 policy. It is not an approved organizational auto-merge standard or production
 qualification. The custom auto-merge model agent remains disabled.
 
-## What is enabled
+## Draft configuration, not deployed
 
 [pilot-config.json](../../../experiments/autonomy-platform/policies/pilot-config.json)
-is the repository-owned configuration. It enables two distinct paths:
+is the proposed repository-owned configuration on PR #32. It defines two paths;
+neither is deployed by this draft. Current main still uses the disabled, spent
+one-PR grant from the earlier experiment:
 
 - **Automatic documentation pilot:** one ordinary modified file,
   `docs/example-feature.md`, with at most 20 changed lines. The unchanged native
@@ -51,26 +53,23 @@ in addition to the three original required CI contexts. Conversation resolution,
 stale-review dismissal, deletion protection and non-fast-forward protection remain
 required; there are no bypass actors in the steady-state ruleset.
 
-## Fullsend App-token handoff
+## Repository-only App-token handoff: blocked
 
-The lab pins a restricted upstream reusable writer from
-[Fullsend draft PR #8467](https://github.com/fullsend-ai/fullsend/pull/8467).
-This is an unmerged spike component, not a shipped general Fullsend feature.
-It accepts only this repository and named caller. Fullsend's existing OIDC mint
-issues a short-lived coder-role installation token scoped to `auto-merge`.
-The existing role has a broader permission ceiling than a future dedicated merge
-role; this prototype does not add a new role or change mint trust settings.
+The writer is a local reusable workflow in this repository. It uses the existing
+published Fullsend mint action; it does not depend on an unmerged workflow in
+another repository. Two repo-hosted read-only probes returned HTTP 401. No token
+was obtained and no queue request was made in those probes.
 
-The App token stays inside the writer job and is used only for installation-scope
-verification, the exact-head queue request, and revocation. It is not an output
-passed back to the caller, not a PAT, and not supplied to the model or native
-assessment subprocesses. The collector uses the standard read-only Actions token.
-The job checks out trusted caller-main code, never the PR or synthetic tree.
+The deployed mint does not currently authorize this repository-hosted writer.
+This remains a blocker for the App-token handoff. No PAT fallback, new secret,
+external trust change or upstream repository change is authorized by this spike.
+The implementation stays draft until a repository-only supported path is validated.
+An earlier external prototype is not part of this repository-only design or proof.
 
-Two repository-hosted mint probes returned HTTP 401. The upstream-hosted
-[read-only probe](https://github.com/fullsend-ai/auto-merge/actions/runs/38775102361)
-succeeded, verified the single-repository token scope, then revoked the token.
-The selected upstream host is a demonstrated mint boundary, not a Gemara feature.
+If the writer can obtain an authorized installation token in the future, it must
+verify the token selects only this repo, use it only inside the job for exact-head
+queue entry, and revoke it. The collector and native evaluator do not receive it.
+Read-only probes check out an immutable reviewed adapter, not caller-branch code.
 
 ## Exact-head maintenance authorization
 
@@ -113,5 +112,4 @@ passed. That trial needed an operator queue retry because its Actions-token entr
 started no queue workflows. It is historical evidence, not the new App-token proof.
 
 Current implementation validation and live positive/negative results are recorded
-in [WORKLOG.md](WORKLOG.md). The separate shared-component draft remains subject
-to upstream review. Historical disabled workflow runs are retained.
+in [WORKLOG.md](WORKLOG.md). The App-token handoff remains blocked; no new live merge outcome is claimed. Historical disabled workflow runs are retained.
