@@ -5,6 +5,22 @@ questions: does the PR satisfy the candidate policy, is the repository qualified
 for autonomy, and does the combined gate allow proceeding? Every result forbids
 mutation. A passing candidate cannot override missing readiness evidence.
 
+## Verified hosted example
+
+Both final runs passed on source `0b0258cd1aa513cd41fdbc2bf15b70066f8722c0`:
+
+- [Native fixture suite](https://github.com/fullsend-ai/auto-merge/actions/runs/38739049643):
+  **46 Python tests**, the native SDK build/Go tests and synthetic replay passed.
+- [Complete live verification](https://github.com/fullsend-ai/auto-merge/actions/runs/38739054288):
+  **#28 candidate eligible; #29 candidate held**. Repository readiness and the
+  combined gate held for both; all outputs forbade mutation.
+- [Official Fullsend Review](https://github.com/fullsend-ai/auto-merge/actions/runs/38737376370)
+  supplied the real approval, finding ledger and revision-bound lab risk receipt.
+
+This completes the live shadow example. It does not qualify the repository for
+production autonomous merging. The readiness holds below are deliberate controls,
+not missing risk data or a failed evaluator.
+
 ## The real trial PRs
 
 - [PR #28](https://github.com/fullsend-ai/auto-merge/pull/28) is the positive

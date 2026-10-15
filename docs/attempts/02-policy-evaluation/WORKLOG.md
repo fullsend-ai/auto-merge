@@ -246,3 +246,31 @@ mutation_permitted=false and authorized_actions=[]. Hosted repetition follows.
 The earlier hosted fixture run 38737919849 passed 44 Python tests, Go/native build
 checks and synthetic replay on source 35735f57478acbf5ab370f4457c970a9ba58c369;
 it predates the two new branch-binding regression tests.
+
+
+## 2026-10-15 final hosted complete-example proof
+
+Published corrected source 0b0258cd1aa513cd41fdbc2bf15b70066f8722c0. The direct
+main publication used a temporary admin exception, restored immediately and
+verified after every publication. Original protection rules were never deleted.
+
+Hosted fixture run 38739049643 succeeded on that exact source: 46 Python tests,
+pinned native SDK build/Go tests and synthetic replay. Hosted shadow run
+38739054288 also succeeded on that exact source. Its actual normalized verifier
+output reports result=passed, production_readiness=not_qualified, PR #28 candidate
+eligible and PR #29 candidate hold. Repository readiness and combined gate held
+for both; mutation_permitted=false. The earlier 35735f5 verifier run 38738636141
+failed on the stale-base provenance bug and is superseded, not counted as proof.
+
+Verified real producer run 38737376370 succeeded and the head/config/run/attempt
+receipt was present in the current Review summary. The observer read no workflow
+logs or output artifacts. Verification of the experiment itself inspected only
+normalized proof JSON/test-count lines and discarded raw logs. No credentials,
+API bodies, review text, actor identities or raw logs were retained in the repo.
+
+Read back both trial PRs: open, auto_merge=null. Read back ruleset 24310722:
+bypass_actors=[]. The custom auto-merge model remains disabled. This completes the
+read-only example, including positive/negative live cases and qualification holds;
+it does not invent an accepted organizational standard, safety history, runtime
+assurance or promotion approval. Final publication after this entry changes docs
+only; the hosted proof's executable source remains the exact SHA linked above.
