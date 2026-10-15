@@ -1,6 +1,9 @@
 name: Gemara writer (repository-only)
 on:
   workflow_call:
+    secrets:
+      GEMARA_PILOT_APP_PRIVATE_KEY:
+        required: true
     inputs:
       pr:
         type: string
