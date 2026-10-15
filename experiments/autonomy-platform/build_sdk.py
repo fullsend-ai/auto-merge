@@ -63,7 +63,6 @@ def build(offline=False):
         "sdk_commit": "5e33fda460a80ffa99e9efbe19afb43e7d4c4dd2",
         "sdk_module": "v0.11.1-0.20261009030221-5e33fda460a8",
         "sdk_schema_version": "v1.5.0",
-        "output_schema_version": "v1.6.0",
         "adapter_binary_sha256": hashlib.sha256(destination.read_bytes()).hexdigest(),
         "adapter_sources": {
             str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()

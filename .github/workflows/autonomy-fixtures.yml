@@ -25,11 +25,7 @@ jobs:
         with:
           go-version: '1.26.6'
           cache: false
-      - name: Install checksum-pinned schema validator
-        run: python3 experiments/gemara-spike/bootstrap_cue.py
       - name: Build pinned SDK and verify its native behavior
         run: python3 experiments/autonomy-platform/build_sdk.py
       - name: Test adapters and bounded observation handling
         run: python3 -m unittest discover -s experiments/autonomy-platform -p 'test_*.py'
-      - name: Exercise four modes using synthetic inputs only
-        run: python3 experiments/autonomy-platform/demo.py

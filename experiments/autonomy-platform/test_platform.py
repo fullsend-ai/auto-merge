@@ -1,7 +1,6 @@
 import copy
 import json
 import os
-import subprocess
 import tempfile
 import unittest
 from unittest import mock
@@ -11,7 +10,6 @@ from platform_lab import (
     InputError,
     assess,
     digest,
-    documents,
     gate,
     load,
     observations_for,
@@ -224,7 +222,7 @@ class PlatformTests(unittest.TestCase):
         with self.assertRaises(InputError):
             assess(req, "gemara-sdk")
 
-    def test_sdk_produces_schema_valid_logs_and_captures_evidence(self):
+    def test_sdk_captures_evidence_for_pass_fail_and_unknown(self):
         for key, replacement in [(None, None), ("AM-CI", False), ("AM-REVIEW", None)]:
             obs = copy.deepcopy(self.obs)
             if key:
@@ -234,11 +232,6 @@ class PlatformTests(unittest.TestCase):
                     obs[key]["value"] = replacement
             req = self.req(obs)
             result = assess(req, "gemara-sdk")
-            package = documents(req, result)
-            self.assertEqual(
-                package["evaluation"]["result"] == "Passed",
-                result["decision"] == "eligible",
-            )
             evidence = [
                 e
                 for c in result["sdk_evaluations"]
@@ -248,13 +241,6 @@ class PlatformTests(unittest.TestCase):
             self.assertTrue(evidence)
             self.assertEqual(result["sdk_schema_version"], "v1.5.0")
             self.assertEqual(evidence[0]["source"]["reference-id"], "observations")
-
-    def test_readiness_record_has_valid_gemara_artifacts(self):
-        req = request(self.policy, "readiness", self.ready, self.ready_obs, NOW)
-        result = assess(req, "gemara-sdk")
-        docs = documents(req, result)
-        self.assertEqual(docs["evaluation"]["result"], "Passed")
-        self.assertEqual(len(docs["catalog"]["controls"]), 8)
 
     def test_sdk_child_has_clean_environment(self):
         import platform_lab
@@ -273,39 +259,6 @@ class PlatformTests(unittest.TestCase):
             result = assess(self.req(), "gemara-sdk")
         self.assertEqual(set(seen[0]), {"PATH", "LANG"})
         self.assertNotIn("SYNTHETIC_SENTINEL", json.dumps(result))
-
-    def test_sdk_policy_roundtrip_exposes_serialization_gap(self):
-        from validate import ValidationError, validate
-
-        result = assess(self.req(), "gemara-sdk")
-        policy = documents(self.req(), result)["policy"]
-        child = subprocess.run(
-            [str(ROOT / ".tools/gemara-adapter"), "--roundtrip-policy"],
-            input=json.dumps(policy),
-            capture_output=True,
-            text=True,
-            env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"},
-            timeout=15,
-        )
-        self.assertEqual(child.returncode, 0)
-        restored = json.loads(child.stdout)
-        self.assertEqual(policy["imports"], restored["imports"])
-        self.assertEqual(policy["scope"]["in"], restored["scope"]["in"])
-        # Record the limitation rather than silently stripping SDK-added defaults.
-        self.assertNotEqual(policy["adherence"], restored["adherence"])
-        with self.assertRaises(ValidationError):
-            validate(restored, "Policy")
-        policy["unknown_instruction"] = "SYNTHETIC_SENTINEL"
-        child = subprocess.run(
-            [str(ROOT / ".tools/gemara-adapter"), "--roundtrip-policy"],
-            input=json.dumps(policy),
-            capture_output=True,
-            text=True,
-            env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"},
-            timeout=15,
-        )
-        self.assertNotEqual(child.returncode, 0)
-        self.assertNotIn("SYNTHETIC_SENTINEL", child.stdout + child.stderr)
 
     def test_alternative_adapter_needs_no_sdk_or_cue_process(self):
         with mock.patch(

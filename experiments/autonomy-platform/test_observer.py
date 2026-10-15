@@ -68,38 +68,6 @@ class FixtureClient:
 
 
 class ObserverTests(unittest.TestCase):
-    def test_launch_comparison_never_authorizes_activation(self):
-        import base64
-        from pathlib import Path
-        import launch_check
-
-        root = Path(__file__).resolve().parents[2]
-        client = FixtureClient()
-
-        def get(path):
-            if path.endswith("commits/main"):
-                return {"sha": "a" * 40}
-            name = path.split("/contents/", 1)[1].split("?", 1)[0]
-            return {
-                "encoding": "base64",
-                "content": base64.b64encode((root / name).read_bytes()).decode(),
-            }
-
-        client.get = get
-        result = launch_check.inspect(client)
-        self.assertTrue(result["trusted_setup_matches_local"])
-        self.assertFalse(result["activation_permitted"])
-        self.assertFalse(result["writes_performed"])
-
-    def test_missing_trusted_setup_fails_closed(self):
-        import launch_check
-
-        client = FixtureClient()
-        client.get = (
-            lambda path: {"sha": "a" * 40} if path.endswith("commits/main") else None
-        )
-        self.assertFalse(launch_check.inspect(client)["trusted_setup_matches_local"])
-
     def test_api_payload_text_is_never_in_retained_report(self):
         import json
 

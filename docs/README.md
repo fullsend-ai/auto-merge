@@ -10,22 +10,14 @@ implementation. It is not a production-ready cross-SCM merge service.
 
 ## Versioned attempts
 
-[Attempt 1](attempts/01-agent-led/README.md) freezes the agent-led runtime and
-its document hashes at `c06d5b8`. The earlier repository snapshot above is the
-historical exercise reference recorded when this hub was written.
+- [Attempt 1: agent-led authorization](attempts/01-agent-led/README.md) preserves
+  the earlier implementation and original documentation paths.
+- [Attempt 2: read-only policy evaluation](../experiments/autonomy-platform/README.md)
+  exercises readiness, exact-revision assessment and replaceable policy adapters.
+  Its [scope and limits](attempts/02-policy-evaluation/README.md) distinguish this
+  experiment from a supported Fullsend integration.
 
-[Attempt 2](attempts/02-policy-evaluation/README.md) adds a separate local
-Gemara evaluation spike: [demo](../experiments/gemara-spike/README.md),
-[findings](attempts/02-policy-evaluation/FINDINGS.md),
-[work log](attempts/02-policy-evaluation/WORKLOG.md), and
-[ADR proposal](attempts/02-policy-evaluation/ADR-PROPOSAL.md).
-
-The sections below describe Attempt 1's installed lab and existing production
-proposals. Attempt 2 preserves those paths, adds local platform experiments and
-prepares a fixture-only workflow plus legacy-route disabling changes. Those
-changes have not been published or activated.
-The security contract remains a shared reference; Attempt 2 has an additional,
-narrower fixture-only safety boundary.
+The sections below describe Attempt 1 and existing production proposals.
 
 ## The decision in one paragraph
 

@@ -7,33 +7,69 @@ import hashlib
 import json
 import re
 import subprocess
-import sys
 
 ROOT = Path(__file__).resolve().parent
-PHASE1 = ROOT.parent / "gemara-spike"
-sys.path.insert(0, str(PHASE1))
-from engine import digest, utc, InputError  # noqa: E402
-from run import load  # noqa: E402
-from validate import validate  # noqa: E402
+
+
+class InputError(ValueError):
+    """Stable codes only: never echo a rejected value or environment content."""
+
+
+def digest(value: object) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            value, sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode()
+    ).hexdigest()
+
+
+def utc(value: object) -> datetime:
+    if not isinstance(value, str) or not re.fullmatch(
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", value
+    ):
+        raise InputError("invalid_timestamp")
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise InputError("invalid_timestamp") from exc
+
+
+def _unique(pairs: list[tuple[str, object]]) -> dict:
+    value = {}
+    for key, item in pairs:
+        if key in value:
+            raise InputError("duplicate_json_key")
+        value[key] = item
+    return value
+
+
+def load(path: Path) -> dict:
+    if path.is_symlink():
+        raise InputError("symlink_input")
+    if not path.is_file():
+        raise InputError("regular_file_input_required")
+    limit = 1024 * 1024
+    with path.open("rb") as stream:
+        raw = stream.read(limit + 1)
+    if len(raw) > limit:
+        raise InputError("input_too_large")
+    try:
+        data = json.loads(
+            raw,
+            object_pairs_hook=_unique,
+            parse_constant=lambda _: (_ for _ in ()).throw(
+                InputError("invalid_json_constant")
+            ),
+        )
+    except (UnicodeError, json.JSONDecodeError, RecursionError) as exc:
+        raise InputError("invalid_json") from exc
+    if not isinstance(data, dict):
+        raise InputError("invalid_document")
+    return data
+
 
 MODES = {"off", "shadow", "light", "policy"}
 KINDS = {"boolean", "maximum", "equals", "member"}
-CONTROL_DESCRIPTIONS = {
-    "AR-RULES": "Authoritative protected-branch rules must be visible for the qualified configuration.",
-    "AR-CHECKS": "Complete required-check observations must be accessible.",
-    "AR-REVIEWS": "Complete current Review and finding data must be accessible.",
-    "AR-STATUS": "The platform must be able to publish a trusted, revision-bound status.",
-    "AR-TESTS": "Verification must be meaningful for the proposed autonomous change class.",
-    "AR-ISOLATION": "The approved execution environment must preserve credential and evidence isolation.",
-    "AR-QUEUE": "The required native direct or queue path must be supported and verified.",
-    "AR-HISTORY": "Shadow history and promotion must meet the applicable governance criteria.",
-    "AM-CI": "The selected verification must have executed successfully for the exact candidate.",
-    "AM-REVIEW": "Current independent Review must satisfy the trusted provider contract.",
-    "AM-FINDINGS": "A complete current finding ledger must have no unresolved blocking findings.",
-    "AM-RISK": "Trusted candidate risk must not exceed the effective policy threshold.",
-    "AM-CLASS": "The candidate must belong to an approved change class.",
-    "AM-PROTECTED": "The candidate must not alter paths requiring human governance.",
-}
 
 
 def source_digests():
@@ -546,144 +582,3 @@ def gate(effective, who, as_of, observations, mode, receipt, adapter):
         "authorized_actions": [],
         "qualification_receipt_is_local_unsigned": True,
     }
-
-
-def documents(value, result):
-    """Bind native SDK assessments to real schema-valid Gemara documents."""
-    catalog = load(PHASE1 / "catalog.json")
-    template = catalog["controls"][0]
-    catalog["metadata"]["id"] = "platform-controls"
-    catalog["metadata"]["applicability-groups"] = [
-        {
-            "id": "lab",
-            "title": "Autonomy lab",
-            "description": "Experimental observations; no merge authority.",
-        }
-    ]
-    catalog["title"] = "Autonomy platform lab controls"
-    catalog["metadata"]["description"] = (
-        "Experimental readiness and eligibility controls; not an accepted platform standard."
-    )
-    catalog["controls"] = []
-    policy = load(PHASE1 / "policies/baseline.json")
-    plan = policy["adherence"]["assessment-plans"][0]
-    policy["metadata"]["id"] = "platform-policy"
-    policy["title"] = "Autonomy platform lab effective policy"
-    policy["metadata"]["description"] = (
-        "Local experimental profile; no merge authority."
-    )
-    policy["scope"] = {"in": {"technologies": ["autonomy-platform-lab"]}}
-    policy["adherence"]["evaluation-methods"] = [
-        {
-            "id": "gemara-sdk",
-            "type": "Intent",
-            "mode": "Automated",
-            "required": True,
-            "description": "Pinned native SDK checks normalized observations; no forge mutation or LLM.",
-            "executor": {
-                "id": "platform-lab",
-                "name": "Autonomy platform lab",
-                "type": "Software",
-                "version": "0.1.0",
-            },
-        }
-    ]
-    policy["imports"]["catalogs"] = [{"reference-id": "platform-controls"}]
-    policy["adherence"]["assessment-plans"] = []
-    for rule in value["rules"]:
-        c = copy.deepcopy(template)
-        c["id"] = rule["id"]
-        c["title"] = rule["id"]
-        c["objective"] = CONTROL_DESCRIPTIONS.get(
-            rule["id"],
-            "The repository-specific additional condition must be satisfied.",
-        )
-        c["assessment-requirements"][0]["id"] = rule["id"] + "-1"
-        c["assessment-requirements"][0]["applicability"] = ["lab"]
-        c["assessment-requirements"][0]["text"] = c["objective"]
-        catalog["controls"].append(c)
-        p = copy.deepcopy(plan)
-        p["id"] = rule["id"] + "-plan"
-        p["requirement-id"] = rule["id"] + "-1"
-        p["evaluation-methods"] = [
-            {
-                "id": "gemara-sdk",
-                "type": "Intent",
-                "mode": "Automated",
-                "required": True,
-            }
-        ]
-        p["frequency"] = "Each experimental evaluation"
-        p["evidence-requirements"] = (
-            "Current subject-bound normalized observation; trust labels alone are not authentication."
-        )
-        policy["adherence"]["assessment-plans"].append(p)
-    # Existing metadata contains the original demo reference; replace it explicitly.
-    policy["metadata"]["mapping-references"] = [
-        {
-            "id": "platform-controls",
-            "title": catalog["title"],
-            "version": "0.1.0",
-            "url": "urn:sha256:" + digest(catalog),
-        }
-    ]
-    now = (
-        datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-    )
-    log = {
-        "metadata": {
-            "id": "platform-evaluation",
-            "type": "EvaluationLog",
-            "gemara-version": "1.6.0",
-            "version": "0.1.0",
-            "date": now,
-            "description": "Experimental normalized observations; no mutation authority.",
-            "author": {
-                "id": "platform-lab",
-                "name": "Autonomy platform lab",
-                "type": "Software",
-                "version": "0.1.0",
-            },
-            "mapping-references": [
-                {
-                    "id": "platform-controls",
-                    "title": catalog["title"],
-                    "version": "0.1.0",
-                    "url": "urn:sha256:" + digest(catalog),
-                },
-                {
-                    "id": "platform-policy",
-                    "title": policy["title"],
-                    "version": "0.1.0",
-                    "url": "urn:sha256:" + digest(policy),
-                },
-                {
-                    "id": "observations",
-                    "title": "Normalized observations",
-                    "version": "1",
-                    "url": "urn:sha256:" + digest(value),
-                },
-            ],
-        },
-        "target": {
-            "id": "subject-" + value["subject_sha256"],
-            "name": "Autonomy assessment subject",
-            "type": "Software",
-            "version": value["subject_sha256"],
-            "uri": "urn:sha256:" + value["subject_sha256"],
-            "environment": "experimental",
-        },
-        "result": "Passed"
-        if result["decision"] == "eligible"
-        else "Failed"
-        if any(r["state"] == "failed" for r in result["assessments"])
-        else "Needs Review",
-        "evaluations": result["sdk_evaluations"],
-    }
-    for data, kind in [
-        (catalog, "ControlCatalog"),
-        (policy, "Policy"),
-        (log, "EvaluationLog"),
-    ]:
-        validate(data, kind)
-    return {"catalog": catalog, "policy": policy, "evaluation": log}

@@ -167,15 +167,6 @@ func run() error {
 	if _, err := keyDecoder.Token(); err != io.EOF {
 		return fmt.Errorf("invalid_request")
 	}
-	if len(os.Args) == 2 && os.Args[1] == "--roundtrip-policy" {
-		var policy gemara.Policy
-		decoder := json.NewDecoder(bytes.NewReader(raw))
-		decoder.DisallowUnknownFields()
-		if decoder.Decode(&policy) != nil {
-			return fmt.Errorf("invalid_policy")
-		}
-		return json.NewEncoder(os.Stdout).Encode(policy)
-	}
 	if len(os.Args) != 1 {
 		return fmt.Errorf("invalid_arguments")
 	}
