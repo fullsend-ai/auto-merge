@@ -49,7 +49,8 @@ the platform-supplied trusted main base. It waits for the ordinary CI checks on
 the actual cumulative group SHA, rechecks Fullsend/candidate evidence and evaluates
 the lab policy against that group SHA. It also verifies:
 
-- the group identifies exactly the granted PR and head;
+- the group ref identifies the granted PR and base, and GitHub queue-entry
+  metadata binds the reviewed head, base and actual group commit;
 - the queued document is an ordinary file with exactly the reviewed blob;
 - every other file/submodule entry equals the current main base;
 - the actual target branch, source policy/code and grant remain current;

@@ -187,7 +187,24 @@ class PilotTests(unittest.TestCase):
             self.assertNotIn("--admin", command)
             self.assertNotIn("mergePullRequest", " ".join(command))
 
-    def test_group_identity_is_closed_to_one_pr_and_head(self):
+    def test_queue_entry_binds_both_reviewed_and_actual_group_commits(self):
+        entry = {
+            "position": 1,
+            "pullRequest": {"number": 30, "headRefOid": "a" * 40},
+            "baseCommit": {"oid": "b" * 40},
+            "headCommit": {"oid": "c" * 40},
+        }
+        self.assertTrue(p.queue_entry_matches(entry, 30, "a" * 40, "b" * 40, "c" * 40))
+        for args in [
+            (31, "a" * 40, "b" * 40, "c" * 40),
+            (30, "d" * 40, "b" * 40, "c" * 40),
+            (30, "a" * 40, "d" * 40, "c" * 40),
+            (30, "a" * 40, "b" * 40, "d" * 40),
+        ]:
+            self.assertFalse(p.queue_entry_matches(entry, *args))
+        self.assertFalse(p.queue_entry_matches(None, 30, "a" * 40, "b" * 40, "c" * 40))
+
+    def test_group_identity_is_closed_to_one_pr_and_base(self):
         self.assertIsNotNone(
             p.GROUP_REF.fullmatch("refs/heads/gh-readonly-queue/main/pr-30-" + "a" * 40)
         )

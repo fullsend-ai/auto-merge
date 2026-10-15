@@ -1,9 +1,9 @@
 {
   "schema_version": "lab-merge-grant/v1",
   "repository": "fullsend-ai/auto-merge",
-  "enabled": false,
-  "pull_request": 0,
-  "head_sha": "0000000000000000000000000000000000000000",
-  "expires_at": "2000-01-01T00:00:00Z",
+  "enabled": true,
+  "pull_request": 30,
+  "head_sha": "d1b22cadb90264675b6ca9f7c5aaa9b8fc44cd93",
+  "expires_at": "2026-10-15T17:12:50Z",
   "maximum_changed_lines": 12
 }

@@ -268,6 +268,43 @@ def discussions_clear(client, number):
         return False
 
 
+def queue_entry_matches(entry, number, head, base, group):
+    return bool(
+        entry
+        and entry.get("position") == 1
+        and (entry.get("pullRequest") or {}).get("number") == number
+        and (entry.get("pullRequest") or {}).get("headRefOid") == head
+        and (entry.get("baseCommit") or {}).get("oid") == base
+        and (entry.get("headCommit") or {}).get("oid") == group
+    )
+
+
+def queued_revision(client, number, head, base, group):
+    query = 'query($number:Int!){repository(owner:"fullsend-ai",name:"auto-merge"){pullRequest(number:$number){mergeQueueEntry{position baseCommit{oid} headCommit{oid} pullRequest{number headRefOid}}}}}'
+    headers = {"Content-Type": "application/json", "User-Agent": "gemara-live-pilot"}
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = "Bearer " + token
+    try:
+        request = urllib.request.Request(
+            "https://api.github.com/graphql",
+            data=json.dumps({"query": query, "variables": {"number": number}}).encode(),
+            headers=headers,
+            method="POST",
+        )
+        with client.opener.open(request, timeout=20) as response:
+            raw = response.read(2 * 1024 * 1024 + 1)
+        if len(raw) > 2 * 1024 * 1024:
+            return False
+        data = json.loads(raw)
+        if data.get("errors"):
+            return False
+        entry = data["data"]["repository"]["pullRequest"]["mergeQueueEntry"]
+        return queue_entry_matches(entry, number, head, base, group)
+    except Exception:
+        return False
+
+
 def wait_queue_ci(client, sha):
     for _ in range(32):
         rows = client.pages(
@@ -304,7 +341,7 @@ def evaluate(number, expected_head, phase, client=None):
         )
         match = GROUP_REF.fullmatch(os.environ.get("PILOT_GROUP_REF", ""))
         require(
-            match is not None and int(match[1]) == number and match[2] == expected_head,
+            match is not None and int(match[1]) == number and match[2] == group_base,
             "unrecognized_merge_group",
         )
         group_ci = wait_queue_ci(client, group_sha)
@@ -322,6 +359,7 @@ def evaluate(number, expected_head, phase, client=None):
             scope_ok
             and group_base == base_sha
             and exact_tree(base_tree, reviewed_tree, tree(client, group_sha))
+            and queued_revision(client, number, expected_head, base_sha, group_sha)
         )
     ci = (
         group_ci
@@ -438,7 +476,7 @@ def main():
         if args.phase == "queue":
             match = GROUP_REF.fullmatch(os.environ.get("PILOT_GROUP_REF", ""))
             require(match is not None, "unrecognized_merge_group")
-            number, head = int(match[1]), match[2]
+            number, head = int(match[1]), grant()["head_sha"]
         require(
             type(number) is int
             and 0 < number < 1000000

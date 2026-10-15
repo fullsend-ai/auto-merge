@@ -298,3 +298,18 @@ required protections, pending/spoofed CI and denied-writer cases. Pinned SDK reb
 and Go checks passed. Both workflows parse. Disabled-grant CLI returns hold without
 an action. Setup is initially published with the grant disabled; the controlled
 live run, outcomes and cleanup will be recorded below.
+
+
+## 2026-10-15 live grant activation preparation
+
+Created fresh PR #30, d1b22cadb90264675b6ca9f7c5aaa9b8fc44cd93, from installed
+pilot source d48d12950032ef0caa38a22ee942f04642211dea. It changes only four ordinary
+document lines; the real document validator passes. Published PR body was read back.
+The owner grant selects that exact PR/head for two hours and at most 12 changed
+lines. The original failed-CI trial remains outside the grant.
+
+Verified GitHub's historical queue ref against PR #27: the ref suffix is its base
+SHA, not its reviewed head. Corrected that assumption before activation and added
+a read-only queue-entry check that separately binds PR number, reviewed head,
+base and synthetic head. Native tests now total 55 and all pass. The actual queue
+entry values and required check will be verified during the live experiment.
