@@ -359,6 +359,38 @@ class PilotTests(unittest.TestCase):
             self.assertNotIn("--admin", command)
             self.assertNotIn("mergePullRequest", " ".join(command))
 
+    def test_missing_or_cross_repository_app_token_never_requests_a_merge(self):
+        result = {
+            "decision": "eligible",
+            "stage": "enroll",
+            "pull_request": 32,
+            "reviewed_head": "a" * 40,
+        }
+        with (
+            mock.patch.dict(
+                os.environ, {"PILOT_CAN_ENQUEUE": "true", "PILOT_ENQUEUE_TOKEN": ""}
+            ),
+            mock.patch.object(p.subprocess, "run") as run,
+        ):
+            with self.assertRaises(InputError):
+                p.enqueue(result)
+            run.assert_not_called()
+        with (
+            mock.patch.dict(
+                os.environ,
+                {
+                    "PILOT_CAN_ENQUEUE": "true",
+                    "PILOT_ENQUEUE_TOKEN": "test-installation-token",
+                },
+            ),
+            mock.patch.object(p.urllib.request, "build_opener") as opener,
+            mock.patch.object(p.subprocess, "run") as run,
+        ):
+            opener.return_value.open.return_value.__enter__.return_value.read.return_value = b'{"total_count":2,"repositories":[{"full_name":"fullsend-ai/auto-merge"},{"full_name":"other/repo"}]}'
+            with self.assertRaises(InputError):
+                p.enqueue(result)
+            run.assert_not_called()
+
     def test_queue_entry_binds_both_reviewed_and_actual_group_commits(self):
         entry = {
             "position": 1,

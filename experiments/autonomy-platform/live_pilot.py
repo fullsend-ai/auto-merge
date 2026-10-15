@@ -318,6 +318,7 @@ def trusted_source(client, base_sha, phase, group_sha=None):
     paths += [
         ".github/workflows/autonomy-pilot.yml",
         ".github/workflows/autonomy-queue.yml",
+        ".github/workflows/gemara-writer.yml",
     ]
     for name in paths:
         path = ROOT.parents[1] / name
@@ -571,6 +572,13 @@ def evaluate(number, expected_head, phase, client=None):
         and branch
         and branch["commit"]["sha"] == base_sha
         and configuration() == config
+        and (
+            not maintenance
+            or maintenance_authorization(
+                client, number, expected_head, base_sha, phase, config
+            )
+            == permission
+        )
         and not client.errors,
         "pilot_state_changed",
     )
