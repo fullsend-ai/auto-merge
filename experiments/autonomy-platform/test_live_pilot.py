@@ -67,40 +67,176 @@ class PilotTests(unittest.TestCase):
                 assess(bundle, "candidate", subject, bad, now)["decision"], "hold"
             )
 
-    def test_grant_is_exact_expiring_and_closed_schema(self):
+    def test_configuration_is_bounded_closed_and_has_an_independent_kill_switch(self):
         data = {
-            "schema_version": "lab-merge-grant/v1",
+            "schema_version": "repository-merge-pilot/v1",
             "repository": p.REPO,
-            "enabled": True,
-            "pull_request": 30,
-            "head_sha": "a" * 40,
-            "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1))
-            .isoformat(timespec="seconds")
-            .replace("+00:00", "Z"),
-            "maximum_changed_lines": 12,
+            "automatic_enabled": True,
+            "maintenance_enabled": True,
+            "allowed_document_paths": [p.DOCUMENT],
+            "maximum_changed_lines": 20,
+            "maintenance_maximum_age_seconds": 3600,
         }
         with mock.patch.object(p, "load", return_value=data):
-            self.assertEqual(p.grant(), data)
+            self.assertEqual(p.configuration(), data)
         for field, value in [
-            ("enabled", False),
-            ("head_sha", "bad"),
+            ("automatic_enabled", "true"),
             ("repository", "other/repo"),
             ("maximum_changed_lines", 21),
-            ("pull_request", True),
-            ("expires_at", "2000-01-01T00:00:00Z"),
+            ("maximum_changed_lines", True),
+            ("maintenance_maximum_age_seconds", 3601),
+            ("allowed_document_paths", [".github/workflows/run.yml"]),
         ]:
-            bad = dict(data)
-            bad[field] = value
             with (
-                mock.patch.object(p, "load", return_value=bad),
+                mock.patch.object(p, "load", return_value=dict(data, **{field: value})),
                 self.assertRaises(InputError),
             ):
-                p.grant()
+                p.configuration()
         with (
             mock.patch.object(p, "load", return_value=dict(data, unexpected=True)),
             self.assertRaises(InputError),
         ):
-            p.grant()
+            p.configuration()
+        with mock.patch.object(
+            p, "load", return_value=dict(data, automatic_enabled=False)
+        ):
+            self.assertFalse(p.configuration()["automatic_enabled"])
+
+    def test_maintenance_dispatch_cannot_be_replayed_for_other_revisions_or_sources(
+        self,
+    ):
+        now = datetime.now(timezone.utc)
+        run = {
+            "id": 1,
+            "run_attempt": 1,
+            "event": "workflow_dispatch",
+            "path": ".github/workflows/autonomy-pilot.yml",
+            "head_sha": "b" * 40,
+            "repository": {"full_name": p.REPO},
+            "display_title": f"Gemara maintenance PR #32 @{'a' * 40}",
+            "created_at": now.isoformat(timespec="seconds").replace("+00:00", "Z"),
+            "status": "completed",
+            "conclusion": "success",
+        }
+        self.assertTrue(
+            p.maintenance_run_matches(run, 32, "a" * 40, "b" * 40, 3600, True)
+        )
+        for args in [
+            (33, "a" * 40, "b" * 40),
+            (32, "c" * 40, "b" * 40),
+            (32, "a" * 40, "c" * 40),
+        ]:
+            self.assertFalse(p.maintenance_run_matches(run, *args, 3600, True))
+        for change in [
+            {"event": "pull_request_target"},
+            {"path": ".github/workflows/ci.yml"},
+            {"conclusion": "failure"},
+            {"repository": {"full_name": "other/repo"}},
+            {"created_at": (now - timedelta(hours=2)).isoformat()},
+        ]:
+            self.assertFalse(
+                p.maintenance_run_matches(
+                    dict(run, **change), 32, "a" * 40, "b" * 40, 3600, True
+                )
+            )
+
+    def test_maintenance_requires_current_maintainer_permission(self):
+        config = {"maintenance_enabled": True, "maintenance_maximum_age_seconds": 3600}
+        run = {
+            "id": 1,
+            "run_attempt": 1,
+            "event": "workflow_dispatch",
+            "path": ".github/workflows/autonomy-pilot.yml",
+            "head_sha": "b" * 40,
+            "repository": {"full_name": p.REPO},
+            "display_title": f"Gemara maintenance PR #32 @{'a' * 40}",
+            "created_at": datetime.now(timezone.utc)
+            .isoformat(timespec="seconds")
+            .replace("+00:00", "Z"),
+            "actor": {"login": "owner"},
+            "triggering_actor": {"login": "owner"},
+        }
+        client = mock.Mock()
+        for role, allowed in [
+            ("write", False),
+            ("read", False),
+            ("admin", True),
+            ("maintain", True),
+        ]:
+            client.get.side_effect = (
+                lambda path: run if "/actions/" in path else {"permission": role}
+            )
+            with mock.patch.dict(
+                os.environ, {"PILOT_MAINTENANCE": "true", "GITHUB_RUN_ID": "1"}
+            ):
+                self.assertEqual(
+                    bool(
+                        p.maintenance_authorization(
+                            client, 32, "a" * 40, "b" * 40, "enroll", config
+                        )
+                    ),
+                    allowed,
+                )
+
+    def test_maintenance_tree_does_not_allow_unapproved_files_or_symlinks(self):
+        base = {"code.py": ("blob", "100644", "a" * 40)}
+        reviewed = dict(
+            base, **{".github/workflows/test.yml": ("blob", "100644", "b" * 40)}
+        )
+        files = [
+            {"filename": ".github/workflows/test.yml", "status": "added", "changes": 10}
+        ]
+        self.assertTrue(p.maintenance_tree(base, reviewed, reviewed, files))
+        self.assertFalse(
+            p.maintenance_tree(
+                base,
+                reviewed,
+                dict(reviewed, extra=("blob", "100644", "c" * 40)),
+                files,
+            )
+        )
+        symlink = dict(
+            base, **{".github/workflows/test.yml": ("blob", "120000", "b" * 40)}
+        )
+        self.assertFalse(p.maintenance_tree(base, symlink, symlink, files))
+        self.assertFalse(
+            p.maintenance_scope(
+                [{"filename": "outside.py", "status": "added", "changes": 1}]
+            )
+        )
+        self.assertFalse(
+            p.maintenance_scope([dict(files[0], previous_filename="old.yml")])
+        )
+
+    def test_maintenance_native_policy_still_requires_authority_ci_and_exact_tree(self):
+        bundle = p.bundle(True)
+        subject = {
+            "repository": p.REPO,
+            "branch": "main",
+            "configuration_sha256": "c" * 64,
+            "head_sha": "a" * 40,
+            "base_sha": "b" * 40,
+        }
+        now = "2026-10-15T14:00:00Z"
+        obs = {
+            c["id"]: {
+                "subject_sha256": digest(subject),
+                "collected_at": now,
+                "trusted_source": True,
+                "value": True,
+            }
+            for c in next(iter(bundle["catalogs"].values()))["controls"]
+        }
+        self.assertNotIn("LP-CANDIDATE", obs)
+        self.assertEqual(
+            assess(bundle, "candidate", subject, obs, now)["decision"], "eligible"
+        )
+        for key in obs:
+            bad = copy.deepcopy(obs)
+            bad[key]["value"] = False
+            self.assertEqual(
+                assess(bundle, "candidate", subject, bad, now)["decision"], "hold"
+            )
 
     def test_only_one_regular_reviewed_document_can_enter_queue_tree(self):
         base = {
@@ -200,12 +336,24 @@ class PilotTests(unittest.TestCase):
             "reviewed_head": "a" * 40,
         }
         with (
-            mock.patch.dict(os.environ, {"PILOT_CAN_ENQUEUE": "true"}),
+            mock.patch.dict(
+                os.environ,
+                {
+                    "PILOT_CAN_ENQUEUE": "true",
+                    "PILOT_ENQUEUE_TOKEN": "test-installation-token",
+                },
+            ),
+            mock.patch.object(p.urllib.request, "build_opener") as opener,
             mock.patch.object(
                 p.subprocess, "run", return_value=mock.Mock(returncode=0)
             ) as run,
         ):
+            opener.return_value.open.return_value.__enter__.return_value.read.return_value = b'{"total_count":1,"repositories":[{"full_name":"fullsend-ai/auto-merge"}]}'
             self.assertEqual(p.enqueue(result), "native_auto_merge_requested")
+            self.assertEqual(
+                run.call_args.kwargs["env"]["GH_TOKEN"], "test-installation-token"
+            )
+            self.assertNotIn("PILOT_ENQUEUE_TOKEN", run.call_args.kwargs["env"])
             command = run.call_args.args[0]
             self.assertIn("--match-head-commit", command)
             self.assertNotIn("--admin", command)
