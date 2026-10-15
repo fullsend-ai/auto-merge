@@ -41,8 +41,9 @@ receive clean environments, and no PR or synthetic-commit code is executed.
 
 During the experiment, the rules require **Gemara pilot queue gate**, bound to the
 GitHub Actions producer, as well as the existing three checks. The queue builds
-and merges one entry at a time. A current approval, stale-review dismissal and
-conversation resolution are also required.
+and merges one entry at a time. Fullsend approval is mandatory in the native candidate policy. Stale-review
+dismissal and conversation resolution are also required. The separate GitHub
+human-approval count is zero for this owner-authorized experiment.
 
 [The queue workflow](../../../.github/workflows/autonomy-queue.yml) loads code from
 the platform-supplied trusted main base. It waits for the ordinary CI checks on
@@ -77,3 +78,15 @@ required queue protection. Broad autonomous rollout remains a separate decision.
 The general GitHub behavior is documented in the
 [CLI merge manual](https://cli.github.com/manual/gh_pr_merge) and
 [merge-queue configuration guide](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue).
+
+
+## Observed GitHub approval distinction
+
+Fullsend approved the exact head, and native candidate policy passed. With an
+additional GitHub required-review count of one, GitHub nevertheless reported
+REVIEW_REQUIRED and held the auto-merge request outside the queue. A Fullsend
+approval is not automatically an eligible GitHub required review in this setup.
+The experiment therefore uses zero independent human approvals, with Fullsend
+approval still enforced by Gemara and the required cumulative queue gate. The
+original repository rules had no required-review count. No review-app permissions
+or administrative merge bypass were added to work around this distinction.

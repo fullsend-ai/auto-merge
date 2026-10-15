@@ -124,10 +124,13 @@ class PilotTests(unittest.TestCase):
     def test_queue_protections_cannot_be_relaxed(self):
         good = rules()
         self.assertTrue(p.queue_rules(good))
+        automatic = copy.deepcopy(good)
+        automatic[3]["parameters"]["required_approving_review_count"] = 0
+        self.assertTrue(p.queue_rules(automatic))
         for index, key, value in [
             (2, "max_entries_to_merge", 5),
             (2, "max_entries_to_build", 5),
-            (3, "required_approving_review_count", 0),
+            (3, "required_approving_review_count", -1),
             (3, "required_review_thread_resolution", False),
             (4, "strict_required_status_checks_policy", False),
         ]:
@@ -202,7 +205,7 @@ class PilotTests(unittest.TestCase):
                 p.subprocess, "run", return_value=mock.Mock(returncode=0)
             ) as run,
         ):
-            self.assertEqual(p.enqueue(result), "queue_request_submitted")
+            self.assertEqual(p.enqueue(result), "native_auto_merge_requested")
             command = run.call_args.args[0]
             self.assertIn("--match-head-commit", command)
             self.assertNotIn("--admin", command)

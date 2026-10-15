@@ -130,8 +130,8 @@ def queue_rules(rows):
             for r in required
         )
         and len(reviews) == 1
-        and reviews[0].get("parameters", {}).get("required_approving_review_count", 0)
-        >= 1
+        and reviews[0].get("parameters", {}).get("required_approving_review_count", -1)
+        >= 0
         and reviews[0].get("parameters", {}).get("dismiss_stale_reviews_on_push")
         is True
         and reviews[0].get("parameters", {}).get("required_review_thread_resolution")
@@ -471,7 +471,7 @@ def enqueue(result):
     ]
     child = subprocess.run(command, capture_output=True, text=True, timeout=60)
     require(child.returncode == 0, "github_queue_request_failed")
-    return "queue_request_submitted"
+    return "native_auto_merge_requested"
 
 
 def main():

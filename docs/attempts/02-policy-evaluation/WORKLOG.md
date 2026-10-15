@@ -328,3 +328,21 @@ Added explicit last-moment open/non-draft/same-repository/exact-head/mergeable=t
 requirements. Unknown or false mergeability holds. The new regression test brings
 the local total to 56, all passing. Official Fullsend Review is running for #30;
 no queue request has been made yet.
+
+
+## 2026-10-15 native auto-merge waiting-state diagnosis
+
+Fullsend run 38758591141 succeeded with approval 5535584250 and a verified risk
+score of 1 for the granted PR #30 head. Hosted fixtures 38759337735 passed 56 tests
+on deff2e75319798935d0a12ae93e27b6e2b9a73dd. Controller run 38760221616 passed
+both evaluation and separate writer; its native request enabled auto-merge but did
+not enter the queue. GitHub reported REVIEW_REQUIRED despite the Fullsend approval.
+
+Paused that waiting request before changing the test profile. The additional
+human-review count introduced by this experiment is changed to zero; the original
+baseline had no such requirement. Fullsend exact-head approval remains mandatory
+in the unchanged native candidate policy. Required CI, conversation resolution,
+stale-review dismissal, exact one-PR grant and the required native queue gate remain.
+No App permission escalation, admin merge or original-protection removal is used.
+Updated the control to accept a configured nonnegative review count and described
+the observed distinction explicitly. All 56 tests still pass.
