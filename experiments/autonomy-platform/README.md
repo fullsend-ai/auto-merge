@@ -2,7 +2,9 @@
 
 One engine: native Gemara. The comparison evaluator and custom JSON rule profiles
 have been removed. Start with the [walkthrough](../../docs/attempts/02-policy-evaluation/LIVE-TRIAL.md).
-Every mode remains a read-only experiment; no result grants merge authority.
+The replay and shadow observer remain read-only. A separate, explicitly granted
+[live pilot](../../docs/attempts/02-policy-evaluation/LIVE-PILOT.md) completed one
+protected-queue merge; its one-shot grant is now disabled.
 
 ## What to read
 

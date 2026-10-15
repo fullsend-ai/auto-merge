@@ -128,12 +128,67 @@ queue entry, and repeat this test with that identity. We did not add a PAT, App
 private key, or new secret to this public repository. That hosted credential path
 remains untested here; Gemara does not supply forge credentials or dispatch CI.
 
-### Current state after cleanup
+### Current state after cleanup and owner-directed simplification
 
-The exact-head one-shot grant is disabled. The original merge queue, its three
-required CI checks, deletion protection and non-fast-forward protection are
-restored with no bypass actors. The temporary fourth required check and extra
-review-rule profile were removed with that restoration; the workflows remain as
-an inactive example. The native auto-merge repository feature was already enabled
-and remains enabled. A future Gemara-controlled trial must explicitly install the
-required queue gate/protection profile and authorize a fresh bounded grant first.
+Immediately after the trial, the original protections were restored. The owner
+subsequently requested removing those experimental protections to allow direct
+pushes to main. The `merge queue proof` ruleset was deleted; readback confirmed
+zero rulesets and no classic main-branch protection. This later change does not
+alter the evidence of the protected merge above.
+
+The one-shot grant remains disabled. The workflows and native policies remain in
+place; ordinary PR CI still runs, but it is no longer enforced by branch rules.
+A future protected-queue pilot must explicitly reinstall its required gate and
+protection profile and authorize a fresh grant. The live controller checks that
+profile and holds when it is missing. Direct-main writes are development actions,
+not evidence of a policy-governed merge.
+
+## What this example actually did
+
+Fullsend Review supplied judgment about a documentation PR. Our collector read
+GitHub CI, exact-head review/findings/risk evidence and repository state. Our Go
+integration bound those observations to named Gemara assessment methods; native
+Gemara evaluated the imported common and repository policies and produced an
+EvaluationLog. A separate trusted controller requested queue entry. At the queue
+commit, the required gate repeated policy evaluation against the cumulative tree.
+GitHub performed the merge only after that gate and ordinary CI passed.
+
+The custom auto-merge model agent was not part of this decision. Gemara did not
+review code, run CI, fetch GitHub evidence by itself, or merge the PR. The lab's
+collector, assessment implementations and controller supplied those integrations.
+
+### What starts shadow observation?
+
+[autonomy-shadow.yml](../../../.github/workflows/autonomy-shadow.yml) has two triggers:
+
+- Manual `workflow_dispatch` with a PR number; optional `verify_example` also
+  checks the positive/negative shadow fixtures and readiness holds.
+- `workflow_run` after either workflow named `CI` or `fullsend` completes,
+  regardless of success or failure. Its job runs only in this repository on main
+  and only when the triggering run contains a PR number. Otherwise the workflow
+  can appear as skipped. It currently selects the first linked PR.
+
+Both paths check out trusted main code, collect read-only metadata and emit a
+normalized policy summary. They cannot merge or change repository settings.
+`fullsend` runs triggered by issue comments may lack a linked PR in their run
+metadata; manual dispatch is the fallback. There is no polling schedule and no
+custom model agent in this observer.
+
+### What is portable, and what overlaps with GitHub?
+
+Checking CI, approvals, unresolved discussions and revision identity overlaps with
+native forge capabilities. Here those observations also feed a common policy and
+structured evidence record. The extra Fullsend-specific checks include matching
+review findings and risk receipts to the exact revision, restricting allowed
+change classes and governed paths, and evaluating repository readiness.
+
+The reusable design is a common Gemara catalog/policy and evaluation contract,
+with forge-specific evidence collection and enforcement. The current lab is
+GitHub-specific; a GitLab collector/controller has not been implemented or tested.
+Policies alone cannot turn GitHub API fields into GitLab evidence. Nor do policies
+prevent an unrelated writer from merging unless the forge or another authoritative
+control enforces the decision. Native branch rules can also be provisioned through
+APIs with owner authorization; Gemara complements that enforcement.
+
+See [Gemara's integration FAQ](https://gemara.openssf.org/faq/) for the distinction
+between reusable artifacts and evaluation-tool integration.

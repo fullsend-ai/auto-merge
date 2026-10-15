@@ -13,7 +13,8 @@ protected queue after ordinary CI and the required native Gemara gate passed on
 the exact merged commit. This used an explicit one-PR lab exception; production
 readiness still held. The trial required an operator CLI queue handoff after the
 Actions-token request did not start queue CI. The one-shot grant is now disabled
-and the pre-test repository rules are restored. This is not unattended rollout.
+and the experimental repository protections have subsequently been removed at the
+owner's request to permit direct-main development. This is not unattended rollout.
 
 [Attempt 1](docs/attempts/01-agent-led/README.md) preserves the earlier agent-led
 approach at its original paths. That agent and its supplementary dispatch route

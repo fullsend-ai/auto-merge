@@ -376,3 +376,20 @@ merge, disabled the committed one-shot grant and updated the walkthrough/README.
 Setup/document publication may use the previously authorized temporary admin-role
 push bypass, restored immediately; it is separate from the trial PR's queue merge.
 A production Fullsend GitHub App queue handoff still needs its own live verification.
+
+
+## 2026-10-15 owner-directed removal of experimental branch protections
+
+The owner explicitly requested removal of the original experimental protections
+and authorized direct-main pushes for continued validation. Saved a local-only
+snapshot, deleted repository ruleset 24310722 (`merge queue proof`), then verified
+zero remaining rulesets, main protected=false and classic protection absent (404).
+No credentials or API payloads were published. The one-shot grant remains disabled;
+this removes development friction, not the live controller's protection checks.
+Future protected-queue validation must reinstall its required protection profile.
+
+Clarified the shadow workflow's manual and CI/fullsend completion triggers, its
+PR-metadata job guard and read-only permissions. Documented which responsibilities
+belong to native Gemara versus our evidence collector, executable assessment
+methods, controller and GitHub. Corrected the experiment README's obsolete claim
+that the separate completed live pilot was also read-only. No runtime code changed.
