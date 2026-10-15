@@ -494,6 +494,50 @@ class RiskReceiptTests(unittest.TestCase):
             g.risk_producer(ChangingClient(), "", tree, receipt, pr, "b" * 40)
         )
 
+    def test_producer_checks_history_against_observed_main_tip(self):
+        receipt, tree, run, client = self.producer_fixture()
+        run.update(
+            event="pull_request_target", head_branch="feature", head_sha="a" * 40
+        )
+        pr = {
+            "number": 26,
+            "head": {
+                "sha": "a" * 40,
+                "ref": "feature",
+                "repo": {"full_name": g.REPOSITORY},
+            },
+            "base": {
+                "sha": "b" * 40,
+                "ref": "main",
+                "repo": {"full_name": g.REPOSITORY},
+            },
+        }
+        main = "e" * 40
+        comparison = {
+            "status": "ahead",
+            "base_commit": {"sha": "b" * 40},
+            "merge_base_commit": {"sha": "b" * 40},
+            "total_commits": 1,
+            "commits": [{"sha": main}],
+        }
+        commit = {"sha": main, "files": [{"filename": "docs/example-feature.md"}]}
+
+        class HistoryClient:
+            def get(self, path):
+                if "compare/" in path:
+                    self_test.assertIn("b" * 40 + "..." + main, path)
+                    return comparison
+                if "commits/" in path:
+                    return commit
+                return client.get(path)
+
+        self_test = self
+        history = HistoryClient()
+        self.assertTrue(g.risk_producer(history, "", tree, receipt, pr, main))
+        commit["files"] = [{"filename": next(iter(g.RISK_SOURCE_PATHS))}]
+        self.assertFalse(g.risk_producer(history, "", tree, receipt, pr, main))
+        self.assertFalse(g.risk_producer(history, "", tree, receipt, pr, None))
+
     def test_dispatcher_pin_matches_managed_workflow(self):
         from pathlib import Path
         import re

@@ -77,7 +77,13 @@ class FixtureClient:
 
 class ObserverTests(unittest.TestCase):
     def test_observer_passes_fetched_pr_to_risk_producer(self):
-        client = FixtureClient()
+        class AdvancedMainClient(FixtureClient):
+            def get(self, path):
+                if path.endswith("/branches/main") and "/rules/" not in path:
+                    return {"commit": {"sha": "e" * 40}}
+                return super().get(path)
+
+        client = AdvancedMainClient()
         receipt = {"head_sha": "a" * 40, "config_sha": "b" * 40}
 
         def verify_risk(head, reviews, comments, verify_producer):
@@ -95,7 +101,7 @@ class ObserverTests(unittest.TestCase):
             {"tree": [{"path": ".fullsend/config.yaml", "sha": "c" * 40}]},
             receipt,
             pr(),
-            "b" * 40,
+            "e" * 40,
         )
 
     def test_api_payload_text_is_never_in_retained_report(self):

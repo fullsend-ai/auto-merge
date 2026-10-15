@@ -67,6 +67,8 @@ checked for host-source changes, including changes later reverted. More than
 holds instead of assuming the history is complete. A fresh review using current
 main avoids that history window. A regression test ties the dispatcher pin to
 the managed workflow, so a scaffold pin change requires explicit revalidation.
+An oversized API response can conservatively stop the whole observation with a
+hold rather than return only an AM-RISK-specific result; it cannot authorize entry.
 Automatic runs also require those host source blobs at the PR head to match,
 so the receipt cannot authorize a PR that changes its own Review host sources.
 This assumes the pinned Fullsend dispatcher loads base-branch configuration;

@@ -714,3 +714,15 @@ comparison endpoint is allowed only for two exact SHA values and a fixed bounded
 page size; traversal and branch-name substitutions remain rejected. A real
 read-only PR #36 observation passed the comparison/per-commit history checks and
 still permitted no mutation. No deployment exception has yet been activated.
+
+The subsequent runtime-code review reported only low-priority integration-test
+gaps and conservative error-reporting granularity. Tests now exercise producer
+validation with different configuration/main SHAs and verify that observe passes
+the actual main tip rather than the older PR base snapshot. Oversized metadata
+continues to hold the entire observation; this deliberate fail-closed behavior
+is documented rather than weakened. Runtime code remains exactly the reviewed
+b9c711a revision. After final-head CI, deployment preflight will verify that only
+tests/documentation changed since that completed review, as well as all normal
+queue/authorization/restoration checks. No exception is active.
+
+Final test/documentation-only correction validation: all 78 tests and Ruff pass.
