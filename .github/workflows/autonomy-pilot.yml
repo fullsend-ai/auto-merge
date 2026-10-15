@@ -97,7 +97,7 @@ jobs:
       actions: read
       checks: read
       id-token: write
-    uses: fullsend-ai/fullsend/.github/workflows/reusable-gemara-pilot-writer.yml@b9bdd4a0b2642fcbeb78b4bd96c89b0b6c7fe70a
+    uses: fullsend-ai/fullsend/.github/workflows/reusable-gemara-pilot-writer.yml@667c008e247f0bbb51890b39422314df06fb4e74
     with:
       pr: ${{ needs.resolve.outputs.pr }}
       head: ${{ needs.resolve.outputs.head }}
@@ -110,7 +110,7 @@ jobs:
       actions: read
       checks: read
       id-token: write
-    uses: fullsend-ai/fullsend/.github/workflows/reusable-gemara-pilot-writer.yml@b9bdd4a0b2642fcbeb78b4bd96c89b0b6c7fe70a
+    uses: fullsend-ai/fullsend/.github/workflows/reusable-gemara-pilot-writer.yml@667c008e247f0bbb51890b39422314df06fb4e74
     with:
       pr: ${{ inputs.pr }}
       head: ${{ inputs.head }}
