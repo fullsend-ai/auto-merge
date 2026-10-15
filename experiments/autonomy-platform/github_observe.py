@@ -289,6 +289,10 @@ def risk_producer(client, base, current_tree, receipt, pr=None):
         }
 
     current, original = blobs(current_tree), blobs(source_tree)
+    if run["event"] == "pull_request_target":
+        head_tree = client.get(base + f"git/trees/{receipt['head_sha']}?recursive=1")
+        if not head_tree or head_tree.get("truncated") or blobs(head_tree) != original:
+            return False
     return (
         set(current) == RISK_SOURCE_PATHS
         and current == original == local_risk_blobs()

@@ -64,8 +64,12 @@ are rechecked for collection stability. Only normalized control results and sour
 identifiers enter reports. The legacy risk comment lacks revision binding and cannot satisfy the risk
 control. The lab now composes the pinned official Review harness with a small
 host publication extension: it emits a sanitized head/config/run/attempt-bound
-risk receipt. The collector verifies a completed trusted-main Fullsend run and
-current host source blobs before supplying its ordinal risk to Gemara. This is
+risk receipt. The collector verifies a completed Fullsend run using event-specific
+bindings: `issue_comment` identifies the main configuration commit, while a
+same-repository `pull_request_target` run identifies the PR head separately from
+its base configuration. Current/configuration host source blobs must match the
+pins; automatic reviews also require matching host sources at the PR head before
+supplying ordinal risk to Gemara. This is
 a lab receipt contract, not an upstream feature or a new model agent. See the
 [evidence update](../../docs/attempts/02-policy-evaluation/LIVE-TRIAL.md#evidence-and-trust-boundaries)
 for verified sources and the remaining evidence owners.

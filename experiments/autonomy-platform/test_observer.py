@@ -76,6 +76,27 @@ class FixtureClient:
 
 
 class ObserverTests(unittest.TestCase):
+    def test_observer_passes_fetched_pr_to_risk_producer(self):
+        client = FixtureClient()
+        receipt = {"head_sha": "a" * 40, "config_sha": "b" * 40}
+
+        def verify_risk(head, reviews, comments, verify_producer):
+            verify_producer(receipt)
+            return {"value": None, "reason": "fixture_unverified"}
+
+        with (
+            mock.patch.object(g, "risk", side_effect=verify_risk),
+            mock.patch.object(g, "risk_producer", return_value=False) as producer,
+        ):
+            g.observe(26, client)
+        producer.assert_called_once_with(
+            client,
+            "repos/" + g.REPOSITORY + "/",
+            {"tree": [{"path": ".fullsend/config.yaml", "sha": "c" * 40}]},
+            receipt,
+            pr(),
+        )
+
     def test_api_payload_text_is_never_in_retained_report(self):
         import json
 

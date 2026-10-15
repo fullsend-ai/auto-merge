@@ -663,3 +663,17 @@ after CI and review, and a harmless hosted documentation test without any
 waives only Gemara and code-owner review for this verifier fix; the queue and
 three ordinary required checks stay enforced, and both waived protections must
 be restored immediately. It does not apply to the hosted documentation test.
+
+Fullsend review follow-up: before any exception, the existing owner approval was
+recorded outside this PR as an explicitly assistant-recorded owner-session
+[authorization comment](https://github.com/fullsend-ai/auto-merge/issues/33#issuecomment-6203919171).
+Automatic risk verification now also requires the PR-head host source blobs to
+match the trusted configuration and current pins; missing/truncated or modified
+head sources hold. This documents and guards the base-configuration dispatch
+assumption. The strict base-snapshot equality is retained and documented as a
+possible reason to require a fresh automatic review after main advances.
+Observer-level coverage verifies the fetched PR reaches producer validation;
+comment-run compatibility with a supplied PR and the remaining README wording
+were corrected. These are review corrections to the same authorized fix.
+
+Review-correction validation: all 74 Python/native integration tests and Ruff pass.

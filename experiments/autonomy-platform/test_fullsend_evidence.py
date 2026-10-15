@@ -288,6 +288,9 @@ class RiskReceiptTests(unittest.TestCase):
     def test_producer_is_bound_to_run_attempt_event_and_current_configuration(self):
         receipt, tree, run, client = self.producer_fixture()
         self.assertTrue(g.risk_producer(client, "", tree, receipt))
+        self.assertTrue(
+            g.risk_producer(client, "", tree, receipt, {"head": {"sha": "a" * 40}})
+        )
         for key, value in [
             ("event", "pull_request"),
             ("run_attempt", 2),
@@ -355,6 +358,18 @@ class RiskReceiptTests(unittest.TestCase):
         changed = copy.deepcopy(tree)
         changed["tree"][0]["sha"] = "f" * 40
         self.assertFalse(g.risk_producer(client, "", changed, receipt, pr))
+        for head_tree in [None, {"tree": []}, dict(tree, truncated=True), changed]:
+
+            class ChangedHeadClient:
+                def get(self, path):
+                    if f"git/trees/{receipt['head_sha']}?" in path:
+                        return head_tree
+                    return client.get(path)
+
+            with self.subTest(head_tree=head_tree):
+                self.assertFalse(
+                    g.risk_producer(ChangedHeadClient(), "", tree, receipt, pr)
+                )
 
     def test_automatic_producer_changes_during_collection_hold(self):
         receipt, tree, run, _ = self.producer_fixture()

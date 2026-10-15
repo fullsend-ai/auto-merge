@@ -52,9 +52,16 @@ must instead identify `main` and the receipt's configuration commit in their run
 metadata. Both routes still require the pinned workflow, successful completed
 run and attempt, official review identity, revision-bound findings/risk receipt,
 and host source blobs identical to the current trusted evaluator's pins.
+Automatic runs also require those host source blobs at the PR head to match,
+so the receipt cannot authorize a PR that changes its own Review host sources.
+This assumes the pinned Fullsend dispatcher loads base-branch configuration;
+the additional PR-head source check holds even if that assumption regresses.
 An unknown event, fork, changed base binding, stale head or changed host source
 holds. A slash command is therefore optional when the automatic evidence passes;
 this adds no approval, risk or policy exemption.
+The strict base binding can hold after main or the PR's base snapshot advances;
+a fresh automatic Review run with a matching base/configuration binding is then
+required. Host-source equality alone does not waive this lab restriction.
 
 A read-only job evaluates native Gemara policy. Only if eligible does a separate
 writer repeat the evaluation and request GitHub's protected queue with
