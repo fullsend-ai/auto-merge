@@ -15,7 +15,7 @@
     "mapping-references": [
       {
         "id": "autonomy-maintenance-controls",
-        "title": "One-PR lab merge controls",
+        "title": "Exact-head maintainer maintenance controls",
         "version": "0.1.0"
       }
     ]

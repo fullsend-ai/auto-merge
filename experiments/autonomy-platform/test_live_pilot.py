@@ -8,6 +8,30 @@ import live_pilot as p
 from platform_lab import InputError, assess, digest
 
 
+def maintenance_client(get):
+    client = mock.Mock()
+
+    def route(path):
+        if path.endswith("/pulls/32"):
+            return {"user": {"login": "author"}, "head": {"sha": "a" * 40}}
+        return get(path)
+
+    client.get.side_effect = route
+    client.pages.side_effect = lambda path: (
+        [{"author": {"login": "author"}}]
+        if path.endswith("/commits")
+        else [
+            {
+                "id": 90,
+                "state": "APPROVED",
+                "commit_id": "a" * 40,
+                "user": {"login": "reviewer", "type": "User"},
+            }
+        ]
+    )
+    return client
+
+
 def rules():
     return [
         {"type": "deletion"},
@@ -21,6 +45,7 @@ def rules():
             "parameters": {
                 "required_approving_review_count": 1,
                 "dismiss_stale_reviews_on_push": True,
+                "require_code_owner_review": True,
                 "required_review_thread_resolution": True,
             },
         },
@@ -72,6 +97,7 @@ class PilotTests(unittest.TestCase):
             "schema_version": "repository-merge-pilot/v1",
             "repository": p.REPO,
             "automatic_enabled": True,
+            "automatic_expires_at": "2026-10-22T18:00:00Z",
             "maintenance_enabled": True,
             "allowed_document_paths": [p.DOCUMENT],
             "maximum_changed_lines": 20,
@@ -113,7 +139,7 @@ class PilotTests(unittest.TestCase):
             "path": ".github/workflows/autonomy-pilot.yml",
             "head_sha": "b" * 40,
             "repository": {"full_name": p.REPO},
-            "display_title": f"Gemara maintenance PR #32 @{'a' * 40}",
+            "display_title": f"Gemara maintenance execute PR #32 @{'a' * 40}",
             "created_at": now.isoformat(timespec="seconds").replace("+00:00", "Z"),
             "status": "completed",
             "conclusion": "success",
@@ -128,6 +154,7 @@ class PilotTests(unittest.TestCase):
         ]:
             self.assertFalse(p.maintenance_run_matches(run, *args, 3600, True))
         for change in [
+            {"display_title": f"Gemara maintenance evaluate PR #32 @{'a' * 40}"},
             {"event": "pull_request_target"},
             {"path": ".github/workflows/ci.yml"},
             {"conclusion": "failure"},
@@ -149,22 +176,26 @@ class PilotTests(unittest.TestCase):
             "path": ".github/workflows/autonomy-pilot.yml",
             "head_sha": "b" * 40,
             "repository": {"full_name": p.REPO},
-            "display_title": f"Gemara maintenance PR #32 @{'a' * 40}",
+            "display_title": f"Gemara maintenance execute PR #32 @{'a' * 40}",
             "created_at": datetime.now(timezone.utc)
             .isoformat(timespec="seconds")
             .replace("+00:00", "Z"),
             "actor": {"login": "owner"},
             "triggering_actor": {"login": "owner"},
         }
-        client = mock.Mock()
         for role, allowed in [
             ("write", False),
             ("read", False),
             ("admin", True),
             ("maintain", True),
         ]:
-            client.get.side_effect = (
-                lambda path: run if "/actions/" in path else {"permission": role}
+            client = maintenance_client(
+                lambda path: run
+                if "/actions/" in path
+                else {
+                    "permission": "write" if role == "maintain" else role,
+                    "role_name": role,
+                }
             )
             with mock.patch.dict(
                 os.environ, {"PILOT_MAINTENANCE": "true", "GITHUB_RUN_ID": "1"}
@@ -187,7 +218,7 @@ class PilotTests(unittest.TestCase):
             "path": ".github/workflows/autonomy-pilot.yml",
             "head_sha": "b" * 40,
             "repository": {"full_name": p.REPO},
-            "display_title": f"Gemara maintenance PR #32 @{'a' * 40}",
+            "display_title": f"Gemara maintenance execute PR #32 @{'a' * 40}",
             "created_at": datetime.now(timezone.utc)
             .isoformat(timespec="seconds")
             .replace("+00:00", "Z"),
@@ -203,9 +234,10 @@ class PilotTests(unittest.TestCase):
             "status": "completed",
             "conclusion": "success",
         }
-        client = mock.Mock()
         for jobs, allowed in [
-            ([job], True),
+            ([job, dict(job, name="enqueue / writer")], True),
+            ([job], False),
+            ([job, dict(job, name="enqueue / writer", conclusion="skipped")], False),
             ([], False),
             ([dict(job, conclusion="skipped")], False),
             ([dict(job, head_sha="c" * 40)], False),
@@ -217,9 +249,9 @@ class PilotTests(unittest.TestCase):
                     return {"workflow_runs": [run]}
                 if "/jobs?" in path:
                     return {"total_count": len(jobs), "jobs": jobs}
-                return {"permission": "admin"}
+                return {"permission": "admin", "role_name": "admin"}
 
-            client.get.side_effect = get
+            client = maintenance_client(get)
             self.assertEqual(
                 bool(
                     p.maintenance_authorization(
@@ -231,12 +263,8 @@ class PilotTests(unittest.TestCase):
 
     def test_maintenance_tree_does_not_allow_unapproved_files_or_symlinks(self):
         base = {"code.py": ("blob", "100644", "a" * 40)}
-        reviewed = dict(
-            base, **{".github/workflows/test.yml": ("blob", "100644", "b" * 40)}
-        )
-        files = [
-            {"filename": ".github/workflows/test.yml", "status": "added", "changes": 10}
-        ]
+        reviewed = dict(base, **{"docs/maintenance.md": ("blob", "100644", "b" * 40)})
+        files = [{"filename": "docs/maintenance.md", "status": "added", "changes": 10}]
         self.assertTrue(p.maintenance_tree(base, reviewed, reviewed, files))
         self.assertFalse(
             p.maintenance_tree(
@@ -246,9 +274,7 @@ class PilotTests(unittest.TestCase):
                 files,
             )
         )
-        symlink = dict(
-            base, **{".github/workflows/test.yml": ("blob", "120000", "b" * 40)}
-        )
+        symlink = dict(base, **{"docs/maintenance.md": ("blob", "120000", "b" * 40)})
         self.assertFalse(p.maintenance_tree(base, symlink, symlink, files))
         self.assertFalse(
             p.maintenance_scope(
@@ -284,7 +310,7 @@ class PilotTests(unittest.TestCase):
             "path": ".github/workflows/autonomy-pilot.yml",
             "head_sha": "b" * 40,
             "repository": {"full_name": p.REPO},
-            "display_title": f"Gemara maintenance PR #32 @{'a' * 40}",
+            "display_title": f"Gemara maintenance execute PR #32 @{'a' * 40}",
             "created_at": (now - timedelta(seconds=100))
             .isoformat(timespec="seconds")
             .replace("+00:00", "Z"),
@@ -316,11 +342,13 @@ class PilotTests(unittest.TestCase):
             if "/actions/workflows/" in path:
                 return {"workflow_runs": newer if path.endswith("page=1") else [run]}
             if "/jobs?" in path:
-                return {"total_count": 1, "jobs": [job]}
+                return {
+                    "total_count": 2,
+                    "jobs": [job, dict(job, name="enqueue / writer")],
+                }
             return {"permission": "admin"}
 
-        client = mock.Mock()
-        client.get.side_effect = get
+        client = maintenance_client(get)
         config = {"maintenance_enabled": True, "maintenance_maximum_age_seconds": 3600}
         self.assertIsNotNone(
             p.maintenance_authorization(client, 32, "a" * 40, "b" * 40, "queue", config)
@@ -328,6 +356,57 @@ class PilotTests(unittest.TestCase):
         self.assertTrue(
             any(call.args[0].endswith("page=2") for call in client.get.call_args_list)
         )
+
+    def test_maintenance_never_changes_its_own_governance(self):
+        for path in [
+            ".github/workflows/autonomy-queue.yml",
+            ".github/workflows/ci.yml",
+            ".fullsend/config.yaml",
+            "experiments/autonomy-platform/policies/pilot-config.json",
+            "scripts/validate_example.py",
+            "AGENTS.md",
+        ]:
+            self.assertFalse(
+                p.maintenance_scope(
+                    [{"filename": path, "status": "modified", "changes": 1}]
+                )
+            )
+
+    def test_maintenance_requires_independent_current_human_approval(self):
+        client = maintenance_client(
+            lambda path: {"role_name": "maintain", "permission": "write"}
+        )
+        self.assertIsNotNone(p.independent_maintenance_approval(client, 32, "a" * 40))
+        approval = {
+            "id": 90,
+            "state": "APPROVED",
+            "commit_id": "a" * 40,
+            "user": {"login": "reviewer", "type": "User"},
+        }
+        for change in [
+            {"commit_id": "c" * 40},
+            {"state": "CHANGES_REQUESTED"},
+            {"user": {"login": "author", "type": "User"}},
+            {"user": {"login": "reviewer", "type": "Bot"}},
+        ]:
+            client.pages.side_effect = lambda path: (
+                [{"author": {"login": "author"}}]
+                if path.endswith("/commits")
+                else [dict(approval, **change)]
+            )
+            self.assertIsNone(p.independent_maintenance_approval(client, 32, "a" * 40))
+        client.pages.side_effect = lambda path: (
+            [{"author": {"login": "reviewer"}}]
+            if path.endswith("/commits")
+            else [approval]
+        )
+        self.assertIsNone(p.independent_maintenance_approval(client, 32, "a" * 40))
+        client.pages.side_effect = lambda path: (
+            [{"author": {"login": "author"}}]
+            if path.endswith("/commits")
+            else [approval, dict(approval, id=91, state="DISMISSED")]
+        )
+        self.assertIsNone(p.independent_maintenance_approval(client, 32, "a" * 40))
 
     def test_maintenance_native_policy_still_requires_authority_ci_and_exact_tree(self):
         bundle = p.bundle(True)
@@ -451,6 +530,7 @@ class PilotTests(unittest.TestCase):
         }
         config = {
             "automatic_enabled": True,
+            "automatic_expires_at": "2026-10-22T18:00:00Z",
             "maintenance_enabled": True,
             "maximum_changed_lines": 20,
         }
@@ -511,10 +591,53 @@ class PilotTests(unittest.TestCase):
             self.assertEqual(assessment["LP-CI"], "passed")
             self.assertEqual(assessment["LP-CANDIDATE"], "passed")
             self.assertEqual(assessment["LP-SCOPE"], "failed")
+            with mock.patch.object(
+                p,
+                "configuration",
+                return_value=dict(config, automatic_expires_at="2020-01-01T00:00:00Z"),
+            ):
+                expired = p.evaluate(32, head, "enroll", client)
+            self.assertEqual(
+                {r["id"]: r["state"] for r in expired["evaluation"]["assessments"]}[
+                    "LP-AUTH"
+                ],
+                "failed",
+            )
             with mock.patch.object(p.subprocess, "run") as writer:
                 with self.assertRaises(InputError):
                     p.enqueue(result)
                 writer.assert_not_called()
+
+    def test_read_only_policy_hold_is_success_but_execution_and_errors_fail(self):
+        result = {
+            "decision": "hold",
+            "evaluated_sha": "a" * 40,
+            "production_readiness": "hold",
+            "evaluation": {"assessments": []},
+        }
+        args = ["pilot", "--phase", "enroll", "--pr", "32", "--head", "a" * 40]
+        with (
+            mock.patch("sys.argv", args),
+            mock.patch.object(p, "evaluate", return_value=result),
+            mock.patch("builtins.print"),
+            mock.patch.object(p, "enqueue") as writer,
+        ):
+            self.assertEqual(p.main(), 0)
+            writer.assert_not_called()
+        with (
+            mock.patch("sys.argv", args + ["--execute"]),
+            mock.patch.object(p, "evaluate", return_value=result),
+            mock.patch("builtins.print"),
+            mock.patch.object(p, "enqueue") as writer,
+        ):
+            self.assertEqual(p.main(), 2)
+            writer.assert_not_called()
+        with (
+            mock.patch("sys.argv", args),
+            mock.patch.object(p, "evaluate", side_effect=InputError("fixture_error")),
+            mock.patch("builtins.print"),
+        ):
+            self.assertEqual(p.main(), 2)
 
     def test_a_held_native_result_never_calls_the_writer(self):
         with (

@@ -1,5 +1,5 @@
 name: Gemara live merge pilot
-run-name: "Gemara ${{ inputs.maintenance && 'maintenance' || 'automatic' }} PR #${{ inputs.pr }} @${{ inputs.head }}"
+run-name: "Gemara ${{ inputs.maintenance && 'maintenance' || 'automatic' }} ${{ inputs.execute && !inputs.probe && 'execute' || 'evaluate' }} PR #${{ inputs.pr }} @${{ inputs.head }}"
 on:
   workflow_dispatch:
     inputs:
@@ -50,6 +50,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: python3 experiments/autonomy-platform/resolve_pilot.py
   evaluate:
+    outputs:
+      eligible: ${{ steps.policy.outputs.eligible }}
     needs: resolve
     if: needs.resolve.outputs.ready == 'true'
     runs-on: ubuntu-24.04
@@ -76,6 +78,7 @@ jobs:
           python3 experiments/autonomy-platform/bootstrap_tools.py
           python3 experiments/autonomy-platform/build_sdk.py
       - name: Evaluate repository policy or explicit maintainer authorization
+        id: policy
         env:
           GH_TOKEN: ${{ github.token }}
           PILOT_SOURCE_SHA: ${{ github.sha }}
@@ -90,7 +93,7 @@ jobs:
     concurrency:
       group: gemara-writer-${{ needs.resolve.outputs.pr }}
       cancel-in-progress: false
-    if: (inputs.execute || github.event_name == 'workflow_run') && github.ref == 'refs/heads/main'
+    if: needs.evaluate.outputs.eligible == 'true' && (inputs.execute || github.event_name == 'workflow_run') && github.ref == 'refs/heads/main'
     permissions:
       contents: read
       pull-requests: read

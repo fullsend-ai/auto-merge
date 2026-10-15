@@ -544,3 +544,36 @@ The owner previously authorized committing/pushing these changes to draft PR
 unproven until the reviewed implementation can be deployed through an authorized
 bootstrap. This App setup alone does not authorize removing required checks or
 bypassing main protections, and does not resolve Fullsend-native minting.
+
+### Pre-merge review hardening
+
+Review of PR #32 found unsafe breadth in the experimental maintenance path and
+an evaluate-only authorization ambiguity. Maintenance now rejects workflows,
+harness, evaluator, policy, configuration and script changes; requires an
+independent exact-head human approving admin/maintainer who authored neither the
+PR nor its commits; recognizes only explicit execute dispatches; and requires
+both evaluation and writer jobs to succeed in the same run attempt at queue time.
+Maintenance remains disabled for this demo pending hosted entry-mode binding.
+No maintenance success is claimed by the documentation pilot.
+
+The automatic documentation cohort now expires at 2026-10-22T18:00:00Z, with
+expiry/kill-switch state represented by native LP-AUTH rather than an always-true
+observation. Read-only enrollment holds are normal successful observations with
+eligible=false; the writer is skipped, while execution and queue holds still
+fail closed. API/evaluator errors remain failures.
+
+CODEOWNERS coverage is extended to evaluator/policies and repository instructions.
+The proposed gate requires GitHub code-owner-review enforcement as well as existing
+CI, queue and discussion controls. This addresses the distinction between checking
+out trusted evaluator code and protecting the workflow YAML publishing the check.
+No GitHub rule has yet been changed. Merge still needs an explicit one-time owner
+bootstrap because main's old disabled spent grant rejects its replacement.
+
+The owner explicitly approved committing/pushing these hardening fixes and the
+one-time PR #32 bootstrap: only after CI passes, temporarily remove the spent
+Gemara check requirement, retain the queue and its three ordinary required CI
+checks, merge this exact reviewed revision through the queue, then restore the
+Gemara requirement and enable code-owner reviews immediately. The App must never
+receive a bypass role. This exception installs the new policy; it is not proof
+of a Gemara-authorized autonomous merge. Validation before push: 71 Python tests,
+actionlint, Ruff and the diff secret scan passed.

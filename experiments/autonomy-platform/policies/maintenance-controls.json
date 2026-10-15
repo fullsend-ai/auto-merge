@@ -16,7 +16,7 @@
       {
         "id": "candidate",
         "title": "Lab candidate",
-        "description": "Exact revision allowed by the owner grant"
+        "description": "Exact revision explicitly authorized by a current repository maintainer"
       }
     ]
   },
@@ -24,7 +24,7 @@
     {
       "id": "candidate",
       "title": "Lab candidate",
-      "description": "Exact revision allowed by the owner grant"
+      "description": "Exact revision explicitly authorized by a current repository maintainer"
     }
   ],
   "controls": [

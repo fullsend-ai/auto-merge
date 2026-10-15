@@ -12,8 +12,8 @@ or the [live trial and its limits](docs/attempts/02-policy-evaluation/LIVE-PILOT
 on main. The earlier one-PR live merge is historical evidence.
 
 The [repeatable pilot](docs/attempts/02-policy-evaluation/LIVE-PILOT.md) introduces
-an owner-enabled documentation cohort and a separate exact-head maintainer
-maintenance policy. The draft writer uses a dedicated temporary repository App; registration,
+a time-boxed owner-enabled documentation cohort. The experimental maintenance
+path remains disabled and excludes governance changes. The draft writer uses a dedicated temporary repository App; registration,
 installation and hosted proof are tracked separately. Fullsend-native token
 minting remains unresolved; no unmerged upstream workflow or personal token is used. Read the
 trial record for the actual hosted proof and limits. Main requires the Gemara queue

@@ -44,6 +44,7 @@ def configuration():
             "schema_version",
             "repository",
             "automatic_enabled",
+            "automatic_expires_at",
             "maintenance_enabled",
             "allowed_document_paths",
             "maximum_changed_lines",
@@ -58,6 +59,10 @@ def configuration():
         and type(data["maintenance_enabled"]) is bool,
         "invalid_pilot_configuration",
     )
+    require(
+        isinstance(data["automatic_expires_at"], str), "invalid_pilot_configuration"
+    )
+    utc(data["automatic_expires_at"])
     # Finite lab cohort: no globs, executable paths, or caller-selected policies.
     require(
         data["allowed_document_paths"] == [DOCUMENT]
@@ -130,6 +135,7 @@ def queue_rules(rows):
         >= 0
         and reviews[0].get("parameters", {}).get("dismiss_stale_reviews_on_push")
         is True
+        and reviews[0].get("parameters", {}).get("require_code_owner_review") is True
         and reviews[0].get("parameters", {}).get("required_review_thread_resolution")
         is True
     )
@@ -169,20 +175,13 @@ def exact_tree(base, reviewed, queued):
 
 
 def maintenance_scope(files):
-    prefixes = (
-        ".github/",
-        ".fullsend/",
-        "experiments/autonomy-platform/",
-        "docs/",
-        "scripts/",
-    )
     return bool(
         isinstance(files, list)
         and 0 < len(files) <= 100
         and sum(r.get("changes", 10001) for r in files) <= 10000
         and all(
             isinstance(r.get("filename"), str)
-            and (r["filename"] == "README.md" or r["filename"].startswith(prefixes))
+            and r["filename"].startswith("docs/")
             and r.get("status") in {"modified", "added", "removed"}
             and not r.get("previous_filename")
             for r in files
@@ -215,7 +214,8 @@ def maintenance_run_matches(run, number, head, base, maximum_age, queue_phase):
             and run.get("path") == ".github/workflows/autonomy-pilot.yml"
             and run.get("head_sha") == base
             and run.get("repository", {}).get("full_name") == REPO
-            and run.get("display_title") == f"Gemara maintenance PR #{number} @{head}"
+            and run.get("display_title")
+            == f"Gemara maintenance execute PR #{number} @{head}"
             and type(run.get("id")) is int
             and run["id"] > 0
             and type(run.get("run_attempt")) is int
@@ -231,6 +231,50 @@ def maintenance_run_matches(run, number, head, base, maximum_age, queue_phase):
         )
     except (KeyError, ValueError, InputError, TypeError):
         return False
+
+
+def independent_maintenance_approval(client, number, head):
+    pr = client.get(BASE + f"pulls/{number}")
+    if not pr or pr.get("head", {}).get("sha") != head:
+        return None
+    authors = {pr.get("user", {}).get("login", "").lower()}
+    commits = client.pages(BASE + f"pulls/{number}/commits")
+    if not isinstance(commits, list) or not commits or "" in authors:
+        return None
+    for commit in commits:
+        login = (commit.get("author") or {}).get("login")
+        if not isinstance(login, str):
+            return None
+        authors.add(login.lower())
+    reviews = client.pages(BASE + f"pulls/{number}/reviews")
+    if not isinstance(reviews, list):
+        return None
+    latest = {}
+    for review in reviews:
+        if review.get("state") not in {"APPROVED", "CHANGES_REQUESTED", "DISMISSED"}:
+            continue
+        user = review.get("user") or {}
+        login = user.get("login", "")
+        if user.get("type") != "User" or not re.fullmatch(r"[A-Za-z0-9-]{1,39}", login):
+            continue
+        if type(review.get("id")) is not int:
+            return None
+        if review["id"] > latest.get(login.lower(), {}).get("id", 0):
+            latest[login.lower()] = review
+    for login, review in latest.items():
+        if (
+            login in authors
+            or review["state"] != "APPROVED"
+            or review.get("commit_id") != head
+        ):
+            continue
+        permission = client.get(BASE + f"collaborators/{login}/permission")
+        if permission and permission.get("role_name", permission.get("permission")) in {
+            "admin",
+            "maintain",
+        }:
+            return {"review_id": review["id"], "reviewed_head": head}
+    return None
 
 
 def maintenance_authorization(client, number, head, base, phase, config):
@@ -284,15 +328,24 @@ def maintenance_authorization(client, number, head, base, phase, config):
                 + f"actions/runs/{run['id']}/attempts/{run['run_attempt']}/jobs?per_page=100"
             )
             rows = (jobs or {}).get("jobs", [])
-            evaluations = [job for job in rows if job.get("name") == "evaluate"]
+            evaluations = [
+                job
+                for job in rows
+                if job.get("name") in {"evaluate", "enqueue / writer"}
+            ]
             if (
                 not jobs
                 or jobs.get("total_count", 101) > 100
-                or len(evaluations) != 1
-                or evaluations[0].get("run_id") != run["id"]
-                or evaluations[0].get("head_sha") != base
-                or evaluations[0].get("status") != "completed"
-                or evaluations[0].get("conclusion") != "success"
+                or {job.get("name") for job in evaluations}
+                != {"evaluate", "enqueue / writer"}
+                or len(evaluations) != 2
+                or any(
+                    job.get("run_id") != run["id"]
+                    or job.get("head_sha") != base
+                    or job.get("status") != "completed"
+                    or job.get("conclusion") != "success"
+                    for job in evaluations
+                )
             ):
                 continue
         actors = [run.get("actor"), run.get("triggering_actor")]
@@ -309,8 +362,12 @@ def maintenance_authorization(client, number, head, base, phase, config):
                 "role_name", permission.get("permission")
             ) not in {"admin", "maintain"}:
                 approved = False
-        if approved:
+        approval = (
+            independent_maintenance_approval(client, number, head) if approved else None
+        )
+        if approval:
             return {
+                "independent_approval": approval,
                 "run_id": run["id"],
                 "run_attempt": run["run_attempt"],
                 "head_sha": head,
@@ -512,7 +569,11 @@ def evaluate(number, expected_head, phase, client=None):
     maintenance = permission is not None
     if phase == "enroll" and os.environ.get("PILOT_MAINTENANCE") == "true":
         require(maintenance, "maintenance_authorization_missing")
-    require(maintenance or config["automatic_enabled"], "pilot_not_enabled")
+    automatic_authorized = bool(
+        config["automatic_enabled"]
+        and datetime.now(timezone.utc) < utc(config["automatic_expires_at"])
+        and current_pr(pr, expected_head)
+    )
     report = None if maintenance else g.observe(number, client)
     current_head = pr["head"]["sha"]
     target = group_sha or current_head
@@ -556,7 +617,7 @@ def evaluate(number, expected_head, phase, client=None):
             {"Gemara integration tests"},
         )
     values = {
-        "LP-AUTH": bool(maintenance or config["automatic_enabled"]),
+        "LP-AUTH": bool(permission if maintenance else automatic_authorized),
         "LP-SCOPE": scope_ok,
         "LP-SOURCE": source_ok,
         "LP-CI": ci,
@@ -715,6 +776,18 @@ def main():
                 )
                 + "\n"
             )
+        output = os.environ.get("GITHUB_OUTPUT")
+        if output:
+            with Path(output).open("a") as stream:
+                stream.write(
+                    "eligible=" + str(result["decision"] == "eligible").lower() + "\n"
+                )
+        if (
+            result["decision"] != "eligible"
+            and args.phase == "enroll"
+            and not args.execute
+        ):
+            return 0
         require(result["decision"] == "eligible", "pilot_policy_held")
         if args.execute:
             print(

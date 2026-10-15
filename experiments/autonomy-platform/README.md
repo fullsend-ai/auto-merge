@@ -135,6 +135,8 @@ production threshold or approval is invented from the two test PRs.
 See [pilot-config.json](policies/pilot-config.json) and the
 [live walkthrough](../../docs/attempts/02-policy-evaluation/LIVE-PILOT.md).
 The common and repository policies still govern automatic candidates; the separate
-maintenance policy requires an exact-head, current maintainer dispatch. The draft writer uses a dedicated temporary repository App with a main-only
+maintenance policy remains disabled for the demo. Its retained documentation-only
+path requires explicit execution and independent current-head human approval;
+governance paths require code-owner review. The draft writer uses a dedicated temporary repository App with a main-only
 Actions environment. Fullsend-native token minting remains unresolved.
 This draft does not depend on an unmerged upstream workflow or a personal token.

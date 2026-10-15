@@ -15,17 +15,25 @@ one-PR grant from the earlier experiment:
   `docs/example-feature.md`, with at most 20 changed lines. The unchanged native
   common/repository candidate policies must pass: current Fullsend approval,
   verified findings/risk, CI, allowed change class and governed-path restrictions.
-- **Maintainer maintenance:** an admin or maintainer explicitly dispatches the
-  pilot for an exact PR/head with `maintenance=true`. This is a human-authorized
-  path, not automatic promotion of a failed candidate. It covers bounded regular
-  file changes in the lab's workflow, harness, policy, code and documentation paths.
-  Its separate native policy still requires CI, integration tests, trusted source,
-  exact queue tree, protections and clear discussions.
+- **Maintenance is disabled for this demo.** The retained experimental path is
+  limited to documentation, requires an explicit execute dispatch and an
+  independent current-head approval by an admin or maintainer who authored
+  neither the PR nor its commits. Queue authorization also requires a successful
+  evaluation and writer job from the same exact run attempt. It is not a route
+  for workflow, evaluator, policy, configuration or harness changes; hosted
+  entry-mode binding remains a prerequisite for any future maintenance rollout.
 
-`automatic_enabled=false` stops automatic entry and authorization. Maintenance is
-independently controlled so a maintainer can make a governed policy/configuration
-change while automatic merging is disabled. No PR can enable its own policy:
-all decisions load configuration and evaluator code from current main.
+Automatic authorization expires at `2026-10-22T18:00:00Z` (October 22, 2026,
+2 p.m. EDT). An expired or disabled cohort produces a native `LP-AUTH` hold.
+`automatic_enabled=false` stops automatic entry and authorization.
+
+Evaluator code and configuration are loaded from current main. Workflow YAML for
+merge groups can include PR changes, so that checkout alone does not protect the
+required check. The deployment also requires GitHub code-owner review for governed
+paths. CODEOWNERS covers workflows, the harness, evaluator/policies, scripts,
+security contract and repository instructions. Those paths are excluded from the
+automatic documentation cohort and the retained maintenance path. Their changes
+need human governance rather than authorization by the PR's own modified gate.
 
 ## Workflow path
 
@@ -50,7 +58,7 @@ one entry at a time. GitHub performs the merge after required checks pass.
 The PR-stage queue check only defers final validation. It does not approve entry.
 The required check context is **Gemara pilot queue gate**, bound to GitHub Actions,
 in addition to the three original required CI contexts. Conversation resolution,
-stale-review dismissal, deletion protection and non-fast-forward protection remain
+stale-review dismissal, code-owner review, deletion protection and non-fast-forward protection remain
 required; there are no bypass actors in the steady-state ruleset.
 
 ## Temporary repository App handoff
@@ -101,11 +109,13 @@ Keep Gemara policy and all GitHub protections enforced throughout the transition
 Only manual `workflow_dispatch` may authorize maintenance. Its trusted workflow
 run title binds the PR and full head SHA. Both original and rerun actors must still
 have repository admin or maintain permission. The source SHA must equal current
-main. The run must be no older than one hour. Recent dispatches are searched through
-the age boundary with bounded pagination. The authorizing evaluation must have
-completed successfully; its separate writer may still be finishing queue entry.
+main. An independent current-head human approval is also required; the reviewer
+must be a current admin/maintainer and cannot be the PR or a commit author. The run must be no older than one hour. Recent dispatches are searched through
+the age boundary with bounded pagination. Both the evaluation and writer job must have completed successfully in the same
+run attempt. Evaluate-only dispatches grant no merge authority. Maintenance is
+disabled in the shipped pilot configuration; this retained path is not live proof.
 
-The queue gate looks up a matching dispatch with a successful evaluation job, checks those properties
+The queue gate looks up a matching explicit-execute dispatch with successful evaluation and writer jobs, checks those properties
 again and evaluates the separate
 [maintenance policy](../../../experiments/autonomy-platform/policies/maintenance-policy.json).
 Changing the head, advancing main, expiring the authorization or removing the
