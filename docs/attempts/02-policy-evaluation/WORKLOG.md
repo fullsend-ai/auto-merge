@@ -657,12 +657,16 @@ collection was stable and permitted no mutation. This is real evidence-collectio
 validation, not deployment or a new hosted merge proof. The PR's candidate and
 production-readiness results still held.
 
-The owner subsequently approved commit/push, a new one-PR deployment exception
-after CI and review, and a harmless hosted documentation test without any
-`/fs-review` command or manual queue retry. The deployment exception temporarily
-waives only Gemara and code-owner review for this verifier fix; the queue and
-three ordinary required checks stay enforced, and both waived protections must
-be restored immediately. It does not apply to the hosted documentation test.
+The repository administrator's separate authorization for this one deployment
+and hosted test is recorded in the
+[external audit comment](https://github.com/fullsend-ai/auto-merge/issues/33#issuecomment-6203919171).
+The source of authority is the human's explicit approval in the current
+interactive session, not this document, the PR's evaluator or the assistant's
+record of it. No automated merge path reads this log as a grant. This record is
+not standing permission for later commits, deployments or protection exceptions.
+The PR #37-only exception retains the queue and three ordinary CI checks;
+Gemara and code-owner enforcement must be restored immediately. It does not
+apply to the separate documentation test.
 
 Fullsend review follow-up: before any exception, the existing owner approval was
 recorded outside this PR as an explicitly assistant-recorded owner-session
@@ -677,3 +681,20 @@ comment-run compatibility with a supplied PR and the remaining README wording
 were corrected. These are review corrections to the same authorized fix.
 
 Review-correction validation: all 74 Python/native integration tests and Ruff pass.
+
+A follow-up security review identified that a run's PR-head metadata alone did
+not independently prove its base. The verifier now requires GitHub's Actions
+check-suite association: exactly the observed PR number, this repository's IDs,
+the exact head/ref and main-base/configuration SHA, with stable re-reads. It also
+checks the actual referenced dispatcher path/commit. Empty, ambiguous, non-main,
+wrong-PR, wrong-source or changing suite evidence holds. Real check-suite records
+for runs 38794894536 and 38819997795 were inspected read-only; unlike the empty
+workflow-run PR list, they contain the independent main-base linkage. No source
+workflow or App permission is changed. The missing comment-route head-SHA
+regression and LIVE-TRIAL event-binding explanation are included. GitHub's role
+API verified the authorizing ascerra account has repository admin permission;
+CONTRIBUTOR author association is not a repository-permission classification.
+
+Validation after the independent-suite correction: all 74 tests, Ruff and a
+read-only observation of PR #36's real automatic receipt pass. The observation
+verified the pinned dispatcher and stable suite/base link and permitted no mutation.

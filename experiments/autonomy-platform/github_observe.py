@@ -26,6 +26,11 @@ from platform_lab import (
 from fullsend_evidence import findings, producer, risk
 
 REPOSITORY = "fullsend-ai/auto-merge"
+REPOSITORY_ID = 1383516376
+RISK_DISPATCH = {
+    "path": "fullsend-ai/fullsend/.github/workflows/reusable-dispatch.yml@02438e1c117d31bf50f9fb9fafabe40856dbfdda",
+    "sha": "02438e1c117d31bf50f9fb9fafabe40856dbfdda",
+}
 CHECK_NAMES = {"Example contract", "Delayed integration (4 minutes)"}
 QUEUE_PROOF_PR = 27
 QUEUE_PROOF_RUN = 38665663244
@@ -256,6 +261,33 @@ def risk_run_subject(run, receipt, pr):
     )
 
 
+def risk_suite_subject(suite, run, receipt, pr):
+    """Require GitHub's own unambiguous PR/base association for automatic runs."""
+    if not isinstance(suite, dict) or not isinstance(pr, dict):
+        return False
+    linked = suite.get("pull_requests")
+    if not isinstance(linked, list) or len(linked) != 1:
+        return False
+    item = linked[0]
+    if not isinstance(item, dict):
+        return False
+    head, target = item.get("head") or {}, item.get("base") or {}
+    return (
+        suite.get("id") == run["check_suite_id"]
+        and (suite.get("app") or {}).get("id") == 15368
+        and suite.get("head_sha") == receipt["head_sha"]
+        and suite.get("head_branch") == run["head_branch"]
+        and type(pr.get("number")) is int
+        and item.get("number") == pr["number"]
+        and (head.get("repo") or {}).get("id") == REPOSITORY_ID
+        and (target.get("repo") or {}).get("id") == REPOSITORY_ID
+        and head.get("sha") == receipt["head_sha"]
+        and head.get("ref") == run["head_branch"]
+        and target.get("ref") == "main"
+        and target.get("sha") == receipt["config_sha"]
+    )
+
+
 def risk_producer(client, base, current_tree, receipt, pr=None):
     """Bind completed Review execution to its event subject and pinned host sources."""
     endpoint = base + f"actions/runs/{receipt['run_id']}"
@@ -272,6 +304,17 @@ def risk_producer(client, base, current_tree, receipt, pr=None):
         and run.get("head_repository", {}).get("full_name") == REPOSITORY
     ):
         return False
+    suite_endpoint, suite = None, None
+    if run["event"] == "pull_request_target":
+        if run.get("referenced_workflows") != [RISK_DISPATCH]:
+            return False
+        suite_id = run.get("check_suite_id")
+        if type(suite_id) is not int or suite_id <= 0:
+            return False
+        suite_endpoint = base + f"check-suites/{suite_id}"
+        suite = client.get(suite_endpoint)
+        if not risk_suite_subject(suite, run, receipt, pr):
+            return False
     source_tree = client.get(base + f"git/trees/{receipt['config_sha']}?recursive=1")
     if (
         not current_tree
@@ -297,6 +340,7 @@ def risk_producer(client, base, current_tree, receipt, pr=None):
         set(current) == RISK_SOURCE_PATHS
         and current == original == local_risk_blobs()
         and client.get(endpoint) == run
+        and (suite_endpoint is None or client.get(suite_endpoint) == suite)
     )
 
 

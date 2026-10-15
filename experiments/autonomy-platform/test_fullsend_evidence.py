@@ -267,10 +267,35 @@ class RiskReceiptTests(unittest.TestCase):
             "conclusion": "success",
             "repository": {"full_name": g.REPOSITORY},
             "head_repository": {"full_name": g.REPOSITORY},
+            "check_suite_id": 4321,
+            "referenced_workflows": [dict(g.RISK_DISPATCH)],
+        }
+        suite = {
+            "id": 4321,
+            "app": {"id": 15368},
+            "head_sha": "a" * 40,
+            "head_branch": "feature",
+            "pull_requests": [
+                {
+                    "number": 26,
+                    "head": {
+                        "ref": "feature",
+                        "sha": "a" * 40,
+                        "repo": {"id": g.REPOSITORY_ID},
+                    },
+                    "base": {
+                        "ref": "main",
+                        "sha": "b" * 40,
+                        "repo": {"id": g.REPOSITORY_ID},
+                    },
+                }
+            ],
         }
 
         class Client:
             def get(self, path):
+                if "check-suites/" in path:
+                    return suite
                 return tree if "git/trees" in path else run
 
         client = Client()
@@ -295,6 +320,7 @@ class RiskReceiptTests(unittest.TestCase):
             ("event", "pull_request"),
             ("run_attempt", 2),
             ("head_branch", "untrusted"),
+            ("head_sha", "f" * 40),
             ("status", "in_progress"),
             ("conclusion", "failure"),
             ("workflow_id", 99),
@@ -313,6 +339,7 @@ class RiskReceiptTests(unittest.TestCase):
             event="pull_request_target", head_branch="feature", head_sha="a" * 40
         )
         pr = {
+            "number": 26,
             "head": {
                 "sha": "a" * 40,
                 "ref": "feature",
@@ -349,6 +376,9 @@ class RiskReceiptTests(unittest.TestCase):
             ("path", ".github/workflows/other.yaml"),
             ("head_repository", {"full_name": "someone/fork"}),
             ("repository", {"full_name": "someone/other"}),
+            ("check_suite_id", 99),
+            ("referenced_workflows", []),
+            ("referenced_workflows", [dict(g.RISK_DISPATCH, sha="f" * 40)]),
         ]:
             original = run[field]
             run[field] = value
@@ -370,13 +400,63 @@ class RiskReceiptTests(unittest.TestCase):
                 self.assertFalse(
                     g.risk_producer(ChangedHeadClient(), "", tree, receipt, pr)
                 )
+        suite = client.get("check-suites/4321")
+        changed_suites = [
+            None,
+            {},
+            dict(suite, pull_requests=[]),
+            dict(suite, pull_requests=suite["pull_requests"] * 2),
+            dict(suite, app={"id": 999}),
+            dict(suite, head_sha="f" * 40),
+            dict(suite, head_branch="other"),
+        ]
+        for side, field, value in [
+            ("base", "ref", "non-main"),
+            ("base", "sha", "f" * 40),
+            ("base", "repo", {"id": 999}),
+            ("head", "sha", "f" * 40),
+            ("head", "ref", "other"),
+            ("head", "repo", {"id": 999}),
+        ]:
+            changed = copy.deepcopy(suite)
+            changed["pull_requests"][0][side][field] = value
+            changed_suites.append(changed)
+        changed = copy.deepcopy(suite)
+        changed["pull_requests"][0]["number"] = 99
+        changed_suites.append(changed)
+        for changed_suite in changed_suites:
+
+            class ChangedSuiteClient:
+                def get(self, path):
+                    return (
+                        changed_suite if "check-suites/" in path else client.get(path)
+                    )
+
+            with self.subTest(suite=changed_suite):
+                self.assertFalse(
+                    g.risk_producer(ChangedSuiteClient(), "", tree, receipt, pr)
+                )
+
+        class MovingSuiteClient:
+            reads = 0
+
+            def get(self, path):
+                if "check-suites/" in path:
+                    self.reads += 1
+                    return (
+                        suite if self.reads == 1 else dict(suite, head_branch="other")
+                    )
+                return client.get(path)
+
+        self.assertFalse(g.risk_producer(MovingSuiteClient(), "", tree, receipt, pr))
 
     def test_automatic_producer_changes_during_collection_hold(self):
-        receipt, tree, run, _ = self.producer_fixture()
+        receipt, tree, run, client = self.producer_fixture()
         run.update(
             event="pull_request_target", head_branch="feature", head_sha="a" * 40
         )
         pr = {
+            "number": 26,
             "head": {
                 "sha": "a" * 40,
                 "ref": "feature",
@@ -393,6 +473,8 @@ class RiskReceiptTests(unittest.TestCase):
             reads = 0
 
             def get(self, path):
+                if "check-suites/" in path:
+                    return client.get(path)
                 if "git/trees" in path:
                     return tree
                 self.reads += 1

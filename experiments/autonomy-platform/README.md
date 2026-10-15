@@ -67,7 +67,8 @@ host publication extension: it emits a sanitized head/config/run/attempt-bound
 risk receipt. The collector verifies a completed Fullsend run using event-specific
 bindings: `issue_comment` identifies the main configuration commit, while a
 same-repository `pull_request_target` run identifies the PR head separately from
-its base configuration. Current/configuration host source blobs must match the
+its base configuration using GitHub's unambiguous check-suite PR/base association
+and pinned dispatcher reference. Current/configuration host source blobs must match the
 pins; automatic reviews also require matching host sources at the PR head before
 supplying ordinal risk to Gemara. This is
 a lab receipt contract, not an upstream feature or a new model agent. See the

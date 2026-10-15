@@ -64,8 +64,12 @@ target branch; the evidence checks are not relaxed to accept an old configuratio
    no receipt. This is a lab extension, not an upstream Fullsend feature.
 3. **The read-only observer** verifies GitHub/Fullsend evidence and normalizes it
    into bounded values. It never executes PR code or retains review prose. It
-   verifies the exact head, producer identity, completed run/attempt, trusted-main
-   configuration and host source blobs before accepting a risk receipt.
+   verifies the exact head, producer identity, completed run/attempt and host
+   source blobs before accepting a risk receipt. Comment runs identify the main
+   configuration commit. Automatic runs additionally bind GitHub's check-suite
+   PR number, head and main-base snapshot, the pinned dispatcher and the PR-head
+   host sources; missing or ambiguous provenance holds. See
+   [the live pilot](LIVE-PILOT.md#workflow-path) for the event-specific checks.
 4. **Native Gemara evaluation** resolves the control catalog and imported policies,
    runs the declared assessment plans and emits native EvaluationLogs. The glue
    collects facts; Gemara expresses and evaluates the policy requirements.
