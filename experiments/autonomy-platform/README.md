@@ -4,6 +4,8 @@ This is a test harness, not a supported Fullsend feature or a per-repository
 installation requirement. It asks: can readiness and exact-PR evidence cross a
 small adapter boundary while Fullsend remains independent of the policy engine?
 
+Start with the [real-PR walkthrough](../../docs/attempts/02-policy-evaluation/LIVE-TRIAL.md).
+
 ## Run the offline tests
 
 Requires Python 3.11+ and Go 1.25+ (CI pins Go 1.26.6).

@@ -227,6 +227,7 @@ def observe(number, client=None):
                 "value": value,
             }
             for key, value in values.items()
+            if value is not None
         }
 
     results = []
@@ -278,6 +279,22 @@ def observe(number, client=None):
 
 def summary(report):
     """Render only normalized fields; never publish raw API responses."""
+    names = {
+        "AR-RULES": "Branch rules observable",
+        "AR-CHECKS": "Check metadata accessible",
+        "AR-REVIEWS": "Review metadata accessible",
+        "AR-STATUS": "Trusted status publisher",
+        "AR-TESTS": "Meaningful testing",
+        "AR-ISOLATION": "Runtime isolation",
+        "AR-QUEUE": "Verified merge route",
+        "AR-HISTORY": "Shadow track record",
+        "AM-CI": "Selected CI checks pass",
+        "AM-REVIEW": "Current Fullsend approval",
+        "AM-FINDINGS": "No blocking findings",
+        "AM-RISK": "Risk within limit",
+        "AM-CLASS": "Allowed change class",
+        "AM-PROTECTED": "Governed paths untouched",
+    }
     lines = [
         "# Gemara shadow trial — no merge authority",
         "",
@@ -300,7 +317,7 @@ def summary(report):
         ]:
             for row in result["assessments"]:
                 lines.append(
-                    f"| {scope} | {row['id']} | {row['state']} | {row['reason']} |"
+                    f"| {scope} | {names.get(row['id'], row['id'])} (`{row['id']}`) | {row['state']} | {row['reason']} |"
                 )
         lines += ["", "Hold reasons: " + ", ".join(item["shadow"]["reasons"]), ""]
     lines += [

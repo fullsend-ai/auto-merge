@@ -78,6 +78,15 @@ class ObserverTests(unittest.TestCase):
             [x["shadow"]["decision"] for x in result["results"]], ["hold", "hold"]
         )
         self.assertFalse(result["mutation_permitted"])
+        for adapter in result["results"]:
+            findings = next(
+                row
+                for row in adapter["shadow"]["evaluation"]["assessments"]
+                if row["id"] == "AM-FINDINGS"
+            )
+            self.assertEqual(
+                (findings["state"], findings["reason"]), ("unknown", "missing")
+            )
 
     def test_summary_explains_holds_without_raw_api_text(self):
         report = g.observe(26, FixtureClient())

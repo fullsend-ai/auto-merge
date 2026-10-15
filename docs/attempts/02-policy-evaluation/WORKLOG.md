@@ -58,3 +58,13 @@ commit 02438e1c117d31bf50f9fb9fafabe40856dbfdda, whose Review job supplies the
 standard fullsend-ai default. Checked all existing shim inputs/secrets against
 that revision: no unknown inputs/secrets or newly missing required fields. No
 credential or authentication mode was changed.
+
+## Readable live evidence
+
+Both real CI runs completed: #28 succeeded and #29 failed as intended. Both
+adapters agreed on the corresponding CI assessment and held overall. Hosted
+observer runs also completed successfully, including automatic runs after CI.
+Made unavailable observations absent rather than null, so assessment reasons
+say missing instead of invalid_value; tests cover this distinction. Added
+plain-language control names to summaries and a compact live-trial walkthrough.
+Validation remains 26 Python tests plus the pinned build's 4 Go tests.
