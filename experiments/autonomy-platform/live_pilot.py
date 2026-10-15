@@ -182,6 +182,8 @@ def maintenance_scope(files):
         and all(
             isinstance(r.get("filename"), str)
             and r["filename"].startswith("docs/")
+            and r["filename"] != "docs/AUTO-MERGE-SECURITY-CONTRACT.md"
+            and r["filename"].rsplit("/", 1)[-1] != "AGENTS.md"
             and r.get("status") in {"modified", "added", "removed"}
             and not r.get("previous_filename")
             for r in files
@@ -786,6 +788,7 @@ def main():
             result["decision"] != "eligible"
             and args.phase == "enroll"
             and not args.execute
+            and os.environ.get("PILOT_EXECUTE_REQUESTED") != "true"
         ):
             return 0
         require(result["decision"] == "eligible", "pilot_policy_held")

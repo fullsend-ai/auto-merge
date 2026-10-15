@@ -591,3 +591,16 @@ runtime introspection claim is made.
 Repository-local tracking issue: https://github.com/fullsend-ai/auto-merge/issues/33.
 It records the owner-authorized scope and bootstrap exception without internal
 links or credentials. Latest follow-up validation: 71 local Python tests pass.
+
+Bootstrap attempt paused before queue entry when new unresolved review threads
+appeared. No merge occurred. The original rules were verified restored, including
+the Gemara requirement and no bypass actors; the auto-merge request was removed.
+The script's generic restoration message mentioned code-owner review, but API
+verification confirmed the original false setting was retained while unmerged.
+
+Follow-up fixes explicitly exclude the governed security contract and nested
+AGENTS.md files from maintenance, cover nested instructions with CODEOWNERS,
+make an explicitly requested execute hold fail even in the evaluation job, and
+remove pre-merge-only deployment wording from the resulting documentation.
+The same approved PR #32 bootstrap will be retried only after final-head CI and
+review-thread checks pass. No additional repository or broader exception is used.

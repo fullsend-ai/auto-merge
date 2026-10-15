@@ -379,6 +379,8 @@ class PilotTests(unittest.TestCase):
             "experiments/autonomy-platform/policies/pilot-config.json",
             "scripts/validate_example.py",
             "AGENTS.md",
+            "docs/AGENTS.md",
+            "docs/AUTO-MERGE-SECURITY-CONTRACT.md",
         ]:
             self.assertFalse(
                 p.maintenance_scope(
@@ -637,6 +639,15 @@ class PilotTests(unittest.TestCase):
             mock.patch.object(p, "enqueue") as writer,
         ):
             self.assertEqual(p.main(), 0)
+            writer.assert_not_called()
+        with (
+            mock.patch("sys.argv", args),
+            mock.patch.dict(os.environ, {"PILOT_EXECUTE_REQUESTED": "true"}),
+            mock.patch.object(p, "evaluate", return_value=result),
+            mock.patch("builtins.print"),
+            mock.patch.object(p, "enqueue") as writer,
+        ):
+            self.assertEqual(p.main(), 2)
             writer.assert_not_called()
         with (
             mock.patch("sys.argv", args + ["--execute"]),

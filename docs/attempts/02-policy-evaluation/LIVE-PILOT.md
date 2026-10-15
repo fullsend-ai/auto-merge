@@ -4,12 +4,12 @@ This is a bounded public-repository experiment with an explicit owner-enabled la
 policy. It is not an approved organizational auto-merge standard or production
 qualification. The custom auto-merge model agent remains disabled.
 
-## Draft configuration, not deployed
+## Bounded pilot configuration
 
 [pilot-config.json](../../../experiments/autonomy-platform/policies/pilot-config.json)
-is the proposed repository-owned configuration on PR #32. It defines two paths;
-neither is deployed by this draft. Current main still uses the disabled, spent
-one-PR grant from the earlier experiment:
+is the repository-owned configuration introduced by PR #32. The owner-authorized
+bootstrap replaces the disabled spent one-PR grant. Installation and hosted
+outcomes must be recorded separately:
 
 - **Automatic documentation pilot:** one ordinary modified file,
   `docs/example-feature.md`, with at most 20 changed lines. The unchanged native
@@ -63,13 +63,14 @@ required; there are no bypass actors in the steady-state ruleset.
 
 ## Temporary repository App handoff
 
-The draft writer is configured to use the dedicated private lab GitHub App
+The writer is configured to use the dedicated private lab GitHub App
 `gemara-auto-merge-pilot-lab` (App ID `5334789`, installation `171824120`).
 Its only installation selects only `fullsend-ai/auto-merge`. Registration,
 installation and a metadata-only installation-token scope check were verified
 on October 15, 2026. The probe token was revoked. The key is stored only as an
 encrypted environment secret; the temporary local key copy was removed.
-The workflow is still a PR draft, not deployed on main. This is a temporary credential mechanism, not the
+PR #32 installs this workflow through the documented owner bootstrap. This is a
+temporary credential mechanism, not the
 Fullsend-native token handoff. Two earlier repository-hosted Fullsend mint probes
 returned HTTP 401; that integration remains unresolved. An external prototype
 is excluded from this repository-only design and proof.
@@ -97,7 +98,7 @@ evaluation and requests only the exact reviewed head through GitHub's protected 
 
 Registration, installation, hosted token verification and repeatable live trials
 must each be recorded separately; changing the writer does not prove those steps
-have succeeded. The implementation stays draft until the required proof exists.
+have succeeded. Do not claim hosted queue-entry proof until those run results are recorded.
 
 To retire the workaround: disable automatic pilot entry, remove the environment
 secret and variable, uninstall/delete the dedicated App and its private key, and

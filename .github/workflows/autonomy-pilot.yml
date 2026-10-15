@@ -87,6 +87,7 @@ jobs:
           PILOT_PR: ${{ needs.resolve.outputs.pr }}
           PILOT_HEAD: ${{ needs.resolve.outputs.head }}
           PILOT_MAINTENANCE: ${{ inputs.maintenance }}
+          PILOT_EXECUTE_REQUESTED: ${{ inputs.execute }}
         run: python3 experiments/autonomy-platform/live_pilot.py --phase enroll --pr "$PILOT_PR" --head "$PILOT_HEAD"
   enqueue:
     needs: [resolve, evaluate]
