@@ -68,3 +68,14 @@ Made unavailable observations absent rather than null, so assessment reasons
 say missing instead of invalid_value; tests cover this distinction. Added
 plain-language control names to summaries and a compact live-trial walkthrough.
 Validation remains 26 Python tests plus the pinned build's 4 Go tests.
+
+## Built-in provider migration
+
+The refreshed Review reached provider creation but failed because the repository's
+old reserved-name Vertex provider supplied _NOOP_VERTEX_AI, which the current
+built-in profile does not declare. This matches upstream issue fullsend#8006.
+Applied the official built-in-provider migration: bare vertex-ai name in the
+disabled legacy harness, no copied built-in profile entry, removed both stale
+provider/profile files, confirmed no sandbox GH_TOKEN entry exists. Original
+Attempt 1 files remain recoverable through the immutable baseline commit. No
+inference credentials, project, auth mode or model were changed.

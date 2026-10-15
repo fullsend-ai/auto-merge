@@ -19,5 +19,8 @@ single-PR native queue path. See the [evidence directory](https://github.com/ful
 for their stated boundaries. This spike does not rerun those exercises or claim
 that their results generalize to production queues.
 
-Attempt 2 keeps the custom agent, workflows, security contract and fixtures
-unchanged. Its evaluator is a separate, non-mutating local experiment.
+Attempt 2 disables the custom agent/context route and preserves its historical
+implementation at the baseline above. Current runtime maintenance replaces the
+legacy Vertex provider path with the built-in name and removes stale copied
+provider/profile definitions, following Fullsend's migration guide. It does not
+reactivate the agent or change the security contract, host scripts or fixtures.
