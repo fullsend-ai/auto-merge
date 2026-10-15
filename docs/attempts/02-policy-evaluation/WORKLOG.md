@@ -205,3 +205,20 @@ Validated configuration registration; pinned source/patch/result application and
 bash syntax; all five risk levels plus malformed/degraded projection cases; 43
 Python tests, including wrong run/attempt/event/configuration and tamper rejection.
 Hosted verification follows publication. No trial PR is approved for live merging.
+
+
+## 2026-10-15 complete-example verification and source binding
+
+Added a repeatable read-only verifier for the two real PRs. Success requires every
+positive candidate assessment to pass with a verified risk receipt, the negative
+CI case to fail, and readiness to remain held without merge authority. Candidate,
+readiness and combined-gate decisions are explicit separate report fields. The
+underlying qualification gate was not relaxed. A regression test ensures a
+passing candidate cannot override missing readiness in Shadow, Light or Gemara.
+
+Risk source verification additionally matches the producer's configuration blobs
+to the observer's own trusted checkout, preventing an older evaluator from silently
+accepting a changed host extension. The observer workflow gains actions:read for
+run metadata, not write permissions or a log/artifact collector. Optional manual
+verify_example=true runs the complete positive/negative verification. 44 Python
+tests pass; native evaluator and policy requirements are unchanged.

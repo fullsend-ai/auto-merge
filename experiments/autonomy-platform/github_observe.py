@@ -4,6 +4,7 @@
 from pathlib import Path
 from datetime import datetime, timezone
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -221,6 +222,19 @@ RISK_SOURCE_PATHS = {
 }
 
 
+def local_risk_blobs():
+    result = {}
+    for name in RISK_SOURCE_PATHS:
+        path = ROOT.parents[1] / name
+        if not path.is_file() or path.is_symlink():
+            return {}
+        data = path.read_bytes()
+        result[name] = hashlib.sha1(
+            b"blob " + str(len(data)).encode() + b"\0" + data
+        ).hexdigest()
+    return result
+
+
 def risk_producer(client, base, current_tree, receipt):
     """Pin the receipt to completed trusted-main Review execution and host sources."""
     endpoint = base + f"actions/runs/{receipt['run_id']}"
@@ -258,7 +272,7 @@ def risk_producer(client, base, current_tree, receipt):
     current, original = blobs(current_tree), blobs(source_tree)
     return (
         set(current) == RISK_SOURCE_PATHS
-        and current == original
+        and current == original == local_risk_blobs()
         and client.get(endpoint) == run
     )
 
@@ -381,15 +395,33 @@ def observe(number, client=None):
             "AM-FINDINGS": finding_evidence,
             "AM-RISK": risk_evidence,
             "AR-QUEUE": queue,
+            "AR-TESTS": {
+                "value": None,
+                "reason": "toy_validator_is_not_test_sufficiency_approval",
+            },
+            "AR-ISOLATION": {
+                "value": None,
+                "reason": "runtime_isolation_assurance_not_attested",
+            },
+            "AR-HISTORY": {
+                "value": None,
+                "reason": "shadow_outcomes_and_promotion_criteria_not_accepted",
+            },
+            "AR-STATUS": {
+                "value": None,
+                "reason": "observer_is_read_only_not_an_authoritative_publisher",
+            },
         },
-        "unimplemented_evidence": [
-            "meaningful_test_sufficiency",
-            "runtime_isolation",
-            "shadow_track_record",
-            "trusted_status_publication",
+        "readiness_evidence_required": [
+            "owner_accepted_test_sufficiency",
+            "runtime_isolation_assurance",
+            "owner_accepted_shadow_outcomes",
+            "authoritative_status_publisher",
         ],
         "api_errors": sorted(client.errors),
         "engine": "gemara",
+        "candidate_decision": result["evaluation"]["decision"],
+        "readiness_decision": receipt["decision"],
         "qualification": receipt,
         "shadow": result,
         "mutation_permitted": False,
@@ -422,6 +454,8 @@ def summary(report):
         "",
         "A successful workflow means evaluation completed, not permission to merge.",
         "Readiness and PR eligibility are separate. Missing evidence remains Unknown.",
+        f"PR candidate: **{report['candidate_decision']}** · repository readiness: **{report['readiness_decision']}** · combined gate: **{report['shadow']['decision']}**.",
+        "Candidate eligibility is an advisory policy result, never merge permission.",
         "",
     ]
     lines += [
@@ -452,7 +486,7 @@ def summary(report):
         lines.append(f"- `{control}`: `{detail['reason']}`")
     lines += [
         "",
-        "Risk needs a revision-bound producer result. Meaningful tests, runtime isolation, a trusted eligibility publisher and an accepted shadow history still need their own evidence; neither approval nor a successful queue run proves them.",
+        "The lab risk receipt must bind a completed trusted-main Fullsend run, its attempt, the exact reviewed head and the current pinned host sources. Meaningful tests, runtime isolation, a trusted eligibility publisher and an accepted shadow history need independent evidence; neither approval nor a successful queue run proves them.",
     ]
     return "\n".join(lines) + "\n"
 
@@ -479,6 +513,8 @@ def main():
                     "pull_request": args.pr,
                     "stable": report["stable_during_collection"],
                     "decision": report["shadow"]["decision"],
+                    "candidate_decision": report["candidate_decision"],
+                    "readiness_decision": report["readiness_decision"],
                     "mutation_permitted": False,
                     "output": str(destination.relative_to(ROOT)),
                 }

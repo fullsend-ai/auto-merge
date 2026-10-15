@@ -58,8 +58,12 @@ uses the official v2 findings projection with a pinned bot ID, explicit head and
 matching approval; any open finding holds. It verifies a historical queue route
 against current rules and CI/validator source hashes. Reviews, comments and CI
 are rechecked for collection stability. Only normalized control results and source
-identifiers enter reports. The separate risk comment currently lacks revision
-binding and therefore cannot satisfy the risk control. See the
+identifiers enter reports. The legacy risk comment lacks revision binding and cannot satisfy the risk
+control. The lab now composes the pinned official Review harness with a small
+host publication extension: it emits a sanitized head/config/run/attempt-bound
+risk receipt. The collector verifies a completed trusted-main Fullsend run and
+current host source blobs before supplying its ordinal risk to Gemara. This is
+a lab receipt contract, not an upstream feature or a new model agent. See the
 [evidence update](../../docs/attempts/02-policy-evaluation/LIVE-TRIAL.md#local-evidence-collection-update-not-yet-published)
 for verified sources and the remaining evidence owners.
 
@@ -100,3 +104,25 @@ unsigned. Bot approval alone is not a finding/risk attestation. The findings
 projection has its own source checks; it is not a signed production receipt. Missing
 readiness assurance, findings or risk still holds even with green CI and approval.
 This remains a prototype, not an approved company standard or a production merger.
+
+
+## Verify the complete live shadow example
+
+After the configured official Review finishes for PR #28:
+
+```sh
+python3 experiments/autonomy-platform/verify_live_trial.py
+```
+
+Or dispatch `Autonomy shadow observation` on main with `pr=28` and
+`verify_example=true`. It verifies PR #28 passes every native candidate assessment,
+PR #29's intentional CI failure holds, and neither candidate overrides missing
+repository readiness. The workflow needs actions:read only to verify producer run
+metadata; it neither reads workflow logs nor downloads result artifacts.
+
+A successful example is not an autonomous-merge qualification. Candidate policy,
+repository readiness and the combined gate are reported separately. Readiness
+requirements still need accepted test-sufficiency, runtime-isolation and shadow
+outcome evidence, plus an authoritative publisher. Unknown evidence stays Unknown;
+the fully supplied readiness case remains explicitly synthetic in demo.py. No
+production threshold or approval is invented from the two test PRs.

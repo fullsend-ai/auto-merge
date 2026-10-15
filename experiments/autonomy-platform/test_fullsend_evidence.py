@@ -274,6 +274,15 @@ class RiskReceiptTests(unittest.TestCase):
                 return tree if "git/trees" in path else run
 
         client = Client()
+        from unittest import mock
+
+        patcher = mock.patch.object(
+            g,
+            "local_risk_blobs",
+            return_value={r["path"]: r["sha"] for r in tree["tree"]},
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.assertTrue(g.risk_producer(client, "", tree, receipt))
         for key, value in [
             ("event", "pull_request"),

@@ -267,6 +267,15 @@ class NativePolicyTests(unittest.TestCase):
                 "would_allow" if mode in {"shadow", "gemara"} else "hold",
             )
 
+    def test_candidate_pass_does_not_override_missing_readiness(self):
+        receipt = p.qualification(self.bundle, self.ready, NOW, {})
+        for mode in ["shadow", "light", "gemara"]:
+            result = p.gate(self.bundle, self.who, NOW, self.obs, mode, receipt)
+            self.assertEqual(result["evaluation"]["decision"], "eligible")
+            self.assertEqual(result["decision"], "hold")
+            self.assertIn("qualification_unavailable", result["reasons"])
+            self.assertFalse(result["mutation_permitted"])
+
     def test_off_does_not_execute_evaluator(self):
         with mock.patch(
             "platform_lab.assess", side_effect=AssertionError("off must not execute")

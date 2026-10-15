@@ -83,6 +83,7 @@ def source_digests():
             "platform_lab.py",
             "github_observe.py",
             "fullsend_evidence.py",
+            "verify_live_trial.py",
             "schema.py",
             "tool-lock.json",
         ]
