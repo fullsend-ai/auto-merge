@@ -79,3 +79,13 @@ disabled legacy harness, no copied built-in profile entry, removed both stale
 provider/profile files, confirmed no sandbox GH_TOKEN entry exists. Original
 Attempt 1 files remain recoverable through the immutable baseline commit. No
 inference credentials, project, auth mode or model were changed.
+
+## Verified final positive observation
+
+After the documented migration, Fullsend run 38667018391 succeeded and its Review
+bot approved PR #28 at ecf653b90ded754640eabe9dc9b8a845066e7e11. A stable
+read-only observation returned no API errors; native Gemara and reference adapters
+both passed CI, Review metadata, change class and governed-path predicates. Both
+held overall with findings/risk and readiness assurance still missing. Dispatched
+hosted observer run 38667624427 for that exact scenario. Negative PR #29 remains
+unmerged with intentionally failed CI. No trial PR was queued for merge.

@@ -2,6 +2,11 @@
 
 Start with [PR #28: valid documentation](https://github.com/fullsend-ai/auto-merge/pull/28)
 and [PR #29: intentionally failing validation](https://github.com/fullsend-ai/auto-merge/pull/29).
+Verified hosted examples:
+
+- [PR #28 after Fullsend approval](https://github.com/fullsend-ai/auto-merge/actions/runs/38667624427): CI and current Review pass; both adapters still hold.
+- [PR #29 shadow summary](https://github.com/fullsend-ai/auto-merge/actions/runs/38667019263): stable observation, both adapters hold.
+
 Neither is intended to merge. The negative PR changes the example's Status field,
 not application code or workflow permissions.
 
@@ -19,6 +24,10 @@ not application code or workflow permissions.
    A green run means the experiment completed. Read its decision: it can hold.
 
 CI passed on #28 and failed on #29, and both adapters reflected that difference.
+After the compatibility fixes, [Fullsend Review succeeded](https://github.com/fullsend-ai/auto-merge/actions/runs/38667018391)
+and approved #28's exact revision. Both adapters then reported CI and Review
+passed, with findings/risk missing. That is expected: approval metadata alone is
+not the complete evidence contract for autonomous merging.
 Both overall decisions hold while required evidence is missing. Readiness is a
 separate question from whether this particular PR looks acceptable.
 
@@ -35,6 +44,9 @@ an engine boundary against live metadata. It does not prove general Gemara
 policy resolution, a centrally distributed standard, or that all this host
 scaffolding belongs in Fullsend. Those remain design questions informed by the
 trial. The earlier Policy serialization/version compatibility limit also remains.
+Do not turn the closed profile composer into a new Fullsend policy language;
+establish how to consume native policies through a supported evaluator before
+promoting that scaffolding into a platform feature.
 
 ## Who would install what?
 
@@ -55,5 +67,22 @@ patches, review text or credentials are saved in the trial reports or this doc.
 The first live run led to a pending-CI correction: unfinished checks are Unknown;
 a completed unsuccessful check fails the CI predicate. Initial Review jobs also
 exposed a dispatcher/manifest version mismatch; its official pin was refreshed.
+The next Review attempt exposed stale copied Vertex provider/profile definitions.
+Those were removed using Fullsend's documented migration to built-in providers;
+the disabled legacy harness now names `vertex-ai` directly.
 No credentials or auth modes were changed. Temporary admin bypasses used to land
 reviewed main updates were removed immediately, and original rules were verified.
+
+## Questions the live evidence leaves open
+
+- What supported Fullsend contract supplies a complete revision-bound finding
+  ledger and risk attestation? The trial can observe approval but does not
+  convert a review body or risk comment into trusted authority.
+- Which Gemara-compatible evaluator should execute native Policy scope, imports
+  and exceptions? The tested SDK assessment helpers do not establish that path.
+- Who produces and approves repository readiness/promotion evidence? Accessible
+  rules and green CI do not prove meaningful testing, runtime assurance or a
+  sufficient shadow history.
+
+Those are the next platform/integration questions; the lab does not answer them
+by inventing passing evidence or enabling autonomous merges.
