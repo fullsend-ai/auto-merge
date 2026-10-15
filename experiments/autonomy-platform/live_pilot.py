@@ -660,7 +660,7 @@ def enqueue(result):
         result["reviewed_head"],
     ]
     token = os.environ.get("PILOT_ENQUEUE_TOKEN", "")
-    require(bool(token), "fullsend_app_token_required")
+    require(bool(token), "repository_app_token_required")
     verify_scope()
     child_env = {
         k: os.environ[k]

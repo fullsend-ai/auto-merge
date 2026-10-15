@@ -1,0 +1,16 @@
+{
+  "name": "Gemara auto-merge pilot lab",
+  "url": "https://github.com/fullsend-ai/auto-merge",
+  "description": "Temporary repository-scoped queue writer for the Gemara auto-merge lab; no protection bypass or organization permissions.",
+  "public": false,
+  "hook_attributes": {
+    "url": "https://github.com/fullsend-ai/auto-merge",
+    "active": false
+  },
+  "default_permissions": {
+    "contents": "write",
+    "pull_requests": "write"
+  },
+  "default_events": [],
+  "request_oauth_on_install": false
+}

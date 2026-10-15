@@ -13,8 +13,9 @@ on main. The earlier one-PR live merge is historical evidence.
 
 The [repeatable pilot](docs/attempts/02-policy-evaluation/LIVE-PILOT.md) introduces
 an owner-enabled documentation cohort and a separate exact-head maintainer
-maintenance policy. The repository-only live writer is still blocked by the configured mint trust
-policy; no unmerged upstream workflow or personal token is used. Read the
+maintenance policy. The draft writer uses a dedicated temporary repository App; registration,
+installation and hosted proof are tracked separately. Fullsend-native token
+minting remains unresolved; no unmerged upstream workflow or personal token is used. Read the
 trial record for the actual hosted proof and limits. Main requires the Gemara queue
 gate and ordinary CI. Production readiness remains a separate qualification.
 

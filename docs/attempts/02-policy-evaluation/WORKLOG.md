@@ -492,3 +492,55 @@ for the pilot, writer and queue workflows pass. The diff secret scan passes.
 The owner authorized committing and pushing these repository-only corrections
 to PR #32. Hosted checks will evaluate the pushed revision.
 No bootstrap bypass, new live merge or change to main is claimed.
+
+### Temporary repository App credential path
+
+The owner approved a dedicated lab App workaround, confined to auto-merge.
+Prepared a private App manifest requesting only Contents and Pull requests write,
+with no webhook, organization permissions or bypass role. Created the empty
+`gemara-pilot-writer` Actions environment and verified its deployment branch
+policy permits only `main`; environment admin bypass is disabled. No App key or
+token has been stored yet. GitHub App registration is pending interactive access
+verification by the owner.
+
+The proposed writer uses the official GitHub installation-token action pinned to
+`64ab729a6294000f5aa4a4bc0b73d1f32bc45510`, explicit repository/permission scope and
+post-job revocation. Both probe and executing writer are restricted to main.
+OIDC permission was removed from the caller and writer. Builds happen before
+minting; the private key is referenced only by the token action, and only its
+short-lived token reaches the exact-head queue writer. Native Gemara policy and
+the required queue check are unchanged. This does not complete Fullsend-native
+credential handoff or demonstrate a live merge.
+
+Validation: all 68 local Python tests and actionlint pass for the changed pilot,
+writer and existing queue workflows. Registration, selected-repository
+installation, encrypted environment-secret storage and live token proof remain
+separate pending steps. No main-branch protection or bypass actor was changed.
+
+### Private lab App installation and credential verification
+
+The owner confirmed proceeding with an auto-merge-only installation after a
+review of organization ownership versus repository access. Created the private
+`gemara-auto-merge-pilot-lab` App (ID `5334789`) and installed it as `171824120`.
+The installation UI and API both show selected repositories, with only
+`fullsend-ai/auto-merge` (repository ID `1383516376`). Its only permissions are
+Contents write, Pull requests write and automatic Metadata read. It has no
+organization permissions, webhook events or ruleset bypass role.
+
+At 2026-10-15T18:04:24Z, an App-authenticated API check verified exactly one
+installation and the expected permissions. A token requested with Metadata read
+only enumerated exactly the single allowed repository and was then revoked.
+No content or write operation was performed with that probe token.
+
+Stored the private key directly through encrypted secret installation into the
+main-only `gemara-pilot-writer` environment, and stored the non-secret App ID as
+an environment variable. Verified the secret name, variable value and main-only
+deployment policy through the API; no secret value was read back or logged.
+Removed the temporary local private-key file after successful installation.
+The required Gemara gate and empty ruleset bypass list remain unchanged.
+
+The owner previously authorized committing/pushing these changes to draft PR
+#32. Hosted workflow minting, queue entry and repeatable live outcomes remain
+unproven until the reviewed implementation can be deployed through an authorized
+bootstrap. This App setup alone does not authorize removing required checks or
+bypassing main protections, and does not resolve Fullsend-native minting.

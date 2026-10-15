@@ -53,23 +53,48 @@ in addition to the three original required CI contexts. Conversation resolution,
 stale-review dismissal, deletion protection and non-fast-forward protection remain
 required; there are no bypass actors in the steady-state ruleset.
 
-## Repository-only App-token handoff: blocked
+## Temporary repository App handoff
 
-The writer is a local reusable workflow in this repository. It uses the existing
-published Fullsend mint action; it does not depend on an unmerged workflow in
-another repository. Two repo-hosted read-only probes returned HTTP 401. No token
-was obtained and no queue request was made in those probes.
+The draft writer is configured to use the dedicated private lab GitHub App
+`gemara-auto-merge-pilot-lab` (App ID `5334789`, installation `171824120`).
+Its only installation selects only `fullsend-ai/auto-merge`. Registration,
+installation and a metadata-only installation-token scope check were verified
+on October 15, 2026. The probe token was revoked. The key is stored only as an
+encrypted environment secret; the temporary local key copy was removed.
+The workflow is still a PR draft, not deployed on main. This is a temporary credential mechanism, not the
+Fullsend-native token handoff. Two earlier repository-hosted Fullsend mint probes
+returned HTTP 401; that integration remains unresolved. An external prototype
+is excluded from this repository-only design and proof.
 
-The deployed mint does not currently authorize this repository-hosted writer.
-This remains a blocker for the App-token handoff. No PAT fallback, new secret,
-external trust change or upstream repository change is authorized by this spike.
-The implementation stays draft until a repository-only supported path is validated.
-An earlier external prototype is not part of this repository-only design or proof.
+The reviewed [App manifest](../../../experiments/autonomy-platform/policies/lab-app-manifest.json)
+requests Contents and Pull requests write permissions, no organization or
+administration permissions, no webhook events and no user authorization. The App
+must not appear in any ruleset bypass list. Its only installation must select
+this repository, not all repositories.
 
-If the writer can obtain an authorized installation token in the future, it must
-verify the token selects only this repo, use it only inside the job for exact-head
-queue entry, and revoke it. The collector and native evaluator do not receive it.
-Read-only probes check out an immutable reviewed adapter, not caller-branch code.
+The `gemara-pilot-writer` Actions environment allows branch `main` only. It holds
+`GEMARA_PILOT_APP_PRIVATE_KEY` as an encrypted environment secret and
+`GEMARA_PILOT_APP_ID` as a non-secret environment variable. The private key is
+long-lived; protecting it remains necessary even though installation tokens expire.
+It must never be committed, logged, passed to PR code, model agents, builds or tests,
+or included in artifacts. No personal token or Fullsend App key is copied to Actions.
+
+The writer executes trusted main code and prepares the evaluator before minting.
+It uses the [official GitHub token action](https://github.com/actions/create-github-app-token)
+at a pinned commit, requests only this repository and the required permissions,
+and leaves default post-job revocation enabled. A manual read-only probe on main
+requests read permissions and verifies scope without queue entry. An executing
+writer verifies the single-repository token scope again, repeats native policy
+evaluation and requests only the exact reviewed head through GitHub's protected queue.
+
+Registration, installation, hosted token verification and repeatable live trials
+must each be recorded separately; changing the writer does not prove those steps
+have succeeded. The implementation stays draft until the required proof exists.
+
+To retire the workaround: disable automatic pilot entry, remove the environment
+secret and variable, uninstall/delete the dedicated App and its private key, and
+replace only the credential acquisition step once Fullsend supports this writer.
+Keep Gemara policy and all GitHub protections enforced throughout the transition.
 
 ## Exact-head maintenance authorization
 

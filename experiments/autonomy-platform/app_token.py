@@ -13,7 +13,7 @@ REPOSITORY = "fullsend-ai/auto-merge"
 
 def installation_request(path, method="GET"):
     token = os.environ.get("PILOT_ENQUEUE_TOKEN") or os.environ.get("APP_TOKEN")
-    require(bool(token), "fullsend_app_token_required")
+    require(bool(token), "repository_app_token_required")
     require(
         path in {"/installation/repositories?per_page=100", "/installation/token"},
         "unsupported_installation_operation",
@@ -51,11 +51,11 @@ def main():
         )
         if sys.argv[1] == "verify":
             verify_scope()
-            print("Repository-scoped Fullsend installation token verified.")
+            print("Repository-scoped lab installation token verified.")
         else:
             status, _ = installation_request("/installation/token", "DELETE")
             require(status == 204, "app_token_revocation_failed")
-            print("Fullsend installation token revoked.")
+            print("Lab installation token revoked.")
         return 0
     except Exception:
         print("Installation token operation failed; no credential details retained.")
