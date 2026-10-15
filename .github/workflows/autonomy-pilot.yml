@@ -1,0 +1,91 @@
+name: Autonomy live pilot
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: PR number in the committed expiring owner grant
+        type: string
+        required: true
+      head:
+        description: Exact reviewed PR head in that grant
+        type: string
+        required: true
+      execute:
+        description: Enqueue only after native policy passes
+        type: boolean
+        default: false
+permissions: {}
+concurrency:
+  group: autonomy-live-pilot
+  cancel-in-progress: false
+jobs:
+  evaluate:
+    if: github.repository == 'fullsend-ai/auto-merge' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.6'
+          cache: false
+      - name: Prepare native evaluator without forge credentials
+        env:
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
+        run: |
+          python3 experiments/autonomy-platform/bootstrap_tools.py
+          python3 experiments/autonomy-platform/build_sdk.py
+      - name: Evaluate exact owner grant and unchanged candidate policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PILOT_SOURCE_SHA: ${{ github.sha }}
+          PILOT_EVENT_NAME: ${{ github.event_name }}
+          PILOT_REF: ${{ github.ref }}
+          PILOT_PR: ${{ inputs.pr }}
+          PILOT_HEAD: ${{ inputs.head }}
+        run: python3 experiments/autonomy-platform/live_pilot.py --phase enroll --pr "$PILOT_PR" --head "$PILOT_HEAD"
+  enqueue:
+    needs: evaluate
+    if: inputs.execute && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      checks: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.6'
+          cache: false
+      - name: Prepare native evaluator without forge credentials
+        env:
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
+        run: |
+          python3 experiments/autonomy-platform/bootstrap_tools.py
+          python3 experiments/autonomy-platform/build_sdk.py
+      - name: Re-evaluate immediately and request GitHub protected queue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PILOT_SOURCE_SHA: ${{ github.sha }}
+          PILOT_EVENT_NAME: ${{ github.event_name }}
+          PILOT_REF: ${{ github.ref }}
+          PILOT_CAN_ENQUEUE: 'true'
+          PILOT_PR: ${{ inputs.pr }}
+          PILOT_HEAD: ${{ inputs.head }}
+        run: python3 experiments/autonomy-platform/live_pilot.py --phase enroll --pr "$PILOT_PR" --head "$PILOT_HEAD" --execute

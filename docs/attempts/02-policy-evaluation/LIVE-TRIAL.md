@@ -1,5 +1,7 @@
 # Follow the live Fullsend + Gemara example
 
+For the subsequent owner-authorized merge experiment, see [the live pilot](LIVE-PILOT.md).
+
 This is a **shadow experiment**, not an autonomous merger. It separates three
 questions: does the PR satisfy the candidate policy, is the repository qualified
 for autonomy, and does the combined gate allow proceeding? Every result forbids

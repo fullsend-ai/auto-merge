@@ -1,0 +1,151 @@
+{
+  "title": "One-PR lab merge controls",
+  "metadata": {
+    "id": "autonomy-live-pilot-controls",
+    "type": "ControlCatalog",
+    "gemara-version": "1.5.0",
+    "version": "0.1.0",
+    "description": "Explicit one-PR owner-authorized lab exception; not production readiness or an organizational standard",
+    "author": {
+      "id": "autonomy-lab",
+      "name": "Auto-Merge research lab",
+      "type": "Software Assisted"
+    },
+    "draft": true,
+    "applicability-groups": [
+      {
+        "id": "candidate",
+        "title": "Lab candidate",
+        "description": "Exact revision allowed by the owner grant"
+      }
+    ]
+  },
+  "groups": [
+    {
+      "id": "candidate",
+      "title": "Lab candidate",
+      "description": "Exact revision allowed by the owner grant"
+    }
+  ],
+  "controls": [
+    {
+      "id": "LP-AUTH",
+      "title": "Exact expiring owner grant matches this PR and reviewed head",
+      "objective": "Exact expiring owner grant matches this PR and reviewed head",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "LP-AUTH-1",
+          "text": "Exact expiring owner grant matches this PR and reviewed head MUST be demonstrated with current bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "LP-SCOPE",
+      "title": "Only the reviewed ordinary document blob is in the evaluated change",
+      "objective": "Only the reviewed ordinary document blob is in the evaluated change",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "LP-SCOPE-1",
+          "text": "Only the reviewed ordinary document blob is in the evaluated change MUST be demonstrated with current bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "LP-SOURCE",
+      "title": "Evaluation runs from current trusted main sources",
+      "objective": "Evaluation runs from current trusted main sources",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "LP-SOURCE-1",
+          "text": "Evaluation runs from current trusted main sources MUST be demonstrated with current bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "LP-CANDIDATE",
+      "title": "Unchanged common and repository candidate assessments all pass",
+      "objective": "Unchanged common and repository candidate assessments all pass",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "LP-CANDIDATE-1",
+          "text": "Unchanged common and repository candidate assessments all pass MUST be demonstrated with current bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "LP-CI",
+      "title": "Every selected CI check passes on the evaluated commit",
+      "objective": "Every selected CI check passes on the evaluated commit",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "LP-CI-1",
+          "text": "Every selected CI check passes on the evaluated commit MUST be demonstrated with current bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "LP-RULES",
+      "title": "Protected single-entry merge queue requires the native queue gate",
+      "objective": "Protected single-entry merge queue requires the native queue gate",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "LP-RULES-1",
+          "text": "Protected single-entry merge queue requires the native queue gate MUST be demonstrated with current bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "LP-DISCUSSION",
+      "title": "No unresolved threads or latest changes-requested reviews",
+      "objective": "No unresolved threads or latest changes-requested reviews",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "LP-DISCUSSION-1",
+          "text": "No unresolved threads or latest changes-requested reviews MUST be demonstrated with current bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    }
+  ]
+}

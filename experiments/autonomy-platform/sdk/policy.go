@@ -22,7 +22,14 @@ type binding struct {
 
 // Method names are executable capabilities, not commands or interpreted policy prose.
 var methods = map[string]string{
-	"AR-RULES": "branch-rules-visible", "AR-CHECKS": "check-metadata-accessible",
+	"LP-AUTH":       "lab-owner-grant",
+	"LP-SCOPE":      "lab-exact-tree",
+	"LP-SOURCE":     "lab-trusted-source",
+	"LP-CANDIDATE":  "lab-candidate-policy",
+	"LP-CI":         "lab-revision-ci",
+	"LP-RULES":      "lab-protected-queue",
+	"LP-DISCUSSION": "lab-no-open-discussions",
+	"AR-RULES":      "branch-rules-visible", "AR-CHECKS": "check-metadata-accessible",
 	"AR-REVIEWS": "review-metadata-accessible", "AR-STATUS": "trusted-status-publisher",
 	"AR-TESTS": "meaningful-testing", "AR-ISOLATION": "runtime-isolation",
 	"AR-QUEUE": "verified-merge-route", "AR-HISTORY": "shadow-track-record",

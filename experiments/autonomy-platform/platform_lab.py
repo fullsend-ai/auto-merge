@@ -82,6 +82,7 @@ def source_digests():
         for name in [
             "platform_lab.py",
             "github_observe.py",
+            "live_pilot.py",
             "fullsend_evidence.py",
             "verify_live_trial.py",
             "schema.py",

@@ -274,3 +274,27 @@ read-only example, including positive/negative live cases and qualification hold
 it does not invent an accepted organizational standard, safety history, runtime
 assurance or promotion approval. Final publication after this entry changes docs
 only; the hosted proof's executable source remains the exact SHA linked above.
+
+
+## 2026-10-15 owner-authorized live merge implementation
+
+The owner explicitly requested enabling auto-merge in this test space to exercise
+the whole experience. Repository native auto-merge was already enabled. Saved the
+original rules before any live-pilot changes. Added a disabled-by-default expiring
+grant for one PR/head and a separate official-schema native lab catalog/policy.
+Production readiness remains held and is not relabeled as passed.
+
+The normal common/repository candidate evaluation remains required. The read-only
+pilot job evaluates the additional grant/scope/source/CI/rules/discussion controls;
+a separate write-capable job repeats them immediately before an expected-head
+GitHub native queue request. The required queue hook uses trusted main base code,
+checks the actual group CI, verifies the reviewed document blob and every other
+base file, and evaluates native Gemara on the cumulative group SHA. No admin merge,
+personal Actions secret, arbitrary PR execution or merge-model agent is introduced.
+
+Validated the read-only discussion query against GitHub. All 54 Python tests pass,
+including new native lab control failures, expiry/schema, exact tree/mode/symlink,
+required protections, pending/spoofed CI and denied-writer cases. Pinned SDK rebuild
+and Go checks passed. Both workflows parse. Disabled-grant CLI returns hold without
+an action. Setup is initially published with the grant disabled; the controlled
+live run, outcomes and cleanup will be recorded below.
