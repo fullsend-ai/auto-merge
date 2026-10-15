@@ -34,3 +34,17 @@ part of the observer. Legacy custom-agent/context routes remain disabled.
 
 Validation: 25 Python tests, 4 native Go tests, lint/format and example validation.
 The new test checks that job summaries explain holds without retaining API text.
+
+## Live trials and first correction
+
+PR #27 landed through the existing merge queue. Observer setup was pushed to
+main using a temporary admin bypass; the original ruleset was immediately
+restored and read back. No controls were deleted. Fullsend Review dispatch was
+restored only after verifying the review-only config and disabled custom agent.
+
+Opened PR #28 (valid docs) and PR #29 (intentional invalid Status field). Manual
+hosted observer runs completed successfully on both. During the initial pending-CI
+observation, corrected the normalizer to report Unknown until checks finish,
+while any completed unsuccessful check produces a failed CI predicate. Added
+a regression test for pending, mixed failure/pending, mixed success/pending,
+and all-success observations. These trials never request merging.

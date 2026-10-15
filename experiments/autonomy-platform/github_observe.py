@@ -103,11 +103,14 @@ def normalize(pr, checks, reviews, files):
             for name in CHECK_NAMES
         }
         if all(len(v) == 1 for v in selected.values()):
-            ci = all(
-                v[0].get("status") == "completed"
-                and v[0].get("conclusion") == "success"
-                for v in selected.values()
-            )
+            latest = [v[0] for v in selected.values()]
+            if any(
+                c.get("status") == "completed" and c.get("conclusion") != "success"
+                for c in latest
+            ):
+                ci = False
+            elif all(c.get("status") == "completed" for c in latest):
+                ci = True
     approved = None
     seen = False
     if reviews is not None:

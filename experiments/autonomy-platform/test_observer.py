@@ -133,6 +133,25 @@ class ObserverTests(unittest.TestCase):
         self.assertTrue(g.normalize(pr(), checks, [], [])[0]["AM-CI"])
         self.assertIsNone(g.normalize(pr(), checks + checks, [], [])[0]["AM-CI"])
 
+    def test_pending_ci_is_unknown_but_a_completed_failure_is_false(self):
+        checks = [
+            {
+                "name": n,
+                "head_sha": "a" * 40,
+                "app": {"id": 15368},
+                "status": "in_progress",
+                "conclusion": None,
+            }
+            for n in g.CHECK_NAMES
+        ]
+        self.assertIsNone(g.normalize(pr(), checks, [], [])[0]["AM-CI"])
+        checks[0].update(status="completed", conclusion="failure")
+        self.assertFalse(g.normalize(pr(), checks, [], [])[0]["AM-CI"])
+        checks[0]["conclusion"] = "success"
+        self.assertIsNone(g.normalize(pr(), checks, [], [])[0]["AM-CI"])
+        checks[1].update(status="completed", conclusion="success")
+        self.assertTrue(g.normalize(pr(), checks, [], [])[0]["AM-CI"])
+
     def test_protected_policy_change_not_classified_as_harmless_docs(self):
         values, _ = g.normalize(pr(), [], [], [{"filename": ".fullsend/config.yaml"}])
         self.assertFalse(values["AM-PROTECTED"])
