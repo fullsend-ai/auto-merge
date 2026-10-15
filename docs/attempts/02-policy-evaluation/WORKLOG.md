@@ -125,3 +125,31 @@ hosted tests and real-PR observations, including fixes justified by those runs.
 Verified remote main still matches the prepared baseline. The existing GitHub
 permissions and read-only observer boundaries remain in place; no merge authority
 is being activated. Hosted proof is recorded separately after execution.
+
+## 2026-10-15 hosted native-policy proof
+
+Published native implementation 6d1fe8e025b8ba245921f444d3bc089f92e1ee59 to main.
+The direct update needed a temporary admin exception; the original ruleset fields
+were restored immediately and verified. No control was deleted or left bypassed.
+
+Executed native fixture run 38720142221: passed 30 Python tests, the build's 4 Go
+tests, six synthetic replay scenarios and four mode simulations. All native input
+documents and generated EvaluationLogs were schema-validated against the pinned
+official matching schemas. The complete synthetic case would allow a shadow
+recommendation; failed, missing, stale, wrong-revision and stricter repository
+cases held. Every output forbade mutation.
+
+Native hosted observations 38720146279 (#28) and 38720149623 (#29) both completed
+successfully on that exact source revision. Their normalized outputs report
+stable candidates, hold decisions and mutation_permitted=false. #28 retains
+Fullsend's approval for ecf653b90ded754640eabe9dc9b8a845066e7e11; #29 retains
+the intentionally failing CI at 3620abed828a904b52f0cb79a946f8b67500c13e.
+The native policy path consumes this Fullsend/GitHub evidence without a new model
+agent or a comparison evaluator. It does not invent missing findings/risk or
+readiness attestations to obtain a passing live decision.
+
+Inspected only normalized result lines, test counts and job/check metadata. Raw
+workflow logs and API bodies were not retained or published. The observer itself
+never reads workflow logs. No test PR was merged or given auto-merge authority.
+The remaining boundary is evidence production/assurance and promotion governance,
+not whether the demonstrated native catalog/import/plan/evaluation path executes.

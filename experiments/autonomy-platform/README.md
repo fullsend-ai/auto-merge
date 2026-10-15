@@ -55,7 +55,7 @@ comments/statuses or changes rules. An approved read credential can be supplied
 locally via GH_TOKEN/GITHUB_TOKEN when needed; it is not passed to the evaluator.
 Reports discard API bodies, patches, review text and actor identities.
 
-The proposed `Autonomy shadow observation` workflow runs trusted main code after
+The `Autonomy shadow observation` workflow runs trusted main code after
 CI, and after Fullsend runs when GitHub associates a PR. Manual dispatch on main
 with a PR number handles Review commands that have no associated PR in the
 workflow event. The Summary lists each native policy/plan and its result. A green

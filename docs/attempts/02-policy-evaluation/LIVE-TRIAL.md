@@ -1,11 +1,22 @@
 # Follow the native Gemara trial
 
-The evaluator now uses one engine and native Gemara artifacts. The previous
-hosted comparison runs are historical evidence, not proof that this new version
-has been deployed. The new native path is tested locally against these same public PRs and prepared
-for the trusted-main workflows. The credential-free local observations returned
-no API errors: #28 passed CI and exact-revision Review, #29 failed CI, and both
-held on missing evidence. Each native output passed official schema validation.
+The native Gemara implementation is published on main. Verified hosted runs all
+used commit `6d1fe8e025b8ba245921f444d3bc089f92e1ee59`:
+
+- [Native fixture suite](https://github.com/fullsend-ai/auto-merge/actions/runs/38720142221):
+  30 Python tests, the pinned build's 4 native Go tests, six replay cases and four
+  mode simulations passed. Native input/output schema validation ran on the host.
+- [PR #28 native shadow observation](https://github.com/fullsend-ai/auto-merge/actions/runs/38720146279):
+  stable real-PR observation; native common and repository plans were evaluated;
+  CI and exact-revision Fullsend approval passed; the overall decision held on
+  missing findings/risk and readiness evidence.
+- [PR #29 native shadow observation](https://github.com/fullsend-ai/auto-merge/actions/runs/38720149623):
+  stable observation of the intentional CI failure; native evaluation held.
+
+These are native-policy runs, with no alternative evaluator. A successful
+workflow means the evaluation completed; the recorded policy decision remains
+`hold`. Local credential-free observations independently produced the same
+candidate outcomes with no API errors and schema-valid native EvaluationLogs.
 
 ## Read these three files
 
@@ -54,7 +65,7 @@ python3 experiments/autonomy-platform/github_observe.py --pr 29
 Each local report contains native readiness/candidate EvaluationLogs and a shadow
 decision. CI and Review can pass while findings, risk and readiness remain Unknown.
 That holds the overall decision; a green workflow is not permission to merge.
-After publication, run `Autonomy shadow observation` on main with either PR number
+Run `Autonomy shadow observation` on main with either PR number
 and read its Summary. The native policy/plan column explains each assessment.
 
 Historical comparison runs: [#28](https://github.com/fullsend-ai/auto-merge/actions/runs/38667624427)
