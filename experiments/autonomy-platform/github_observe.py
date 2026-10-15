@@ -288,7 +288,15 @@ def observe(number, client=None):
         and pr["base"]["ref"] == "main",
         "unsupported_pr",
     )
-    head, target = pr["head"]["sha"], pr["base"]["sha"]
+    branch = client.get(base + "branches/main")
+    require(
+        isinstance(branch, dict)
+        and re.fullmatch(r"[0-9a-f]{40}", (branch.get("commit") or {}).get("sha", "")),
+        "target_branch_unavailable",
+    )
+    head = pr["head"]["sha"]
+    pr_base_snapshot = pr["base"]["sha"]
+    target = branch["commit"]["sha"]
     checks = client.pages(
         base + f"commits/{head}/check-runs?filter=latest", "check_runs"
     )
@@ -315,6 +323,7 @@ def observe(number, client=None):
         base + f"commits/{head}/check-runs?filter=latest", "check_runs"
     )
     rules_again = client.get(base + "rules/branches/main")
+    branch_again = client.get(base + "branches/main")
     again = client.get(base + f"pulls/{number}")
     stable = (
         again is not None
@@ -324,8 +333,10 @@ def observe(number, client=None):
             again["state"],
             again.get("draft"),
         )
-        == (head, target, pr["state"], pr.get("draft"))
+        == (head, pr_base_snapshot, pr["state"], pr.get("draft"))
         and rules == rules_again
+        and branch_again is not None
+        and (branch_again.get("commit") or {}).get("sha") == target
         and reviews == reviews_again
         and comments == comments_again
         and checks == checks_again
@@ -385,6 +396,7 @@ def observe(number, client=None):
         "observed_at": now,
         "head_sha": head,
         "base_sha": target,
+        "github_pr_base_snapshot_sha": pr_base_snapshot,
         "pr_open": pr["state"] == "open",
         "historical_pr_observation": pr["state"] != "open",
         "stable_during_collection": stable,

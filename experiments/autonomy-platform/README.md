@@ -64,7 +64,7 @@ host publication extension: it emits a sanitized head/config/run/attempt-bound
 risk receipt. The collector verifies a completed trusted-main Fullsend run and
 current host source blobs before supplying its ordinal risk to Gemara. This is
 a lab receipt contract, not an upstream feature or a new model agent. See the
-[evidence update](../../docs/attempts/02-policy-evaluation/LIVE-TRIAL.md#local-evidence-collection-update-not-yet-published)
+[evidence update](../../docs/attempts/02-policy-evaluation/LIVE-TRIAL.md#evidence-and-trust-boundaries)
 for verified sources and the remaining evidence owners.
 
 The `Autonomy shadow observation` workflow runs trusted main code after

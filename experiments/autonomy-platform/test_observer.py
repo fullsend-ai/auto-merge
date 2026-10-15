@@ -30,6 +30,8 @@ class FixtureClient:
             if self.closed:
                 result["state"] = "closed"
             return result
+        if path.endswith("/branches/main") and "/rules/" not in path:
+            return {"commit": {"sha": "b" * 40}}
         if "rules/branches" in path:
             return [{"type": "pull_request"}]
         if "git/trees" in path:
@@ -127,6 +129,37 @@ class ObserverTests(unittest.TestCase):
             result = g.observe(26, client)
             self.assertEqual(result["shadow"]["decision"], "hold")
             self.assertIn("candidate_not_current_open_pr", result["shadow"]["reasons"])
+
+    def test_actual_target_branch_is_independent_of_pr_base_snapshot(self):
+        class OlderSnapshot(FixtureClient):
+            def get(self, path):
+                result = super().get(path)
+                if "pulls/26" in path:
+                    result["base"]["sha"] = "d" * 40
+                return result
+
+        report = g.observe(26, OlderSnapshot())
+        self.assertEqual(report["base_sha"], "b" * 40)
+        self.assertEqual(report["github_pr_base_snapshot_sha"], "d" * 40)
+        self.assertTrue(report["stable_during_collection"])
+
+    def test_target_branch_advance_during_collection_holds(self):
+        class MovingBranch(FixtureClient):
+            def __init__(self):
+                super().__init__()
+                self.branches = 0
+
+            def get(self, path):
+                if path.endswith("/branches/main") and "/rules/" not in path:
+                    self.branches += 1
+                    return {
+                        "commit": {"sha": ("b" if self.branches == 1 else "f") * 40}
+                    }
+                return super().get(path)
+
+        report = g.observe(26, MovingBranch())
+        self.assertFalse(report["stable_during_collection"])
+        self.assertEqual(report["shadow"]["decision"], "hold")
 
     def test_reviews_comments_and_ci_must_stay_stable(self):
         for endpoint in ["/reviews", "/comments", "/check-runs"]:

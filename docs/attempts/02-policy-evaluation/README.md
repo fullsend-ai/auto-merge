@@ -23,8 +23,12 @@ not been dismissed or declared universally fixed.
 
 Only Fullsend Review is enabled in the lab. The legacy custom auto-merge agent
 and supplementary context workflow remain disabled. The observer has read-only
-permissions and no merge/status writer. Actual merge execution, qualification
-attestations, trusted findings/risk contracts and promotion remain separate work.
+permissions and no merge/status writer. It consumes the official v2 finding
+ledger and a lab host risk-receipt extension, verifying the exact revision,
+completed producer run/attempt and pinned configuration. The complete live verifier
+requires the positive candidate to pass and negative CI to hold, while both remain
+unqualified for autonomous merging. Production attestations, actual merge execution
+and human promotion remain separate work; no readiness requirement is bypassed.
 
 The previous comparison implementation and larger research are retained locally
 and in version history. They are no longer part of the active evaluation path.

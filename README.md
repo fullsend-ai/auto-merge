@@ -9,9 +9,10 @@ There is one engine; no output grants merge authority. Start with the
 [walkthrough](docs/attempts/02-policy-evaluation/LIVE-TRIAL.md).
 
 [Attempt 1](docs/attempts/01-agent-led/README.md) preserves the earlier agent-led
-approach at its original paths. This change disables that agent and its
-supplementary dispatch route. Workflow pauses are repository settings and must be
-reviewed separately before restoring normal Fullsend Review dispatch.
+approach at its original paths. That agent and its supplementary dispatch route
+remain disabled. Official Fullsend Review is active, with the documented pinned
+host risk-receipt extension. The read-only verifier exercises positive PR #28,
+negative PR #29 and the independent repository-readiness hold.
 
 The existing lab description below documents Attempt 1.
 

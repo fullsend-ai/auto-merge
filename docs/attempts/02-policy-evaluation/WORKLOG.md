@@ -222,3 +222,27 @@ accepting a changed host extension. The observer workflow gains actions:read for
 run metadata, not write permissions or a log/artifact collector. Optional manual
 verify_example=true runs the complete positive/negative verification. 44 Python
 tests pass; native evaluator and policy requirements are unchanged.
+
+
+## 2026-10-15 real producer proof and target-branch correction
+
+Official Fullsend Review run 38737376370 succeeded on ac36da8175ca4b3ad67b5aa82ed2a73a6b2380e6.
+It published a low risk score of 1, exact PR head, configuration SHA and run/attempt
+receipt in summary comment 6182507614; current approval is review 5533412298.
+The host extension executed successfully without changing model or sandbox rights.
+
+The first complete verifier correctly failed on risk provenance: the collector
+had treated the PR API's old base snapshot e507edfdd1ae1e678e58cf5ecbc3682ee23689f9
+as current main. Actual main was 35735f57478acbf5ab370f4457c970a9ba58c369. Fixed
+collection to read branches/main directly, bind its actual SHA and configuration,
+and recheck that branch head as well as the separate PR base snapshot. No source
+pin, producer or risk check was relaxed. Added regression coverage for stale PR
+base snapshots and target-branch movement. All 46 Python tests pass.
+
+The corrected local native verifier passed: #28 all seven candidate assessments
+passed, including risk from the verified real producer; #29 held on its intentional
+CI failure. Repository qualification and combined gates remain hold for both,
+mutation_permitted=false and authorized_actions=[]. Hosted repetition follows.
+The earlier hosted fixture run 38737919849 passed 44 Python tests, Go/native build
+checks and synthetic replay on source 35735f57478acbf5ab370f4457c970a9ba58c369;
+it predates the two new branch-binding regression tests.
