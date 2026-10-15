@@ -1,11 +1,11 @@
 {
-  "title": "One-PR lab merge controls",
+  "title": "Repeatable documentation auto-merge pilot controls",
   "metadata": {
     "id": "autonomy-live-pilot-controls",
     "type": "ControlCatalog",
     "gemara-version": "1.5.0",
     "version": "0.1.0",
-    "description": "Explicit one-PR owner-authorized lab exception; not production readiness or an organizational standard",
+    "description": "Owner-enabled bounded repository lab pilot; not production qualification",
     "author": {
       "id": "autonomy-lab",
       "name": "Auto-Merge research lab",
@@ -30,14 +30,14 @@
   "controls": [
     {
       "id": "LP-AUTH",
-      "title": "Exact expiring owner grant matches this PR and reviewed head",
-      "objective": "Exact expiring owner grant matches this PR and reviewed head",
+      "title": "Repository owner enabled the bounded automatic pilot",
+      "objective": "Repository owner enabled the bounded automatic pilot",
       "group": "candidate",
       "state": "Active",
       "assessment-requirements": [
         {
           "id": "LP-AUTH-1",
-          "text": "Exact expiring owner grant matches this PR and reviewed head MUST be demonstrated with current bound evidence.",
+          "text": "Repository owner enabled the bounded automatic pilot MUST be demonstrated with current bound evidence.",
           "applicability": [
             "candidate"
           ],

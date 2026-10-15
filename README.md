@@ -1,6 +1,6 @@
 # Auto-Merge Experiments Lab
 
-## Current experiment: native Gemara policy and a verified live merge
+## Current experiment: native Gemara policy and a bounded documentation pilot
 
 [Attempt 2](experiments/autonomy-platform/README.md) evaluates native Gemara
 catalogs and imported common/repository policies against readiness and real PR
@@ -8,13 +8,17 @@ evidence. Input artifacts and generated EvaluationLogs are schema-validated.
 Start with the [shadow walkthrough](docs/attempts/02-policy-evaluation/LIVE-TRIAL.md)
 or the [live trial and its limits](docs/attempts/02-policy-evaluation/LIVE-PILOT.md).
 
-[PR #30](https://github.com/fullsend-ai/auto-merge/pull/30) merged through GitHub's
-protected queue after ordinary CI and the required native Gemara gate passed on
-the exact merged commit. This used an explicit one-PR lab exception; production
-readiness still held. The trial required an operator CLI queue handoff after the
-Actions-token request did not start queue CI. The one-shot grant is now disabled
-and the experimental repository protections have subsequently been removed at the
-owner's request to permit direct-main development. This is not unattended rollout.
+PR #32 installs the repeatable implementation through an owner-authorized
+bootstrap. Installation and hosted live proof are recorded separately; the earlier
+one-PR live merge is historical evidence.
+
+The [repeatable pilot](docs/attempts/02-policy-evaluation/LIVE-PILOT.md) introduces
+a time-boxed owner-enabled documentation cohort. The experimental maintenance
+path remains disabled and excludes governance changes. The writer uses a dedicated temporary repository App; registration,
+installation and hosted proof are tracked separately. Fullsend-native token
+minting remains unresolved; no unmerged upstream workflow or personal token is used. Read the
+trial record for the actual hosted proof and limits. Main requires the Gemara queue
+gate and ordinary CI. Production readiness remains a separate qualification.
 
 [Attempt 1](docs/attempts/01-agent-led/README.md) preserves the earlier agent-led
 approach at its original paths. That agent and its supplementary dispatch route

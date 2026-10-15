@@ -1,0 +1,134 @@
+{
+  "title": "Exact-head maintainer maintenance controls",
+  "metadata": {
+    "id": "autonomy-maintenance-controls",
+    "type": "ControlCatalog",
+    "gemara-version": "1.5.0",
+    "version": "0.1.0",
+    "description": "Owner-enabled bounded repository lab pilot; not production qualification",
+    "author": {
+      "id": "autonomy-lab",
+      "name": "Auto-Merge research lab",
+      "type": "Software Assisted"
+    },
+    "draft": true,
+    "applicability-groups": [
+      {
+        "id": "candidate",
+        "title": "Lab candidate",
+        "description": "Exact revision explicitly authorized by a current repository maintainer"
+      }
+    ]
+  },
+  "groups": [
+    {
+      "id": "candidate",
+      "title": "Lab candidate",
+      "description": "Exact revision explicitly authorized by a current repository maintainer"
+    }
+  ],
+  "controls": [
+    {
+      "id": "LP-AUTH",
+      "title": "Current maintainer explicitly authorized this exact maintenance revision",
+      "objective": "Current maintainer explicitly authorized this exact maintenance revision",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "LP-AUTH-1",
+          "text": "Current maintainer explicitly authorized this exact maintenance revision MUST be demonstrated with current bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "LP-SCOPE",
+      "title": "Only the exact maintainer-authorized regular-file changes enter the queue tree",
+      "objective": "Only the exact maintainer-authorized regular-file changes enter the queue tree",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "LP-SCOPE-1",
+          "text": "Only the exact maintainer-authorized regular-file changes enter the queue tree MUST be demonstrated with current bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "LP-SOURCE",
+      "title": "Evaluation runs from current trusted main sources",
+      "objective": "Evaluation runs from current trusted main sources",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "LP-SOURCE-1",
+          "text": "Evaluation runs from current trusted main sources MUST be demonstrated with current bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "LP-CI",
+      "title": "Every selected CI check passes on the evaluated commit",
+      "objective": "Every selected CI check passes on the evaluated commit",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "LP-CI-1",
+          "text": "Every selected CI check passes on the evaluated commit MUST be demonstrated with current bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "LP-RULES",
+      "title": "Protected single-entry merge queue requires the native queue gate",
+      "objective": "Protected single-entry merge queue requires the native queue gate",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "LP-RULES-1",
+          "text": "Protected single-entry merge queue requires the native queue gate MUST be demonstrated with current bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "LP-DISCUSSION",
+      "title": "No unresolved threads or latest changes-requested reviews",
+      "objective": "No unresolved threads or latest changes-requested reviews",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "LP-DISCUSSION-1",
+          "text": "No unresolved threads or latest changes-requested reviews MUST be demonstrated with current bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    }
+  ]
+}

@@ -1,11 +1,11 @@
 {
-  "title": "Owner-authorized one-PR live lab policy",
+  "title": "Repeatable documentation auto-merge pilot policy",
   "metadata": {
     "id": "autonomy-live-pilot",
     "type": "Policy",
     "gemara-version": "1.5.0",
     "version": "0.1.0",
-    "description": "Explicit one-PR owner-authorized lab exception; not production readiness or an organizational standard",
+    "description": "Owner-enabled bounded repository lab pilot; not production qualification",
     "author": {
       "id": "autonomy-lab",
       "name": "Auto-Merge research lab",
@@ -15,7 +15,7 @@
     "mapping-references": [
       {
         "id": "autonomy-live-pilot-controls",
-        "title": "One-PR lab merge controls",
+        "title": "Repeatable documentation auto-merge pilot controls",
         "version": "0.1.0"
       }
     ]

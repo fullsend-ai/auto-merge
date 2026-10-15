@@ -1,0 +1,81 @@
+name: Gemara writer (repository-only)
+on:
+  workflow_call:
+    inputs:
+      pr:
+        type: string
+        required: true
+      head:
+        type: string
+        required: true
+      maintenance:
+        type: boolean
+        default: false
+      probe:
+        type: boolean
+        default: false
+permissions: {}
+jobs:
+  writer:
+    if: >-
+      github.repository == 'fullsend-ai/auto-merge'
+      && (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_run')
+      && github.ref == 'refs/heads/main'
+    environment: gemara-pilot-writer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          # Environment deployment policy also restricts credentials to main.
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - if: ${{ !inputs.probe }}
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.6'
+          cache: false
+      - name: Prepare native evaluator without forge credentials
+        if: ${{ !inputs.probe }}
+        env:
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
+        run: |
+          python3 experiments/autonomy-platform/bootstrap_tools.py
+          python3 experiments/autonomy-platform/build_sdk.py
+      - name: Mint temporary lab App token for auto-merge only
+        id: app-token
+        # Official GitHub action, pinned to the v3 commit.
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510
+        with:
+          app-id: ${{ vars.GEMARA_PILOT_APP_ID }}
+          private-key: ${{ secrets.GEMARA_PILOT_APP_PRIVATE_KEY }}
+          owner: fullsend-ai
+          repositories: auto-merge
+          permission-contents: ${{ inputs.probe && 'read' || 'write' }}
+          permission-pull-requests: ${{ inputs.probe && 'read' || 'write' }}
+          # Default post-job revocation remains enabled.
+          skip-token-revoke: false
+      - name: Re-evaluate immediately and request GitHub protected queue
+        if: ${{ !inputs.probe }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PILOT_SOURCE_SHA: ${{ github.sha }}
+          PILOT_EVENT_NAME: ${{ github.event_name }}
+          PILOT_REF: ${{ github.ref }}
+          PILOT_CAN_ENQUEUE: 'true'
+          PILOT_ENQUEUE_TOKEN: ${{ steps.app-token.outputs.token }}
+          PILOT_PR: ${{ inputs.pr }}
+          PILOT_HEAD: ${{ inputs.head }}
+          PILOT_MAINTENANCE: ${{ inputs.maintenance }}
+        run: python3 experiments/autonomy-platform/live_pilot.py --phase enroll --pr "$PILOT_PR" --head "$PILOT_HEAD" --execute
+      - name: Verify read-only probe scope
+        if: inputs.probe
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: python3 experiments/autonomy-platform/app_token.py verify

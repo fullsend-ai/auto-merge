@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One expiring owner-authorized lab merge; never a production qualification."""
+"""Bounded repeatable auto-merge pilot with exact-head maintainer maintenance."""
 
 import argparse
 from datetime import datetime, timezone
@@ -13,6 +13,7 @@ import time
 import urllib.request
 
 import github_observe as g
+from app_token import verify_scope
 from platform_lab import (
     ROOT,
     InputError,
@@ -35,49 +36,49 @@ GROUP_REF = re.compile(
 )
 
 
-def grant():
-    data = load(ROOT / "policies/live-pilot-grant.json")
+def configuration():
+    data = load(ROOT / "policies/pilot-config.json")
     require(
         set(data)
         == {
             "schema_version",
             "repository",
-            "enabled",
-            "pull_request",
-            "head_sha",
-            "expires_at",
+            "automatic_enabled",
+            "automatic_expires_at",
+            "maintenance_enabled",
+            "allowed_document_paths",
             "maximum_changed_lines",
+            "maintenance_maximum_age_seconds",
         },
-        "invalid_pilot_grant",
+        "invalid_pilot_configuration",
     )
     require(
-        data["schema_version"] == "lab-merge-grant/v1"
+        data["schema_version"] == "repository-merge-pilot/v1"
         and data["repository"] == REPO
-        and data["enabled"] is True,
-        "pilot_not_enabled",
+        and type(data["automatic_enabled"]) is bool
+        and type(data["maintenance_enabled"]) is bool,
+        "invalid_pilot_configuration",
     )
     require(
-        type(data["pull_request"]) is int and 0 < data["pull_request"] < 1000000,
-        "invalid_pilot_grant",
+        isinstance(data["automatic_expires_at"], str), "invalid_pilot_configuration"
     )
+    utc(data["automatic_expires_at"])
+    # Finite lab cohort: no globs, executable paths, or caller-selected policies.
     require(
-        isinstance(data["head_sha"], str)
-        and re.fullmatch("[0-9a-f]{40}", data["head_sha"]),
-        "invalid_pilot_grant",
+        data["allowed_document_paths"] == [DOCUMENT]
+        and type(data["maximum_changed_lines"]) is int
+        and 1 <= data["maximum_changed_lines"] <= 20
+        and type(data["maintenance_maximum_age_seconds"]) is int
+        and 60 <= data["maintenance_maximum_age_seconds"] <= 3600,
+        "invalid_pilot_configuration",
     )
-    require(
-        type(data["maximum_changed_lines"]) is int
-        and 1 <= data["maximum_changed_lines"] <= 20,
-        "invalid_pilot_grant",
-    )
-    remaining = (utc(data["expires_at"]) - datetime.now(timezone.utc)).total_seconds()
-    require(0 < remaining <= 86400, "pilot_grant_expired_or_too_long")
     return data
 
 
-def bundle():
-    catalog = load(ROOT / "policies/live-pilot-controls.json")
-    policy = load(ROOT / "policies/live-pilot-policy.json")
+def bundle(maintenance=False):
+    prefix = "maintenance" if maintenance else "live-pilot"
+    catalog = load(ROOT / f"policies/{prefix}-controls.json")
+    policy = load(ROOT / f"policies/{prefix}-policy.json")
     validate(catalog, "ControlCatalog")
     validate(policy, "Policy")
     return {
@@ -87,10 +88,10 @@ def bundle():
     }
 
 
-def checks_pass(rows, sha):
+def checks_pass(rows, sha, names=None):
     if rows is None:
         return False
-    for name in CHECKS:
+    for name in CHECKS if names is None else names:
         matches = [
             r
             for r in rows
@@ -134,6 +135,7 @@ def queue_rules(rows):
         >= 0
         and reviews[0].get("parameters", {}).get("dismiss_stale_reviews_on_push")
         is True
+        and reviews[0].get("parameters", {}).get("require_code_owner_review") is True
         and reviews[0].get("parameters", {}).get("required_review_thread_resolution")
         is True
     )
@@ -172,12 +174,217 @@ def exact_tree(base, reviewed, queued):
     )
 
 
+def maintenance_scope(files):
+    return bool(
+        isinstance(files, list)
+        and 0 < len(files) <= 100
+        and sum(r.get("changes", 10001) for r in files) <= 10000
+        and all(
+            isinstance(r.get("filename"), str)
+            and r["filename"].startswith("docs/")
+            and r["filename"] != "docs/AUTO-MERGE-SECURITY-CONTRACT.md"
+            and r["filename"].rsplit("/", 1)[-1] != "AGENTS.md"
+            and r.get("status") in {"modified", "added", "removed"}
+            and not r.get("previous_filename")
+            for r in files
+        )
+    )
+
+
+def maintenance_tree(base, reviewed, queued, files):
+    changed = {r["filename"] for r in files}
+    return bool(
+        maintenance_scope(files)
+        and all(
+            queued.get(name) == reviewed.get(name)
+            and all(
+                entry is None or entry[:2] in {("blob", "100644"), ("blob", "100755")}
+                for entry in (base.get(name), reviewed.get(name))
+            )
+            for name in changed
+        )
+        and {k: v for k, v in base.items() if k not in changed}
+        == {k: v for k, v in queued.items() if k not in changed}
+    )
+
+
+def maintenance_run_matches(run, number, head, base, maximum_age, queue_phase):
+    try:
+        age = (datetime.now(timezone.utc) - utc(run["created_at"])).total_seconds()
+        return bool(
+            run.get("event") == "workflow_dispatch"
+            and run.get("path") == ".github/workflows/autonomy-pilot.yml"
+            and run.get("head_sha") == base
+            and run.get("repository", {}).get("full_name") == REPO
+            and run.get("display_title")
+            == f"Gemara maintenance execute PR #{number} @{head}"
+            and type(run.get("id")) is int
+            and run["id"] > 0
+            and type(run.get("run_attempt")) is int
+            and run["run_attempt"] > 0
+            and 0 <= age <= maximum_age
+            and (
+                not queue_phase
+                or (
+                    run.get("status") in {"in_progress", "completed"}
+                    and run.get("conclusion") in {None, "success"}
+                )
+            )
+        )
+    except (KeyError, ValueError, InputError, TypeError):
+        return False
+
+
+def independent_maintenance_approval(client, number, head):
+    pr = client.get(BASE + f"pulls/{number}")
+    if not pr or pr.get("head", {}).get("sha") != head:
+        return None
+    authors = {pr.get("user", {}).get("login", "").lower()}
+    commits = client.pages(BASE + f"pulls/{number}/commits")
+    if not isinstance(commits, list) or not commits or "" in authors:
+        return None
+    for commit in commits:
+        login = (commit.get("author") or {}).get("login")
+        if not isinstance(login, str):
+            return None
+        authors.add(login.lower())
+    reviews = client.pages(BASE + f"pulls/{number}/reviews")
+    if not isinstance(reviews, list):
+        return None
+    latest = {}
+    for review in reviews:
+        if review.get("state") not in {"APPROVED", "CHANGES_REQUESTED", "DISMISSED"}:
+            continue
+        user = review.get("user") or {}
+        login = user.get("login", "")
+        if user.get("type") != "User" or not re.fullmatch(r"[A-Za-z0-9-]{1,39}", login):
+            continue
+        if type(review.get("id")) is not int:
+            return None
+        if review["id"] > latest.get(login.lower(), {}).get("id", 0):
+            latest[login.lower()] = review
+    for login, review in latest.items():
+        if (
+            login in authors
+            or review["state"] != "APPROVED"
+            or review.get("commit_id") != head
+        ):
+            continue
+        permission = client.get(BASE + f"collaborators/{login}/permission")
+        if permission and permission.get("role_name", permission.get("permission")) in {
+            "admin",
+            "maintain",
+        }:
+            return {"review_id": review["id"], "reviewed_head": head}
+    return None
+
+
+def maintenance_authorization(client, number, head, base, phase, config):
+    if not config["maintenance_enabled"]:
+        return None
+    if phase == "enroll":
+        if os.environ.get("PILOT_MAINTENANCE") != "true":
+            return None
+        run_id = os.environ.get("GITHUB_RUN_ID", "")
+        if not re.fullmatch("[1-9][0-9]{0,14}", run_id):
+            return None
+        rows = [client.get(BASE + f"actions/runs/{run_id}")]
+    else:
+        rows = []
+        previous = datetime.now(timezone.utc)
+        for page in range(1, 11):
+            value = client.get(
+                BASE
+                + f"actions/workflows/autonomy-pilot.yml/runs?event=workflow_dispatch&per_page=100&page={page}"
+            )
+            batch = (value or {}).get("workflow_runs")
+            require(isinstance(batch, list), "maintenance_search_incomplete")
+            reached_boundary = False
+            for candidate in batch:
+                created = utc(candidate.get("created_at"))
+                require(created <= previous, "maintenance_search_order_unknown")
+                previous = created
+                if (datetime.now(timezone.utc) - created).total_seconds() > config[
+                    "maintenance_maximum_age_seconds"
+                ]:
+                    reached_boundary = True
+                    break
+                rows.append(candidate)
+            if reached_boundary or len(batch) < 100:
+                break
+        else:
+            raise InputError("maintenance_search_incomplete")
+    for run in rows:
+        if not run or not maintenance_run_matches(
+            run,
+            number,
+            head,
+            base,
+            config["maintenance_maximum_age_seconds"],
+            phase == "queue",
+        ):
+            continue
+        if phase == "queue":
+            jobs = client.get(
+                BASE
+                + f"actions/runs/{run['id']}/attempts/{run['run_attempt']}/jobs?per_page=100"
+            )
+            rows = (jobs or {}).get("jobs", [])
+            evaluations = [
+                job
+                for job in rows
+                if job.get("name") in {"evaluate", "enqueue / writer"}
+            ]
+            if (
+                not jobs
+                or jobs.get("total_count", 101) > 100
+                or {job.get("name") for job in evaluations}
+                != {"evaluate", "enqueue / writer"}
+                or len(evaluations) != 2
+                or any(
+                    job.get("run_id") != run["id"]
+                    or job.get("head_sha") != base
+                    or job.get("status") != "completed"
+                    or job.get("conclusion") != "success"
+                    for job in evaluations
+                )
+            ):
+                continue
+        actors = [run.get("actor"), run.get("triggering_actor")]
+        if not all(
+            isinstance(actor, dict)
+            and re.fullmatch(r"[A-Za-z0-9-]{1,39}", actor.get("login", ""))
+            for actor in actors
+        ):
+            continue
+        approved = True
+        for actor in actors:
+            permission = client.get(BASE + f"collaborators/{actor['login']}/permission")
+            if not permission or permission.get(
+                "role_name", permission.get("permission")
+            ) not in {"admin", "maintain"}:
+                approved = False
+        approval = (
+            independent_maintenance_approval(client, number, head) if approved else None
+        )
+        if approval:
+            return {
+                "independent_approval": approval,
+                "run_id": run["id"],
+                "run_attempt": run["run_attempt"],
+                "head_sha": head,
+                "source_sha": base,
+                "authorization": "maintainer-workflow-dispatch",
+            }
+    return None
+
+
 def trusted_source(client, base_sha, phase, group_sha=None):
     source = os.environ.get("PILOT_SOURCE_SHA")
     if source != base_sha or not re.fullmatch("[0-9a-f]{40}", source or ""):
         return False
     if phase == "enroll" and (
-        os.environ.get("PILOT_EVENT_NAME") != "workflow_dispatch"
+        os.environ.get("PILOT_EVENT_NAME") not in {"workflow_dispatch", "workflow_run"}
         or os.environ.get("PILOT_REF") != "refs/heads/main"
     ):
         return False
@@ -206,6 +413,7 @@ def trusted_source(client, base_sha, phase, group_sha=None):
     paths += [
         ".github/workflows/autonomy-pilot.yml",
         ".github/workflows/autonomy-queue.yml",
+        ".github/workflows/gemara-writer.yml",
     ]
     for name in paths:
         path = ROOT.parents[1] / name
@@ -337,12 +545,7 @@ def current_pr(pr, head):
 
 
 def evaluate(number, expected_head, phase, client=None):
-    permission = grant()
-    require(
-        number == permission["pull_request"]
-        and expected_head == permission["head_sha"],
-        "pilot_grant_does_not_match",
-    )
+    config = configuration()
     client = client or g.Client()
     group_sha = os.environ.get("PILOT_GROUP_SHA") if phase == "queue" else None
     group_base = os.environ.get("PILOT_GROUP_BASE") if phase == "queue" else None
@@ -358,20 +561,43 @@ def evaluate(number, expected_head, phase, client=None):
             "unrecognized_merge_group",
         )
         group_ci = wait_queue_ci(client, group_sha)
-    report = g.observe(number, client)
-    current_head, base_sha = report["head_sha"], report["base_sha"]
+    pr = client.get(BASE + f"pulls/{number}")
+    branch = client.get(BASE + "branches/main")
+    require(current_pr(pr, expected_head) and branch, "pilot_candidate_not_current")
+    base_sha = branch["commit"]["sha"]
+    permission = maintenance_authorization(
+        client, number, expected_head, base_sha, phase, config
+    )
+    maintenance = permission is not None
+    if phase == "enroll" and os.environ.get("PILOT_MAINTENANCE") == "true":
+        require(maintenance, "maintenance_authorization_missing")
+    automatic_authorized = bool(
+        config["automatic_enabled"]
+        and datetime.now(timezone.utc) < utc(config["automatic_expires_at"])
+        and current_pr(pr, expected_head)
+    )
+    report = None if maintenance else g.observe(number, client)
+    current_head = pr["head"]["sha"]
     target = group_sha or current_head
     files = client.pages(BASE + f"pulls/{number}/files")
     source_ok = trusted_source(client, base_sha, phase, group_sha)
     base_tree, reviewed_tree = tree(client, base_sha), tree(client, current_head)
-    scope_ok = scoped(files, permission["maximum_changed_lines"]) and reviewed_tree.get(
-        DOCUMENT, ()
-    )[:2] == ("blob", "100644")
+    scope_ok = (
+        maintenance_scope(files)
+        if maintenance
+        else scoped(files, config["maximum_changed_lines"])
+        and reviewed_tree.get(DOCUMENT, ())[:2] == ("blob", "100644")
+    )
     if phase == "queue":
+        queued = tree(client, group_sha)
         scope_ok = (
             scope_ok
             and group_base == base_sha
-            and exact_tree(base_tree, reviewed_tree, tree(client, group_sha))
+            and (
+                maintenance_tree(base_tree, reviewed_tree, queued, files)
+                if maintenance
+                else exact_tree(base_tree, reviewed_tree, queued)
+            )
             and queued_revision(client, number, expected_head, base_sha, group_sha)
         )
     ci = (
@@ -384,26 +610,42 @@ def evaluate(number, expected_head, phase, client=None):
             target,
         )
     )
+    if maintenance:
+        ci = ci and checks_pass(
+            client.pages(
+                BASE + f"commits/{expected_head}/check-runs?filter=latest", "check_runs"
+            ),
+            expected_head,
+            {"Gemara integration tests"},
+        )
     values = {
-        "LP-AUTH": current_head == expected_head and report["pr_open"],
+        "LP-AUTH": bool(permission if maintenance else automatic_authorized),
         "LP-SCOPE": scope_ok,
         "LP-SOURCE": source_ok,
-        "LP-CANDIDATE": report["stable_during_collection"]
-        and report["candidate_decision"] == "eligible",
         "LP-CI": ci,
         "LP-RULES": queue_rules(client.get(BASE + "rules/branches/main")),
         "LP-DISCUSSION": discussions_clear(client, number),
     }
+    if not maintenance:
+        values["LP-CANDIDATE"] = bool(
+            report["stable_during_collection"]
+            and report["head_sha"] == expected_head
+            and report["base_sha"] == base_sha
+            and report["candidate_decision"] == "eligible"
+        )
     now = (
         datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     )
     context = {
-        "grant": permission,
+        "configuration": config,
+        "maintenance_authorization": permission,
         "stage": phase,
         "reviewed_head": expected_head,
         "evaluated_sha": target,
         "base_sha": base_sha,
-        "candidate_request": report["shadow"]["evaluation"]["request_sha256"],
+        "candidate_request": report["shadow"]["evaluation"]["request_sha256"]
+        if report
+        else None,
     }
     subject = {
         "repository": REPO,
@@ -421,28 +663,39 @@ def evaluate(number, expected_head, phase, client=None):
         }
         for k, v in values.items()
     }
-    result = assess(bundle(), "candidate", subject, observations, now)
+    result = assess(bundle(maintenance), "candidate", subject, observations, now)
     again = client.get(BASE + f"pulls/{number}")
     branch = client.get(BASE + "branches/main")
     require(
         current_pr(again, expected_head)
         and branch
         and branch["commit"]["sha"] == base_sha
-        and grant() == permission
+        and configuration() == config
+        and (
+            not maintenance
+            or maintenance_authorization(
+                client, number, expected_head, base_sha, phase, config
+            )
+            == permission
+        )
         and not client.errors,
         "pilot_state_changed",
     )
     return {
-        "schema_version": "lab-pilot-result/v1",
+        "schema_version": "lab-pilot-result/v2",
         "repository": REPO,
         "pull_request": number,
         "stage": phase,
+        "mode": "maintenance" if maintenance else "automatic",
         "reviewed_head": expected_head,
         "evaluated_sha": target,
         "base_sha": base_sha,
-        "grant_sha256": digest(permission),
+        "configuration_sha256": digest(config),
         "decision": result["decision"],
-        "production_readiness": report["readiness_decision"],
+        "maintenance_authorization": permission,
+        "production_readiness": report["readiness_decision"]
+        if report
+        else "not_assessed",
         "evaluation": result,
         "authorized_action": "enqueue-only"
         if phase == "enroll" and result["decision"] == "eligible"
@@ -469,7 +722,18 @@ def enqueue(result):
         "--match-head-commit",
         result["reviewed_head"],
     ]
-    child = subprocess.run(command, capture_output=True, text=True, timeout=60)
+    token = os.environ.get("PILOT_ENQUEUE_TOKEN", "")
+    require(bool(token), "repository_app_token_required")
+    verify_scope()
+    child_env = {
+        k: os.environ[k]
+        for k in ["PATH", "HOME", "LANG", "XDG_CONFIG_HOME"]
+        if k in os.environ
+    }
+    child_env["GH_TOKEN"] = token
+    child = subprocess.run(
+        command, env=child_env, capture_output=True, text=True, timeout=60
+    )
     require(child.returncode == 0, "github_queue_request_failed")
     return "native_auto_merge_requested"
 
@@ -486,7 +750,9 @@ def main():
         if args.phase == "queue":
             match = GROUP_REF.fullmatch(os.environ.get("PILOT_GROUP_REF", ""))
             require(match is not None, "unrecognized_merge_group")
-            number, head = int(match[1]), grant()["head_sha"]
+            number = int(match[1])
+            pr = g.Client().get(BASE + f"pulls/{number}")
+            head = (pr or {}).get("head", {}).get("sha")
         require(
             type(number) is int
             and 0 < number < 1000000
@@ -504,7 +770,7 @@ def main():
         summary = os.environ.get("GITHUB_STEP_SUMMARY")
         if summary:
             Path(summary).write_text(
-                "# Owner-authorized lab merge pilot\n\n"
+                "# Repository Gemara pilot\n\n"
                 + f"PR #{number}; evaluated `{result['evaluated_sha']}`; stage {args.phase}; decision **{result['decision']}**. Production qualification: **{result['production_readiness']}**.\n\n"
                 + "\n".join(
                     f"- {r['id']}: {r['state']} ({r['reason']})"
@@ -512,6 +778,19 @@ def main():
                 )
                 + "\n"
             )
+        output = os.environ.get("GITHUB_OUTPUT")
+        if output:
+            with Path(output).open("a") as stream:
+                stream.write(
+                    "eligible=" + str(result["decision"] == "eligible").lower() + "\n"
+                )
+        if (
+            result["decision"] != "eligible"
+            and args.phase == "enroll"
+            and not args.execute
+            and os.environ.get("PILOT_EXECUTE_REQUESTED") != "true"
+        ):
+            return 0
         require(result["decision"] == "eligible", "pilot_policy_held")
         if args.execute:
             print(

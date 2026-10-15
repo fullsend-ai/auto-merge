@@ -1,230 +1,151 @@
-# Live Gemara-governed merge trial
+# Repeatable Gemara auto-merge pilot
 
-This extends the [shadow example](LIVE-TRIAL.md) into an owner-authorized activation
-of Gemara mode for **one documentation PR and exact head**. The owner explicitly
-authorized a live auto-merge experiment in this test repository. Production
-readiness remains unqualified; the exception is visible and bounded rather than
-marking those assurance controls passed.
+This is a bounded public-repository experiment with an explicit owner-enabled lab
+policy. It is not an approved organizational auto-merge standard or production
+qualification. The custom auto-merge model agent remains disabled.
 
-## Authorization and policy
+## Bounded pilot configuration
 
-[The committed grant](../../../experiments/autonomy-platform/policies/live-pilot-grant.json)
-selects one PR/head, an expiration and a maximum changed-line count. Disabled,
-expired, malformed or nonmatching grants cannot enqueue. Changing the head requires
-a new owner grant. A closed/merged PR cannot reuse the grant.
+[pilot-config.json](../../../experiments/autonomy-platform/policies/pilot-config.json)
+is the repository-owned configuration introduced by PR #32. The owner-authorized
+bootstrap replaces the disabled spent one-PR grant. Installation and hosted
+outcomes must be recorded separately:
 
-The original native common/repository candidate policies must still pass. The
-additional [native lab catalog](../../../experiments/autonomy-platform/policies/live-pilot-controls.json)
-and [native lab policy](../../../experiments/autonomy-platform/policies/live-pilot-policy.json)
-require the exact grant, document scope/tree, trusted main sources, passing candidate
-assessment, revision-specific CI, protected single-entry queue and clear discussions.
-There is still one Gemara evaluator. The lab policy is an explicit scoped exception
-to production qualification, not an approved organizational readiness standard.
+- **Automatic documentation pilot:** one ordinary modified file,
+  `docs/example-feature.md`, with at most 20 changed lines. The unchanged native
+  common/repository candidate policies must pass: current Fullsend approval,
+  verified findings/risk, CI, allowed change class and governed-path restrictions.
+- **Maintenance is disabled for this demo.** The retained experimental path is
+  limited to documentation, requires an explicit execute dispatch and an
+  independent current-head approval by an admin or maintainer who authored
+  neither the PR nor its commits. Queue authorization also requires a successful
+  evaluation and writer job from the same exact run attempt. It is not a route
+  for workflow, evaluator, policy, configuration or harness changes; hosted
+  entry-mode binding remains a prerequisite for any future maintenance rollout.
 
-## The actual controller
+Automatic authorization expires at `2026-10-22T18:00:00Z` (October 22, 2026,
+2 p.m. EDT). An expired or disabled cohort produces a native `LP-AUTH` hold.
+`automatic_enabled=false` stops automatic entry and authorization.
 
-[Gemara live merge pilot](../../../.github/workflows/autonomy-pilot.yml) is manually
-dispatched on main with a PR number and head. `execute=false` evaluates only.
-`execute=true` allows a separate write-capable job after the read-only evaluation
-succeeds. That writer repeats the full evaluation immediately before invoking:
+Evaluator code and configuration are loaded from current main. Workflow YAML for
+merge groups can include PR changes, so that checkout alone does not protect the
+required check. The deployment also requires GitHub code-owner review for governed
+paths. CODEOWNERS covers workflows, the harness, evaluator/policies, scripts,
+security contract and repository instructions. Those paths are excluded from the
+automatic documentation cohort and the retained maintenance path. Their changes
+need human governance rather than authorization by the PR's own modified gate.
 
-```sh
-gh pr merge NUMBER -R fullsend-ai/auto-merge --auto --match-head-commit HEAD
-```
+## Workflow path
 
-It never uses an admin merge or a direct merge API. GitHub retains its native merge
-queue and required checks. No personal token or new secret is stored in Actions.
-Only the writer has contents/pull-request write permissions; evaluator children
-receive clean environments, and no PR or synthetic-commit code is executed.
+[Gemara live merge pilot](../../../.github/workflows/autonomy-pilot.yml) listens
+for completed `CI` and `fullsend` runs, and supports manual dispatch. A read-only
+resolver binds one current same-repository PR to its exact current head. For
+Fullsend slash-command runs without linked PR metadata, it can use a matching
+pinned-producer risk receipt as a routing hint. The evaluator independently verifies
+that evidence; the hint grants no authority. Merge-group CI cannot retrigger entry.
 
-## Final authorization on the merge group
+A read-only job evaluates native Gemara policy. Only if eligible does a separate
+writer repeat the evaluation and request GitHub's protected queue with
+`--auto --match-head-commit`. There is no admin merge in the live path.
 
-During the completed experiment, the rules required **Gemara pilot queue gate**, bound to the
-GitHub Actions producer, as well as the existing three checks. The queue built
-and merged one entry at a time. Fullsend approval is mandatory in the native candidate policy. Stale-review
-dismissal and conversation resolution are also required. The separate GitHub
-human-approval count was zero for this owner-authorized experiment.
+[Gemara merge queue validation](../../../.github/workflows/autonomy-queue.yml)
+waits for ordinary CI on GitHub's actual cumulative commit, re-evaluates policy,
+and verifies the queued tree against the reviewed head and current base. The
+reviewed file blobs must match; unrelated changes, symlinks, missing evidence,
+changed configuration or unknown revision state hold. The queue builds and merges
+one entry at a time. GitHub performs the merge after required checks pass.
 
-[The queue workflow](../../../.github/workflows/autonomy-queue.yml) loads code from
-the platform-supplied trusted main base. It waits for the ordinary CI checks on
-the actual cumulative group SHA, rechecks Fullsend/candidate evidence and evaluates
-the lab policy against that group SHA. It also verifies:
+The PR-stage queue check only defers final validation. It does not approve entry.
+The required check context is **Gemara pilot queue gate**, bound to GitHub Actions,
+in addition to the three original required CI contexts. Conversation resolution,
+stale-review dismissal, code-owner review, deletion protection and non-fast-forward protection remain
+required; there are no bypass actors in the steady-state ruleset.
 
-- the group ref identifies the granted PR and base, and GitHub queue-entry
-  metadata binds the reviewed head, base and actual group commit;
-- the queued document is an ordinary file with exactly the reviewed blob;
-- every other file/submodule entry equals the current main base;
-- the actual target branch, source policy/code and grant remain current;
-- the grant is unexpired and no unresolved threads or changes requests remain.
+## Temporary repository App handoff
 
-It exits nonzero on missing, changed or failed evidence. GitHub can merge only
-after this required group check passes. Its PR-stage success merely defers final
-queue validation; it is not an eligibility approval.
+The writer is configured to use the dedicated private lab GitHub App
+`gemara-auto-merge-pilot-lab` (App ID `5334789`, installation `171824120`).
+Its only installation selects only `fullsend-ai/auto-merge`. Registration,
+installation and a metadata-only installation-token scope check were verified
+on October 15, 2026. The probe token was revoked. The key is stored only as an
+encrypted environment secret; the temporary local key copy was removed.
+PR #32 installs this workflow through the documented owner bootstrap. This is a
+temporary credential mechanism, not the
+Fullsend-native token handoff. Two earlier repository-hosted Fullsend mint probes
+returned HTTP 401; that integration remains unresolved. An external prototype
+is excluded from this repository-only design and proof.
 
-This deliberately supports GitHub's observed one-entry `gh-readonly-queue/main/pr-N-SHA`
-ref shape. Unknown shapes hold. It is not a general multi-PR batching implementation.
+The reviewed [App manifest](../../../experiments/autonomy-platform/policies/lab-app-manifest.json)
+requests Contents and Pull requests write permissions, no organization or
+administration permissions, no webhook events and no user authorization. The App
+must not appear in any ruleset bypass list. Its only installation must select
+this repository, not all repositories.
 
-## Trial record and cleanup
+The `gemara-pilot-writer` Actions environment allows branch `main` only. It holds
+`GEMARA_PILOT_APP_PRIVATE_KEY` as an encrypted environment secret and
+`GEMARA_PILOT_APP_ID` as a non-secret environment variable. The private key is
+long-lived; protecting it remains necessary even though installation tokens expire.
+It must never be committed, logged, passed to PR code, model agents, builds or tests,
+or included in artifacts. No personal token or Fullsend App key is copied to Actions.
 
-The worklog records setup, live run IDs, candidate/queue SHAs, merge outcome and
-restoration. The pre-existing negative shadow PR remains unmerged. A separate
-nonmatching-grant dispatch verifies that the writer is not reached.
+The writer executes trusted main code and prepares the evaluator before minting.
+It uses the [official GitHub token action](https://github.com/actions/create-github-app-token)
+at a pinned commit, requests only this repository and the required permissions,
+and leaves default post-job revocation enabled. A manual read-only probe on main
+requests read permissions and verifies scope without queue entry. An executing
+writer verifies the single-repository token scope again, repeats native policy
+evaluation and requests only the exact reviewed head through GitHub's protected queue.
 
-After the live experiment, the one-shot grant is disabled and the original queue
-rules are restored. The repository's native auto-merge feature remains enabled;
-future Gemara-controlled experiments require another explicit grant and the
-required queue protection. Broad autonomous rollout remains a separate decision.
+Registration, installation, hosted token verification and repeatable live trials
+must each be recorded separately; changing the writer does not prove those steps
+have succeeded. Do not claim hosted queue-entry proof until those run results are recorded.
 
-The general GitHub behavior is documented in the
-[CLI merge manual](https://cli.github.com/manual/gh_pr_merge) and
-[merge-queue configuration guide](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue).
+To retire the workaround: disable automatic pilot entry, remove the environment
+secret and variable, uninstall/delete the dedicated App and its private key, and
+replace only the credential acquisition step once Fullsend supports this writer.
+Keep Gemara policy and all GitHub protections enforced throughout the transition.
 
+## Exact-head maintenance authorization
 
-## Observed GitHub approval distinction
+Only manual `workflow_dispatch` may authorize maintenance. Its trusted workflow
+run title binds the PR and full head SHA. Both original and rerun actors must still
+have repository admin or maintain permission. The source SHA must equal current
+main. An independent current-head human approval is also required; the reviewer
+must be a current admin/maintainer and cannot be the PR or a commit author. The run must be no older than one hour. Recent dispatches are searched through
+the age boundary with bounded pagination. Both the evaluation and writer job must have completed successfully in the same
+run attempt. Evaluate-only dispatches grant no merge authority. Maintenance is
+disabled in the shipped pilot configuration; this retained path is not live proof.
 
-Fullsend approved the exact head, and native candidate policy passed. With an
-additional GitHub required-review count of one, GitHub nevertheless reported
-REVIEW_REQUIRED and held the auto-merge request outside the queue. A Fullsend
-approval is not automatically an eligible GitHub required review in this setup.
-The experiment therefore uses zero independent human approvals, with Fullsend
-approval still enforced by Gemara and the required cumulative queue gate. The
-original repository rules had no required-review count. No review-app permissions
-or administrative merge bypass were added to work around this distinction.
+The queue gate looks up a matching explicit-execute dispatch with successful evaluation and writer jobs, checks those properties
+again and evaluates the separate
+[maintenance policy](../../../experiments/autonomy-platform/policies/maintenance-policy.json).
+Changing the head, advancing main, expiring the authorization or removing the
+actor's permission invalidates it. Automatic event resolution cannot create this
+authorization. The original PR #30 grant is archived as
+[historical evidence](history/pr30-grant.json), not used for future decisions.
 
-## Verified result: PR #30 merged
+## What production readiness hold means
 
-On October 15, 2026 at 15:44:03 UTC,
-[PR #30](https://github.com/fullsend-ai/auto-merge/pull/30) merged through the
-protected queue. The exact merged and evaluated commit is
-`58e7440e420c9c62094f77c35ebb71e6a833b6f7`.
+Our prototype collector deliberately leaves four general assurance inputs unknown:
 
-- [Controller evaluation and writer](https://github.com/fullsend-ai/auto-merge/actions/runs/38761451293)
-  passed against main `315bb6bc35018c91a5e3c8175fc32bb50c9e5dbd` and reviewed head
-  `d1b22cadb90264675b6ca9f7c5aaa9b8fc44cd93`.
-- [Ordinary queue CI](https://github.com/fullsend-ai/auto-merge/actions/runs/38762151272)
-  passed all three required checks, including the four-minute integration check.
-- [Required Gemara queue gate](https://github.com/fullsend-ai/auto-merge/actions/runs/38762151257)
-  passed all seven native lab controls against that actual cumulative commit.
-  Its independent production-readiness result remained `hold`.
-- [Hosted regression fixtures](https://github.com/fullsend-ai/auto-merge/actions/runs/38759337735)
-  passed 56 Python tests. The final review-count adjustment also passed all 56 locally.
-- [Nonmatching-grant negative run](https://github.com/fullsend-ai/auto-merge/actions/runs/38758510031)
-  rejected PR #29 and skipped the writer. That PR remains unmerged.
+- Test sufficiency: the toy validator is not accepted testing-quality assurance.
+- Runtime isolation: the deployed Review runtime has not been attested here.
+- Trusted publication: no general production eligibility-publisher approval exists.
+- Shadow history: accepted outcomes and promotion criteria are not implemented.
 
-### Credential handoff found by the trial
+Gemara applies our draft policy to those unknowns; it has not independently
+investigated them or certified the repository. The bounded automatic lab pilot is
+an explicit owner-enabled exception to production qualification. Maintenance is
+an explicitly human-authorized operation. Neither silently marks readiness green.
 
-The controller's Actions-token request entered the queue, but its first group
-`5ca817e71f750657e3e94e96897e06728b214a0a` received no Actions workflow runs.
-The operator dequeued it and retried the same exact-head native queue request
-from an authorized local CLI. This produced the successful group above and
-started both required workflows. There was no admin merge and no check bypass
-for the trial PR. This is a verified operator-assisted live merge, not proof
-of a fully unattended Actions-token deployment.
+## Evidence
 
-[GitHub documents token-trigger restrictions](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
-The observation is consistent with those restrictions. A hosted Fullsend
-integration should use an appropriately scoped GitHub App installation token for
-queue entry, and repeat this test with that identity. We did not add a PAT, App
-private key, or new secret to this public repository. That hosted credential path
-remains untested here; Gemara does not supply forge credentials or dispatch CI.
+The original [PR #30](https://github.com/fullsend-ai/auto-merge/pull/30) merged at
+`58e7440e420c9c62094f77c35ebb71e6a833b6f7` after
+[ordinary group CI](https://github.com/fullsend-ai/auto-merge/actions/runs/38762151272)
+and the [required native gate](https://github.com/fullsend-ai/auto-merge/actions/runs/38762151257)
+passed. That trial needed an operator queue retry because its Actions-token entry
+started no queue workflows. It is historical evidence, not the new App-token proof.
 
-### Current state after cleanup
-
-The one-shot grant remains disabled. The original protections were restored after
-the trial, briefly removed at the owner's request, then restored from the exact
-saved snapshot when the owner corrected that instruction. Main currently has the
-original merge queue, three required CI checks, deletion/force-push protection and
-no bypass actors. The current ruleset ID is 25172387.
-
-The restored baseline does not require `Gemara pilot queue gate`. A future live
-Gemara pilot must install that additional required gate and its single-entry
-protection profile and authorize a fresh grant. The live controller holds when
-that profile is absent. This setup is not an always-on auto-merge service.
-
-## What this example actually did
-
-Fullsend Review supplied judgment about a documentation PR. Our collector read
-GitHub CI, exact-head review/findings/risk evidence and repository state. Our Go
-integration bound those observations to named Gemara assessment methods; native
-Gemara evaluated the imported common and repository policies and produced an
-EvaluationLog. A separate trusted controller requested queue entry. At the queue
-commit, the required gate repeated policy evaluation against the cumulative tree.
-GitHub performed the merge only after that gate and ordinary CI passed.
-
-The custom auto-merge model agent was not part of this decision. Gemara did not
-review code, run CI, fetch GitHub evidence by itself, or merge the PR. The lab's
-collector, assessment implementations and controller supplied those integrations.
-
-### What starts shadow observation?
-
-[autonomy-shadow.yml](../../../.github/workflows/autonomy-shadow.yml) has two triggers:
-
-- Manual `workflow_dispatch` with a PR number; optional `verify_example` also
-  checks the positive/negative shadow fixtures and readiness holds.
-- `workflow_run` after either workflow named `CI` or `fullsend` completes,
-  regardless of success or failure. Its job runs only in this repository on main
-  and only when the triggering run contains a PR number. Otherwise the workflow
-  can appear as skipped. It currently selects the first linked PR.
-
-Both paths check out trusted main code, collect read-only metadata and emit a
-normalized policy summary. They cannot merge or change repository settings.
-`fullsend` runs triggered by issue comments may lack a linked PR in their run
-metadata; manual dispatch is the fallback. There is no polling schedule and no
-custom model agent in this observer.
-
-### What is portable, and what overlaps with GitHub?
-
-Checking CI, approvals, unresolved discussions and revision identity overlaps with
-native forge capabilities. Here those observations also feed a common policy and
-structured evidence record. The extra Fullsend-specific checks include matching
-review findings and risk receipts to the exact revision, restricting allowed
-change classes and governed paths, and evaluating repository readiness.
-
-The reusable design is a common Gemara catalog/policy and evaluation contract,
-with forge-specific evidence collection and enforcement. The current lab is
-GitHub-specific; a GitLab collector/controller has not been implemented or tested.
-Policies alone cannot turn GitHub API fields into GitLab evidence. Nor do policies
-prevent an unrelated writer from merging unless the forge or another authoritative
-control enforces the decision. Native branch rules can also be provisioned through
-APIs with owner authorization; Gemara complements that enforcement.
-
-See [Gemara's integration FAQ](https://gemara.openssf.org/faq/) for the distinction
-between reusable artifacts and evaluation-tool integration.
-
-## Workflow list
-
-- **Gemara shadow observation:** read-only evaluation of a real PR; records a
-  policy decision and does not merge.
-- **Gemara live merge pilot:** manually evaluates an exact-head grant and can
-  request queue entry through a separate writer.
-- **Gemara merge queue validation:** evaluates the actual cumulative queue commit.
-  Its PR-stage check only defers final validation until a group exists.
-- **CI:** ordinary example checks, plus a PR-only Gemara integration-test job using
-  synthetic evidence. Those tests validate our integration, not a real PR's eligibility.
-- **fullsend:** the supported Fullsend dispatcher, including Review.
-
-Removed the disabled old agent-context workflow and unused Prioritize workflow.
-Folded the separate fixture workflow into CI without dropping its tests. Historical
-Actions runs are retained; GitHub may still display entries for deleted workflows.
-The workflow filenames for the three Gemara paths stay unchanged because the
-controller verifies their source paths. No shadow/live triggers or permissions changed.
-
-## Why the successful trial still reported readiness hold
-
-There are two questions: is this specific PR eligible, and is this repository
-qualified for repeated unattended merges? The trial answered the first under an
-explicit one-PR lab authorization. It did not certify the second.
-
-Our collector deliberately supplies no accepted evidence for four readiness inputs:
-
-- **AR-TESTS:** the toy document validator is not an accepted test-sufficiency assessment.
-- **AR-ISOLATION:** deployed Review runtime isolation has not been attested.
-- **AR-STATUS:** the read-only observer is not an approved authoritative eligibility publisher.
-- **AR-HISTORY:** shadow outcomes and promotion criteria have not been accepted.
-
-These are unknowns in this prototype, not proof of unsafe behavior. Gemara evaluates
-the supplied policy and evidence; it has not independently investigated those areas.
-The native queue check did enforce the separate lab policy, but this did not supply
-or automatically approve the missing general production-readiness evidence. The
-collectors for that evidence and the owner-approved acceptance criteria still need
-implementation before routine unattended use can be claimed.
+Current implementation validation and live positive/negative results are recorded
+in [WORKLOG.md](WORKLOG.md). The App-token handoff remains blocked; no new live merge outcome is claimed. Historical disabled workflow runs are retained.

@@ -8,6 +8,30 @@ import live_pilot as p
 from platform_lab import InputError, assess, digest
 
 
+def maintenance_client(get):
+    client = mock.Mock()
+
+    def route(path):
+        if path.endswith("/pulls/32"):
+            return {"user": {"login": "author"}, "head": {"sha": "a" * 40}}
+        return get(path)
+
+    client.get.side_effect = route
+    client.pages.side_effect = lambda path: (
+        [{"author": {"login": "author"}}]
+        if path.endswith("/commits")
+        else [
+            {
+                "id": 90,
+                "state": "APPROVED",
+                "commit_id": "a" * 40,
+                "user": {"login": "reviewer", "type": "User"},
+            }
+        ]
+    )
+    return client
+
+
 def rules():
     return [
         {"type": "deletion"},
@@ -21,6 +45,7 @@ def rules():
             "parameters": {
                 "required_approving_review_count": 1,
                 "dismiss_stale_reviews_on_push": True,
+                "require_code_owner_review": True,
                 "required_review_thread_resolution": True,
             },
         },
@@ -67,40 +92,367 @@ class PilotTests(unittest.TestCase):
                 assess(bundle, "candidate", subject, bad, now)["decision"], "hold"
             )
 
-    def test_grant_is_exact_expiring_and_closed_schema(self):
+    def test_configuration_is_bounded_closed_and_has_an_independent_kill_switch(self):
         data = {
-            "schema_version": "lab-merge-grant/v1",
+            "schema_version": "repository-merge-pilot/v1",
             "repository": p.REPO,
-            "enabled": True,
-            "pull_request": 30,
-            "head_sha": "a" * 40,
-            "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1))
-            .isoformat(timespec="seconds")
-            .replace("+00:00", "Z"),
-            "maximum_changed_lines": 12,
+            "automatic_enabled": True,
+            "automatic_expires_at": "2026-10-22T18:00:00Z",
+            "maintenance_enabled": True,
+            "allowed_document_paths": [p.DOCUMENT],
+            "maximum_changed_lines": 20,
+            "maintenance_maximum_age_seconds": 3600,
         }
         with mock.patch.object(p, "load", return_value=data):
-            self.assertEqual(p.grant(), data)
+            self.assertEqual(p.configuration(), data)
         for field, value in [
-            ("enabled", False),
-            ("head_sha", "bad"),
+            ("automatic_enabled", "true"),
             ("repository", "other/repo"),
             ("maximum_changed_lines", 21),
-            ("pull_request", True),
-            ("expires_at", "2000-01-01T00:00:00Z"),
+            ("maximum_changed_lines", True),
+            ("maintenance_maximum_age_seconds", 3601),
+            ("allowed_document_paths", [".github/workflows/run.yml"]),
         ]:
-            bad = dict(data)
-            bad[field] = value
             with (
-                mock.patch.object(p, "load", return_value=bad),
+                mock.patch.object(p, "load", return_value=dict(data, **{field: value})),
                 self.assertRaises(InputError),
             ):
-                p.grant()
+                p.configuration()
         with (
             mock.patch.object(p, "load", return_value=dict(data, unexpected=True)),
             self.assertRaises(InputError),
         ):
-            p.grant()
+            p.configuration()
+        with mock.patch.object(
+            p, "load", return_value=dict(data, automatic_enabled=False)
+        ):
+            self.assertFalse(p.configuration()["automatic_enabled"])
+
+    def test_maintenance_dispatch_cannot_be_replayed_for_other_revisions_or_sources(
+        self,
+    ):
+        now = datetime.now(timezone.utc)
+        run = {
+            "id": 1,
+            "run_attempt": 1,
+            "event": "workflow_dispatch",
+            "path": ".github/workflows/autonomy-pilot.yml",
+            "head_sha": "b" * 40,
+            "repository": {"full_name": p.REPO},
+            "display_title": f"Gemara maintenance execute PR #32 @{'a' * 40}",
+            "created_at": now.isoformat(timespec="seconds").replace("+00:00", "Z"),
+            "status": "completed",
+            "conclusion": "success",
+        }
+        self.assertTrue(
+            p.maintenance_run_matches(run, 32, "a" * 40, "b" * 40, 3600, True)
+        )
+        for args in [
+            (33, "a" * 40, "b" * 40),
+            (32, "c" * 40, "b" * 40),
+            (32, "a" * 40, "c" * 40),
+        ]:
+            self.assertFalse(p.maintenance_run_matches(run, *args, 3600, True))
+        for change in [
+            {"display_title": f"Gemara maintenance evaluate PR #32 @{'a' * 40}"},
+            {"event": "pull_request_target"},
+            {"path": ".github/workflows/ci.yml"},
+            {"conclusion": "failure"},
+            {"repository": {"full_name": "other/repo"}},
+            {
+                "created_at": (now - timedelta(hours=2))
+                .isoformat(timespec="seconds")
+                .replace("+00:00", "Z")
+            },
+            {
+                "created_at": (now - timedelta(seconds=3601))
+                .isoformat(timespec="seconds")
+                .replace("+00:00", "Z")
+            },
+            {
+                "created_at": (now + timedelta(seconds=60))
+                .isoformat(timespec="seconds")
+                .replace("+00:00", "Z")
+            },
+        ]:
+            self.assertFalse(
+                p.maintenance_run_matches(
+                    dict(run, **change), 32, "a" * 40, "b" * 40, 3600, True
+                )
+            )
+
+    def test_maintenance_requires_current_maintainer_permission(self):
+        config = {"maintenance_enabled": True, "maintenance_maximum_age_seconds": 3600}
+        run = {
+            "id": 1,
+            "run_attempt": 1,
+            "event": "workflow_dispatch",
+            "path": ".github/workflows/autonomy-pilot.yml",
+            "head_sha": "b" * 40,
+            "repository": {"full_name": p.REPO},
+            "display_title": f"Gemara maintenance execute PR #32 @{'a' * 40}",
+            "created_at": datetime.now(timezone.utc)
+            .isoformat(timespec="seconds")
+            .replace("+00:00", "Z"),
+            "actor": {"login": "owner"},
+            "triggering_actor": {"login": "owner"},
+        }
+        for role, allowed in [
+            ("write", False),
+            ("read", False),
+            ("admin", True),
+            ("maintain", True),
+        ]:
+            client = maintenance_client(
+                lambda path: run
+                if "/actions/" in path
+                else {
+                    "permission": "write" if role == "maintain" else role,
+                    "role_name": role,
+                }
+            )
+            with mock.patch.dict(
+                os.environ, {"PILOT_MAINTENANCE": "true", "GITHUB_RUN_ID": "1"}
+            ):
+                self.assertEqual(
+                    bool(
+                        p.maintenance_authorization(
+                            client, 32, "a" * 40, "b" * 40, "enroll", config
+                        )
+                    ),
+                    allowed,
+                )
+
+    def test_a_successful_skipped_or_probe_workflow_is_not_maintenance_approval(self):
+        config = {"maintenance_enabled": True, "maintenance_maximum_age_seconds": 3600}
+        run = {
+            "id": 1,
+            "run_attempt": 1,
+            "event": "workflow_dispatch",
+            "path": ".github/workflows/autonomy-pilot.yml",
+            "head_sha": "b" * 40,
+            "repository": {"full_name": p.REPO},
+            "display_title": f"Gemara maintenance execute PR #32 @{'a' * 40}",
+            "created_at": datetime.now(timezone.utc)
+            .isoformat(timespec="seconds")
+            .replace("+00:00", "Z"),
+            "actor": {"login": "owner"},
+            "triggering_actor": {"login": "owner"},
+            "status": "completed",
+            "conclusion": "success",
+        }
+        job = {
+            "name": "evaluate",
+            "run_id": 1,
+            "head_sha": "b" * 40,
+            "status": "completed",
+            "conclusion": "success",
+        }
+        for jobs, allowed in [
+            ([job, dict(job, name="enqueue / writer")], True),
+            ([job], False),
+            ([job, dict(job, name="enqueue / writer", conclusion="skipped")], False),
+            ([], False),
+            ([dict(job, conclusion="skipped")], False),
+            ([dict(job, head_sha="c" * 40)], False),
+            ([dict(job, run_id=2)], False),
+        ]:
+
+            def get(path):
+                if "/actions/workflows/" in path:
+                    return {"workflow_runs": [run]}
+                if "/jobs?" in path:
+                    return {"total_count": len(jobs), "jobs": jobs}
+                return {"permission": "admin", "role_name": "admin"}
+
+            client = maintenance_client(get)
+            self.assertEqual(
+                bool(
+                    p.maintenance_authorization(
+                        client, 32, "a" * 40, "b" * 40, "queue", config
+                    )
+                ),
+                allowed,
+            )
+
+    def test_maintenance_tree_does_not_allow_unapproved_files_or_symlinks(self):
+        base = {"code.py": ("blob", "100644", "a" * 40)}
+        reviewed = dict(base, **{"docs/maintenance.md": ("blob", "100644", "b" * 40)})
+        files = [{"filename": "docs/maintenance.md", "status": "added", "changes": 10}]
+        self.assertTrue(p.maintenance_tree(base, reviewed, reviewed, files))
+        self.assertFalse(
+            p.maintenance_tree(
+                base,
+                reviewed,
+                dict(reviewed, extra=("blob", "100644", "c" * 40)),
+                files,
+            )
+        )
+        symlink = dict(base, **{"docs/maintenance.md": ("blob", "120000", "b" * 40)})
+        self.assertFalse(p.maintenance_tree(base, symlink, symlink, files))
+        self.assertFalse(
+            p.maintenance_scope(
+                [{"filename": "outside.py", "status": "added", "changes": 1}]
+            )
+        )
+        self.assertFalse(
+            p.maintenance_scope([dict(files[0], previous_filename="old.yml")])
+        )
+
+    def test_maintenance_deletions_require_regular_base_entries(self):
+        name = "docs/removed.md"
+        files = [{"filename": name, "status": "removed", "changes": 1}]
+        for kind, mode, allowed in [
+            ("blob", "100644", True),
+            ("blob", "100755", True),
+            ("blob", "120000", False),
+            ("commit", "160000", False),
+        ]:
+            self.assertEqual(
+                p.maintenance_tree({name: (kind, mode, "a" * 40)}, {}, {}, files),
+                allowed,
+            )
+
+    def test_maintenance_lookup_paginates_and_accepts_a_completed_evaluation_in_a_running_writer(
+        self,
+    ):
+        now = datetime.now(timezone.utc)
+        run = {
+            "id": 101,
+            "run_attempt": 1,
+            "event": "workflow_dispatch",
+            "path": ".github/workflows/autonomy-pilot.yml",
+            "head_sha": "b" * 40,
+            "repository": {"full_name": p.REPO},
+            "display_title": f"Gemara maintenance execute PR #32 @{'a' * 40}",
+            "created_at": (now - timedelta(seconds=100))
+            .isoformat(timespec="seconds")
+            .replace("+00:00", "Z"),
+            "actor": {"login": "owner"},
+            "triggering_actor": {"login": "owner"},
+            "status": "in_progress",
+            "conclusion": None,
+        }
+        newer = [
+            dict(
+                run,
+                id=i + 1,
+                display_title="Read-only probe",
+                created_at=(now - timedelta(seconds=i))
+                .isoformat(timespec="seconds")
+                .replace("+00:00", "Z"),
+            )
+            for i in range(100)
+        ]
+        job = {
+            "name": "evaluate",
+            "run_id": 101,
+            "head_sha": "b" * 40,
+            "status": "completed",
+            "conclusion": "success",
+        }
+
+        def get(path):
+            if "/actions/workflows/" in path:
+                return {"workflow_runs": newer if path.endswith("page=1") else [run]}
+            if "/jobs?" in path:
+                return {
+                    "total_count": 2,
+                    "jobs": [job, dict(job, name="enqueue / writer")],
+                }
+            return {"permission": "admin"}
+
+        client = maintenance_client(get)
+        config = {"maintenance_enabled": True, "maintenance_maximum_age_seconds": 3600}
+        self.assertIsNotNone(
+            p.maintenance_authorization(client, 32, "a" * 40, "b" * 40, "queue", config)
+        )
+        self.assertTrue(
+            any(call.args[0].endswith("page=2") for call in client.get.call_args_list)
+        )
+
+    def test_maintenance_never_changes_its_own_governance(self):
+        for path in [
+            ".github/workflows/autonomy-queue.yml",
+            ".github/workflows/ci.yml",
+            ".fullsend/config.yaml",
+            "experiments/autonomy-platform/policies/pilot-config.json",
+            "scripts/validate_example.py",
+            "AGENTS.md",
+            "docs/AGENTS.md",
+            "docs/AUTO-MERGE-SECURITY-CONTRACT.md",
+        ]:
+            self.assertFalse(
+                p.maintenance_scope(
+                    [{"filename": path, "status": "modified", "changes": 1}]
+                )
+            )
+
+    def test_maintenance_requires_independent_current_human_approval(self):
+        client = maintenance_client(
+            lambda path: {"role_name": "maintain", "permission": "write"}
+        )
+        self.assertIsNotNone(p.independent_maintenance_approval(client, 32, "a" * 40))
+        approval = {
+            "id": 90,
+            "state": "APPROVED",
+            "commit_id": "a" * 40,
+            "user": {"login": "reviewer", "type": "User"},
+        }
+        for change in [
+            {"commit_id": "c" * 40},
+            {"state": "CHANGES_REQUESTED"},
+            {"user": {"login": "author", "type": "User"}},
+            {"user": {"login": "reviewer", "type": "Bot"}},
+        ]:
+            client.pages.side_effect = lambda path: (
+                [{"author": {"login": "author"}}]
+                if path.endswith("/commits")
+                else [dict(approval, **change)]
+            )
+            self.assertIsNone(p.independent_maintenance_approval(client, 32, "a" * 40))
+        client.pages.side_effect = lambda path: (
+            [{"author": {"login": "reviewer"}}]
+            if path.endswith("/commits")
+            else [approval]
+        )
+        self.assertIsNone(p.independent_maintenance_approval(client, 32, "a" * 40))
+        client.pages.side_effect = lambda path: (
+            [{"author": {"login": "author"}}]
+            if path.endswith("/commits")
+            else [approval, dict(approval, id=91, state="DISMISSED")]
+        )
+        self.assertIsNone(p.independent_maintenance_approval(client, 32, "a" * 40))
+
+    def test_maintenance_native_policy_still_requires_authority_ci_and_exact_tree(self):
+        bundle = p.bundle(True)
+        subject = {
+            "repository": p.REPO,
+            "branch": "main",
+            "configuration_sha256": "c" * 64,
+            "head_sha": "a" * 40,
+            "base_sha": "b" * 40,
+        }
+        now = "2026-10-15T14:00:00Z"
+        obs = {
+            c["id"]: {
+                "subject_sha256": digest(subject),
+                "collected_at": now,
+                "trusted_source": True,
+                "value": True,
+            }
+            for c in next(iter(bundle["catalogs"].values()))["controls"]
+        }
+        self.assertNotIn("LP-CANDIDATE", obs)
+        self.assertEqual(
+            assess(bundle, "candidate", subject, obs, now)["decision"], "eligible"
+        )
+        for key in obs:
+            bad = copy.deepcopy(obs)
+            bad[key]["value"] = False
+            self.assertEqual(
+                assess(bundle, "candidate", subject, bad, now)["decision"], "hold"
+            )
 
     def test_only_one_regular_reviewed_document_can_enter_queue_tree(self):
         base = {
@@ -183,6 +535,135 @@ class PilotTests(unittest.TestCase):
         self.assertFalse(p.current_pr(bad, "a" * 40))
         self.assertFalse(p.current_pr(pr, "b" * 40))
 
+    def test_passing_ci_and_candidate_do_not_override_the_native_scope_hold(self):
+        head, base = "a" * 40, "b" * 40
+        pr = {
+            "state": "open",
+            "draft": False,
+            "mergeable": True,
+            "head": {"sha": head, "repo": {"full_name": p.REPO}},
+            "base": {"ref": "main", "repo": {"full_name": p.REPO}},
+        }
+        config = {
+            "automatic_enabled": True,
+            "automatic_expires_at": "2026-10-22T18:00:00Z",
+            "maintenance_enabled": True,
+            "maximum_changed_lines": 20,
+        }
+        rows = [
+            {
+                "name": n,
+                "head_sha": head,
+                "app": {"id": 15368},
+                "status": "completed",
+                "conclusion": "success",
+            }
+            for n in p.CHECKS
+        ]
+        client = mock.Mock()
+        client.errors = set()
+        client.get.side_effect = (
+            lambda path: pr
+            if path.endswith("pulls/32")
+            else (
+                {"commit": {"sha": base}}
+                if path.endswith("branches/main") and "/rules/" not in path
+                else rules()
+            )
+        )
+        client.pages.side_effect = (
+            lambda path, key=None: [
+                {"filename": "docs/not-in-pilot.md", "status": "added", "changes": 1}
+            ]
+            if path.endswith("/files")
+            else rows
+        )
+        report = {
+            "stable_during_collection": True,
+            "head_sha": head,
+            "base_sha": base,
+            "candidate_decision": "eligible",
+            "readiness_decision": "hold",
+            "shadow": {"evaluation": {"request_sha256": "c" * 64}},
+        }
+        with (
+            mock.patch.dict(
+                os.environ, {"PILOT_MAINTENANCE": "false", "PILOT_CAN_ENQUEUE": "true"}
+            ),
+            mock.patch.object(p, "configuration", return_value=config),
+            mock.patch.object(p, "maintenance_authorization", return_value=None),
+            mock.patch.object(p.g, "observe", return_value=report),
+            mock.patch.object(p, "trusted_source", return_value=True),
+            mock.patch.object(
+                p, "tree", return_value={p.DOCUMENT: ("blob", "100644", "d" * 40)}
+            ),
+            mock.patch.object(p, "discussions_clear", return_value=True),
+        ):
+            result = p.evaluate(32, head, "enroll", client)
+            self.assertEqual(result["decision"], "hold")
+            assessment = {
+                r["id"]: r["state"] for r in result["evaluation"]["assessments"]
+            }
+            self.assertEqual(assessment["LP-CI"], "passed")
+            self.assertEqual(assessment["LP-CANDIDATE"], "passed")
+            self.assertEqual(assessment["LP-SCOPE"], "failed")
+            with mock.patch.object(
+                p,
+                "configuration",
+                return_value=dict(config, automatic_expires_at="2020-01-01T00:00:00Z"),
+            ):
+                expired = p.evaluate(32, head, "enroll", client)
+            self.assertEqual(
+                {r["id"]: r["state"] for r in expired["evaluation"]["assessments"]}[
+                    "LP-AUTH"
+                ],
+                "failed",
+            )
+            with mock.patch.object(p.subprocess, "run") as writer:
+                with self.assertRaises(InputError):
+                    p.enqueue(result)
+                writer.assert_not_called()
+
+    def test_read_only_policy_hold_is_success_but_execution_and_errors_fail(self):
+        result = {
+            "decision": "hold",
+            "evaluated_sha": "a" * 40,
+            "production_readiness": "hold",
+            "evaluation": {"assessments": []},
+        }
+        args = ["pilot", "--phase", "enroll", "--pr", "32", "--head", "a" * 40]
+        with (
+            mock.patch("sys.argv", args),
+            mock.patch.object(p, "evaluate", return_value=result),
+            mock.patch("builtins.print"),
+            mock.patch.object(p, "enqueue") as writer,
+        ):
+            self.assertEqual(p.main(), 0)
+            writer.assert_not_called()
+        with (
+            mock.patch("sys.argv", args),
+            mock.patch.dict(os.environ, {"PILOT_EXECUTE_REQUESTED": "true"}),
+            mock.patch.object(p, "evaluate", return_value=result),
+            mock.patch("builtins.print"),
+            mock.patch.object(p, "enqueue") as writer,
+        ):
+            self.assertEqual(p.main(), 2)
+            writer.assert_not_called()
+        with (
+            mock.patch("sys.argv", args + ["--execute"]),
+            mock.patch.object(p, "evaluate", return_value=result),
+            mock.patch("builtins.print"),
+            mock.patch.object(p, "enqueue") as writer,
+        ):
+            self.assertEqual(p.main(), 2)
+            writer.assert_not_called()
+        with (
+            mock.patch("sys.argv", args),
+            mock.patch.object(p, "evaluate", side_effect=InputError("fixture_error")),
+            mock.patch("builtins.print"),
+        ):
+            self.assertEqual(p.main(), 2)
+
     def test_a_held_native_result_never_calls_the_writer(self):
         with (
             mock.patch.dict(os.environ, {"PILOT_CAN_ENQUEUE": "true"}),
@@ -200,16 +681,61 @@ class PilotTests(unittest.TestCase):
             "reviewed_head": "a" * 40,
         }
         with (
-            mock.patch.dict(os.environ, {"PILOT_CAN_ENQUEUE": "true"}),
+            mock.patch.dict(
+                os.environ,
+                {
+                    "PILOT_CAN_ENQUEUE": "true",
+                    "PILOT_ENQUEUE_TOKEN": "test-installation-token",
+                },
+            ),
+            mock.patch.object(p.urllib.request, "build_opener") as opener,
             mock.patch.object(
                 p.subprocess, "run", return_value=mock.Mock(returncode=0)
             ) as run,
         ):
+            opener.return_value.open.return_value.__enter__.return_value.read.return_value = b'{"total_count":1,"repositories":[{"full_name":"fullsend-ai/auto-merge"}]}'
+            opener.return_value.open.return_value.__enter__.return_value.status = 200
             self.assertEqual(p.enqueue(result), "native_auto_merge_requested")
+            self.assertEqual(
+                run.call_args.kwargs["env"]["GH_TOKEN"], "test-installation-token"
+            )
+            self.assertNotIn("PILOT_ENQUEUE_TOKEN", run.call_args.kwargs["env"])
             command = run.call_args.args[0]
             self.assertIn("--match-head-commit", command)
             self.assertNotIn("--admin", command)
             self.assertNotIn("mergePullRequest", " ".join(command))
+
+    def test_missing_or_cross_repository_app_token_never_requests_a_merge(self):
+        result = {
+            "decision": "eligible",
+            "stage": "enroll",
+            "pull_request": 32,
+            "reviewed_head": "a" * 40,
+        }
+        with (
+            mock.patch.dict(
+                os.environ, {"PILOT_CAN_ENQUEUE": "true", "PILOT_ENQUEUE_TOKEN": ""}
+            ),
+            mock.patch.object(p.subprocess, "run") as run,
+        ):
+            with self.assertRaises(InputError):
+                p.enqueue(result)
+            run.assert_not_called()
+        with (
+            mock.patch.dict(
+                os.environ,
+                {
+                    "PILOT_CAN_ENQUEUE": "true",
+                    "PILOT_ENQUEUE_TOKEN": "test-installation-token",
+                },
+            ),
+            mock.patch.object(p.urllib.request, "build_opener") as opener,
+            mock.patch.object(p.subprocess, "run") as run,
+        ):
+            opener.return_value.open.return_value.__enter__.return_value.read.return_value = b'{"total_count":2,"repositories":[{"full_name":"fullsend-ai/auto-merge"},{"full_name":"other/repo"}]}'
+            with self.assertRaises(InputError):
+                p.enqueue(result)
+            run.assert_not_called()
 
     def test_queue_entry_binds_both_reviewed_and_actual_group_commits(self):
         entry = {

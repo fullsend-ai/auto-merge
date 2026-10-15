@@ -413,3 +413,194 @@ discovered repository defect or a failed Gemara installation.
 Validation: all 56 local Python tests passed; all five workflow files parsed;
 required CI context names and shadow/live triggers/permissions were preserved.
 Public-content and diff-whitespace checks passed.
+
+
+## 2026-10-15 repeatable pilot implementation and App mint investigation
+
+Owner authorized a reusable documentation pilot, governed maintenance, App-token
+queue handoff and positive/negative live PR proofs. Replaced the spent PR #30
+expiring grant with a closed repository configuration and separate automatic and
+maintenance activation. Archived the old grant without making it active again.
+Automatic scope remains one ordinary document and at most 20 changed lines; the
+unchanged common/repository candidate policy is still mandatory.
+
+Maintenance uses a separate native policy and exact-head, current-source,
+one-hour maintainer workflow-dispatch authorization. The queue revalidates both
+actor permissions and the successful authorization run. It never treats a failed
+automatic candidate as maintenance without that distinct owner action.
+
+Read-only repository-hosted mint probes 38773661912 and 38773988072 returned 401.
+No token was obtained and neither could run a live writer. Prepared restricted
+upstream Fullsend draft #8467 without changing Fullsend main or mint trust settings.
+Its pinned upstream-hosted read-only probe 38775102361 succeeded, verified only this
+repository was selected, and revoked the token. No PAT or new secret was added.
+Staged upstream pre-commit checks passed, including actionlint and secret scanning;
+make was unavailable, so pre-commit was invoked directly. Sparse-checkout-only lint
+failures were resolved by completing the isolated checkout, not skipping hooks.
+
+The pilot now resolves CI/fullsend completion events as hints, evaluates current
+trusted-main evidence and uses a separate writer only after eligibility. Receipt
+hints cannot authorize entry; merge-group CI cannot retrigger the writer. App
+credentials remain inside the upstream writer and are revoked after use. Actual
+write-handoff and positive/negative merge results are not yet claimed here.
+
+Validation before publication: 65 local Python tests passed. These cover native
+automatic/maintenance policy holds, wrong revision/source/actor/age maintenance
+authorization, extra queued files/symlinks, missing or cross-repository App tokens,
+and event/receipt routing. A passing-CI candidate outside the pilot cohort is held
+by native LP-SCOPE and never invokes the writer. Actionlint passed for the pilot
+and queue workflows. No live positive/negative result is claimed by these tests.
+
+Additional maintenance-authorization validation now requires a successful,
+non-skipped evaluate job from the exact workflow run attempt. A successful probe
+or skipped workflow cannot authorize maintenance. All 66 local tests passed.
+The current main gate still uses the spent one-PR grant, so installing its own
+replacement requires an explicitly recorded bootstrap action; no bootstrap or
+new live merge result has yet been claimed.
+
+Implementation review caught and fixed a maintenance authorization timing race,
+a too-short first-page lookup, and non-regular base-file deletions. Queue CI now
+finishes before selecting the current authorization/source snapshot; authorization
+requires the completed evaluation job, not completion of its concurrent writer.
+Dispatch lookup paginates to the age boundary with a hard cap. Both base and
+reviewed maintenance entries must be ordinary files or absent. Writer concurrency
+is per PR, so irrelevant completion events cannot displace maintainer dispatches.
+
+
+## Scope correction: auto-merge repository only
+
+The owner explicitly restricted all further repository actions to
+fullsend-ai/auto-merge. The external draft was outside the intended scope; the owner
+will close it. No action to close, update, push or merge that external repository
+is authorized. Removed the external unmerged workflow dependency from this branch
+and restored a repository-owned reusable writer. The earlier external probe is
+not accepted as completion of the repository-only App-token handoff.
+
+Repository-hosted read-only mint probes returned 401. No token, PAT fallback or
+new secret was installed. The writer remains blocked; installation/bootstrap and
+live positive/negative proofs are not complete. Keep this implementation draft
+while investigating options confined to this repository. Main/protections are
+not changed by this correction.
+
+### Repository-only correction validation
+
+PR #32 is now a draft with no auto-merge request. Its description explicitly
+excludes the external-workflow prototype from the repository-only proof. The
+local correction restores a repository-owned reusable writer and includes its
+blob in trusted-source verification. All 68 local Python tests and actionlint
+for the pilot, writer and queue workflows pass. The diff secret scan passes.
+The owner authorized committing and pushing these repository-only corrections
+to PR #32. Hosted checks will evaluate the pushed revision.
+No bootstrap bypass, new live merge or change to main is claimed.
+
+### Temporary repository App credential path
+
+The owner approved a dedicated lab App workaround, confined to auto-merge.
+Prepared a private App manifest requesting only Contents and Pull requests write,
+with no webhook, organization permissions or bypass role. Created the empty
+`gemara-pilot-writer` Actions environment and verified its deployment branch
+policy permits only `main`; environment admin bypass is disabled. No App key or
+token has been stored yet. GitHub App registration is pending interactive access
+verification by the owner.
+
+The proposed writer uses the official GitHub installation-token action pinned to
+`64ab729a6294000f5aa4a4bc0b73d1f32bc45510`, explicit repository/permission scope and
+post-job revocation. Both probe and executing writer are restricted to main.
+OIDC permission was removed from the caller and writer. Builds happen before
+minting; the private key is referenced only by the token action, and only its
+short-lived token reaches the exact-head queue writer. Native Gemara policy and
+the required queue check are unchanged. This does not complete Fullsend-native
+credential handoff or demonstrate a live merge.
+
+Validation: all 68 local Python tests and actionlint pass for the changed pilot,
+writer and existing queue workflows. Registration, selected-repository
+installation, encrypted environment-secret storage and live token proof remain
+separate pending steps. No main-branch protection or bypass actor was changed.
+
+### Private lab App installation and credential verification
+
+The owner confirmed proceeding with an auto-merge-only installation after a
+review of organization ownership versus repository access. Created the private
+`gemara-auto-merge-pilot-lab` App (ID `5334789`) and installed it as `171824120`.
+The installation UI and API both show selected repositories, with only
+`fullsend-ai/auto-merge` (repository ID `1383516376`). Its only permissions are
+Contents write, Pull requests write and automatic Metadata read. It has no
+organization permissions, webhook events or ruleset bypass role.
+
+At 2026-10-15T18:04:24Z, an App-authenticated API check verified exactly one
+installation and the expected permissions. A token requested with Metadata read
+only enumerated exactly the single allowed repository and was then revoked.
+No content or write operation was performed with that probe token.
+
+Stored the private key directly through encrypted secret installation into the
+main-only `gemara-pilot-writer` environment, and stored the non-secret App ID as
+an environment variable. Verified the secret name, variable value and main-only
+deployment policy through the API; no secret value was read back or logged.
+Removed the temporary local private-key file after successful installation.
+The required Gemara gate and empty ruleset bypass list remain unchanged.
+
+The owner previously authorized committing/pushing these changes to draft PR
+#32. Hosted workflow minting, queue entry and repeatable live outcomes remain
+unproven until the reviewed implementation can be deployed through an authorized
+bootstrap. This App setup alone does not authorize removing required checks or
+bypassing main protections, and does not resolve Fullsend-native minting.
+
+### Pre-merge review hardening
+
+Review of PR #32 found unsafe breadth in the experimental maintenance path and
+an evaluate-only authorization ambiguity. Maintenance now rejects workflows,
+harness, evaluator, policy, configuration and script changes; requires an
+independent exact-head human approving admin/maintainer who authored neither the
+PR nor its commits; recognizes only explicit execute dispatches; and requires
+both evaluation and writer jobs to succeed in the same run attempt at queue time.
+Maintenance remains disabled for this demo pending hosted entry-mode binding.
+No maintenance success is claimed by the documentation pilot.
+
+The automatic documentation cohort now expires at 2026-10-22T18:00:00Z, with
+expiry/kill-switch state represented by native LP-AUTH rather than an always-true
+observation. Read-only enrollment holds are normal successful observations with
+eligible=false; the writer is skipped, while execution and queue holds still
+fail closed. API/evaluator errors remain failures.
+
+CODEOWNERS coverage is extended to evaluator/policies and repository instructions.
+The proposed gate requires GitHub code-owner-review enforcement as well as existing
+CI, queue and discussion controls. This addresses the distinction between checking
+out trusted evaluator code and protecting the workflow YAML publishing the check.
+No GitHub rule has yet been changed. Merge still needs an explicit one-time owner
+bootstrap because main's old disabled spent grant rejects its replacement.
+
+The owner explicitly approved committing/pushing these hardening fixes and the
+one-time PR #32 bootstrap: only after CI passes, temporarily remove the spent
+Gemara check requirement, retain the queue and its three ordinary required CI
+checks, merge this exact reviewed revision through the queue, then restore the
+Gemara requirement and enable code-owner reviews immediately. The App must never
+receive a bypass role. This exception installs the new policy; it is not proof
+of a Gemara-authorized autonomous merge. Validation before push: 71 Python tests,
+actionlint, Ruff and the diff secret scan passed.
+
+Latest-review follow-up: the per-PR concurrency claim applies across different
+PRs only. GitHub can replace a pending writer for the same PR; this fails closed,
+and experimental maintenance remains disabled. Timestamp regressions now use
+valid forge UTC timestamps for expired and future authorizations. Live-policy
+catalog naming and the shared repository constant are corrected. The token's
+permission bound is established by the verified App installation permissions and
+the pinned action's explicit permission request; the repository-list endpoint is
+a repository-scope check, not a token-permission introspection API. No stronger
+runtime introspection claim is made.
+
+Repository-local tracking issue: https://github.com/fullsend-ai/auto-merge/issues/33.
+It records the owner-authorized scope and bootstrap exception without internal
+links or credentials. Latest follow-up validation: 71 local Python tests pass.
+
+Bootstrap attempt paused before queue entry when new unresolved review threads
+appeared. No merge occurred. The original rules were verified restored, including
+the Gemara requirement and no bypass actors; the auto-merge request was removed.
+The script's generic restoration message mentioned code-owner review, but API
+verification confirmed the original false setting was retained while unmerged.
+
+Follow-up fixes explicitly exclude the governed security contract and nested
+AGENTS.md files from maintenance, cover nested instructions with CODEOWNERS,
+make an explicitly requested execute hold fail even in the evaluation job, and
+remove pre-merge-only deployment wording from the resulting documentation.
+The same approved PR #32 bootstrap will be retried only after final-head CI and
+review-thread checks pass. No additional repository or broader exception is used.

@@ -4,7 +4,8 @@ One engine: native Gemara. The comparison evaluator and custom JSON rule profile
 have been removed. Start with the [walkthrough](../../docs/attempts/02-policy-evaluation/LIVE-TRIAL.md).
 The replay and shadow observer remain read-only. A separate, explicitly granted
 [live pilot](../../docs/attempts/02-policy-evaluation/LIVE-PILOT.md) completed one
-protected-queue merge; its one-shot grant is now disabled.
+protected-queue merge; the one-shot grant has been replaced by a bounded repository pilot configuration
+and exact-head maintainer maintenance path.
 
 ## What to read
 
@@ -128,3 +129,14 @@ requirements still need accepted test-sufficiency, runtime-isolation and shadow
 outcome evidence, plus an authoritative publisher. Unknown evidence stays Unknown;
 the fully supplied readiness case remains explicitly synthetic in demo.py. No
 production threshold or approval is invented from the two test PRs.
+
+## Repeatable pilot and maintenance
+
+See [pilot-config.json](policies/pilot-config.json) and the
+[live walkthrough](../../docs/attempts/02-policy-evaluation/LIVE-PILOT.md).
+The common and repository policies still govern automatic candidates; the separate
+maintenance policy remains disabled for the demo. Its retained documentation-only
+path requires explicit execution and independent current-head human approval;
+governance paths require code-owner review. The draft writer uses a dedicated temporary repository App with a main-only
+Actions environment. Fullsend-native token minting remains unresolved.
+This draft does not depend on an unmerged upstream workflow or a personal token.
