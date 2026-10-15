@@ -8,6 +8,17 @@ Repository snapshot: `fullsend-ai/auto-merge` `main` at `4293fb8` (`test:
 exercise fast review path (#26)`). The repository is a lab and reference
 implementation. It is not a production-ready cross-SCM merge service.
 
+## Versioned attempts
+
+- [Attempt 1: agent-led authorization](attempts/01-agent-led/README.md) preserves
+  the earlier implementation and original documentation paths.
+- [Attempt 2: read-only policy evaluation](../experiments/autonomy-platform/README.md)
+  exercises readiness, exact-revision assessment and replaceable policy adapters.
+  Its [scope and limits](attempts/02-policy-evaluation/README.md) distinguish this
+  experiment from a supported Fullsend integration.
+
+The sections below describe Attempt 1 and existing production proposals.
+
 ## The decision in one paragraph
 
 Auto-Merge is an opt-in semantic authorization stage around the repository's

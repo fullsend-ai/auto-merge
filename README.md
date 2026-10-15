@@ -1,4 +1,18 @@
-# Auto-Merge Agent Lab
+# Auto-Merge Experiments Lab
+
+## Current experiment: read-only policy evaluation
+
+[Attempt 2](experiments/autonomy-platform/README.md) tests repository readiness
+and a real PR against a pinned native Gemara SDK adapter and an independent JSON
+adapter. The shared/repository profiles are experimental inputs, not a Red Hat
+standard or a general Gemara policy implementation. No output grants merge authority.
+
+[Attempt 1](docs/attempts/01-agent-led/README.md) preserves the earlier agent-led
+approach at its original paths. This change disables that agent and its
+supplementary dispatch route. Workflow pauses are repository settings and must be
+reviewed separately before restoring normal Fullsend Review dispatch.
+
+The existing lab description below documents Attempt 1.
 
 Integration lab for designing and exercising Fullsend's Auto-Merge agent. The
 recorded exercises were run while the repository was private and prove the complete path from an issue through triage, coding,
