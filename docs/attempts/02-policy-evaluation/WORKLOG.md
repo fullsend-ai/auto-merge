@@ -629,3 +629,37 @@ exception: after exact-head CI passes, waive only the Gemara queue requirement
 and code-owner review for this owner-authored fix, retain the queue and three
 ordinary required checks, then restore both protections immediately. The App
 receives no bypass. A separate hosted probe will verify the resulting wiring.
+
+### Accept automatic Review evidence with explicit event binding
+
+The owner requested removal of the pilot's artificial `/fs-review` requirement.
+The original verifier accepted only successful `issue_comment` runs on main.
+The real automatic PR #35 review used `pull_request_target`: its run metadata
+identified the reviewed PR head while its host receipt identified the trusted
+base configuration. Treating those as one revision incorrectly held the review.
+
+The prepared change adds event-specific verification for same-repository
+`pull_request_target` runs: bind the exact current PR head and branch separately
+from the receipt's configuration commit, which must match the PR's main-base
+snapshot. Existing workflow identity, attempt, completed-success, official bot,
+findings/receipt, pinned host-source equality and stable-run checks remain.
+Comment reviews remain supported. Unknown events and mismatches still hold.
+
+Local validation: all 73 Python/native integration tests passed, including new
+automatic-review rejection and changing-run cases. No workflow, App permission,
+merge policy or branch protection is modified. Commit, push, deployment and a
+fresh hosted automatic-merge demonstration require separate owner authorization;
+no prior one-PR deployment exception is reused.
+
+A read-only check against PR #36's real completed automatic Review run
+38794894536 verified its low-risk receipt with the modified verifier; the API
+collection was stable and permitted no mutation. This is real evidence-collection
+validation, not deployment or a new hosted merge proof. The PR's candidate and
+production-readiness results still held.
+
+The owner subsequently approved commit/push, a new one-PR deployment exception
+after CI and review, and a harmless hosted documentation test without any
+`/fs-review` command or manual queue retry. The deployment exception temporarily
+waives only Gemara and code-owner review for this verifier fix; the queue and
+three ordinary required checks stay enforced, and both waived protections must
+be restored immediately. It does not apply to the hosted documentation test.

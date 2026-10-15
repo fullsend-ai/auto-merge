@@ -44,6 +44,18 @@ Fullsend slash-command runs without linked PR metadata, it can use a matching
 pinned-producer risk receipt as a routing hint. The evaluator independently verifies
 that evidence; the hint grants no authority. Merge-group CI cannot retrigger entry.
 
+The evidence verifier supports both automatic `pull_request_target` reviews and
+`/fs-review` runs triggered by `issue_comment`. Automatic runs must match the
+current PR's exact head commit and branch in this repository; the receipt's
+configuration commit must match the PR's base snapshot on `main`. Comment runs
+must instead identify `main` and the receipt's configuration commit in their run
+metadata. Both routes still require the pinned workflow, successful completed
+run and attempt, official review identity, revision-bound findings/risk receipt,
+and host source blobs identical to the current trusted evaluator's pins.
+An unknown event, fork, changed base binding, stale head or changed host source
+holds. A slash command is therefore optional when the automatic evidence passes;
+this adds no approval, risk or policy exemption.
+
 A read-only job evaluates native Gemara policy. Only if eligible does a separate
 writer repeat the evaluation and request GitHub's protected queue with
 `--auto --match-head-commit`. There is no admin merge in the live path.

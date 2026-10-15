@@ -247,7 +247,7 @@ class RiskReceiptTests(unittest.TestCase):
 
             self.assertIsNone(f.risk("a" * 40, [review], [comment], never)["value"])
 
-    def test_producer_is_bound_to_run_attempt_event_and_current_configuration(self):
+    def producer_fixture(self):
         receipt, _, _ = self.receipt()
         tree = {
             "tree": [
@@ -283,6 +283,10 @@ class RiskReceiptTests(unittest.TestCase):
         )
         patcher.start()
         self.addCleanup(patcher.stop)
+        return receipt, tree, run, client
+
+    def test_producer_is_bound_to_run_attempt_event_and_current_configuration(self):
+        receipt, tree, run, client = self.producer_fixture()
         self.assertTrue(g.risk_producer(client, "", tree, receipt))
         for key, value in [
             ("event", "pull_request"),
@@ -299,6 +303,87 @@ class RiskReceiptTests(unittest.TestCase):
         changed = copy.deepcopy(tree)
         changed["tree"][0]["sha"] = "f" * 40
         self.assertFalse(g.risk_producer(client, "", changed, receipt))
+
+    def test_automatic_review_binds_pr_head_and_base_configuration_separately(self):
+        receipt, tree, run, client = self.producer_fixture()
+        run.update(
+            event="pull_request_target", head_branch="feature", head_sha="a" * 40
+        )
+        pr = {
+            "head": {
+                "sha": "a" * 40,
+                "ref": "feature",
+                "repo": {"full_name": g.REPOSITORY},
+            },
+            "base": {
+                "sha": "b" * 40,
+                "ref": "main",
+                "repo": {"full_name": g.REPOSITORY},
+            },
+        }
+        self.assertTrue(g.risk_producer(client, "", tree, receipt, pr))
+        self.assertFalse(g.risk_producer(client, "", tree, receipt))
+        for side, field, value in [
+            ("head", "sha", "f" * 40),
+            ("head", "ref", "other"),
+            ("head", "repo", {"full_name": "someone/fork"}),
+            ("base", "sha", "f" * 40),
+            ("base", "ref", "other"),
+            ("base", "repo", {"full_name": "someone/other"}),
+        ]:
+            changed = copy.deepcopy(pr)
+            changed[side][field] = value
+            with self.subTest(side=side, field=field):
+                self.assertFalse(g.risk_producer(client, "", tree, receipt, changed))
+        for field, value in [
+            ("event", "pull_request"),
+            ("head_sha", "f" * 40),
+            ("head_branch", "other"),
+            ("run_attempt", 2),
+            ("status", "in_progress"),
+            ("conclusion", "failure"),
+            ("workflow_id", 99),
+            ("path", ".github/workflows/other.yaml"),
+            ("head_repository", {"full_name": "someone/fork"}),
+            ("repository", {"full_name": "someone/other"}),
+        ]:
+            original = run[field]
+            run[field] = value
+            with self.subTest(field=field):
+                self.assertFalse(g.risk_producer(client, "", tree, receipt, pr))
+            run[field] = original
+        changed = copy.deepcopy(tree)
+        changed["tree"][0]["sha"] = "f" * 40
+        self.assertFalse(g.risk_producer(client, "", changed, receipt, pr))
+
+    def test_automatic_producer_changes_during_collection_hold(self):
+        receipt, tree, run, _ = self.producer_fixture()
+        run.update(
+            event="pull_request_target", head_branch="feature", head_sha="a" * 40
+        )
+        pr = {
+            "head": {
+                "sha": "a" * 40,
+                "ref": "feature",
+                "repo": {"full_name": g.REPOSITORY},
+            },
+            "base": {
+                "sha": "b" * 40,
+                "ref": "main",
+                "repo": {"full_name": g.REPOSITORY},
+            },
+        }
+
+        class ChangingClient:
+            reads = 0
+
+            def get(self, path):
+                if "git/trees" in path:
+                    return tree
+                self.reads += 1
+                return dict(run, run_attempt=self.reads)
+
+        self.assertFalse(g.risk_producer(ChangingClient(), "", tree, receipt, pr))
 
     def test_host_refuses_unpinned_source_before_execution(self):
         import importlib.util

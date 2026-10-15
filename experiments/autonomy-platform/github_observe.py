@@ -235,8 +235,29 @@ def local_risk_blobs():
     return result
 
 
-def risk_producer(client, base, current_tree, receipt):
-    """Pin the receipt to completed trusted-main Review execution and host sources."""
+def risk_run_subject(run, receipt, pr):
+    """Separate the reviewed revision from the trusted configuration revision."""
+    if run.get("event") == "issue_comment":
+        return (
+            run.get("head_branch") == "main"
+            and run.get("head_sha") == receipt["config_sha"]
+        )
+    if run.get("event") != "pull_request_target" or not isinstance(pr, dict):
+        return False
+    head, target = pr.get("head") or {}, pr.get("base") or {}
+    return (
+        (head.get("repo") or {}).get("full_name") == REPOSITORY
+        and (target.get("repo") or {}).get("full_name") == REPOSITORY
+        and target.get("ref") == "main"
+        and target.get("sha") == receipt["config_sha"]
+        and head.get("sha") == receipt["head_sha"] == run.get("head_sha")
+        and bool(head.get("ref"))
+        and head["ref"] == run.get("head_branch")
+    )
+
+
+def risk_producer(client, base, current_tree, receipt, pr=None):
+    """Bind completed Review execution to its event subject and pinned host sources."""
     endpoint = base + f"actions/runs/{receipt['run_id']}"
     run = client.get(endpoint)
     if not run or not (
@@ -244,9 +265,7 @@ def risk_producer(client, base, current_tree, receipt):
         and run.get("run_attempt") == receipt["run_attempt"]
         and run.get("workflow_id") == 365189947
         and run.get("path") == ".github/workflows/fullsend.yaml"
-        and run.get("event") == "issue_comment"
-        and run.get("head_branch") == "main"
-        and run.get("head_sha") == receipt["config_sha"]
+        and risk_run_subject(run, receipt, pr)
         and run.get("status") == "completed"
         and run.get("conclusion") == "success"
         and run.get("repository", {}).get("full_name") == REPOSITORY
@@ -308,7 +327,10 @@ def observe(number, client=None):
     queue = queue_proof(client, base, rules, tree)
     finding_evidence = findings(head, reviews, comments)
     risk_evidence = risk(
-        head, reviews, comments, lambda data: risk_producer(client, base, tree, data)
+        head,
+        reviews,
+        comments,
+        lambda data: risk_producer(client, base, tree, data, pr),
     )
     infrastructure = None
     if tree and not tree.get("truncated"):
@@ -498,7 +520,7 @@ def summary(report):
         lines.append(f"- `{control}`: `{detail['reason']}`")
     lines += [
         "",
-        "The lab risk receipt must bind a completed trusted-main Fullsend run, its attempt, the exact reviewed head and the current pinned host sources. Meaningful tests, runtime isolation, a trusted eligibility publisher and an accepted shadow history need independent evidence; neither approval nor a successful queue run proves them.",
+        "The lab risk receipt must bind a completed Fullsend run, its attempt, the exact reviewed head and the current pinned host sources. Automatic pull_request_target runs also bind the PR head branch and base configuration commit; issue_comment runs bind the main configuration commit. Meaningful tests, runtime isolation, a trusted eligibility publisher and an accepted shadow history need independent evidence; neither approval nor a successful queue run proves them.",
     ]
     return "\n".join(lines) + "\n"
 
