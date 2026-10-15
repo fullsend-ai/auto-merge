@@ -178,6 +178,57 @@ class PilotTests(unittest.TestCase):
                     allowed,
                 )
 
+    def test_a_successful_skipped_or_probe_workflow_is_not_maintenance_approval(self):
+        config = {"maintenance_enabled": True, "maintenance_maximum_age_seconds": 3600}
+        run = {
+            "id": 1,
+            "run_attempt": 1,
+            "event": "workflow_dispatch",
+            "path": ".github/workflows/autonomy-pilot.yml",
+            "head_sha": "b" * 40,
+            "repository": {"full_name": p.REPO},
+            "display_title": f"Gemara maintenance PR #32 @{'a' * 40}",
+            "created_at": datetime.now(timezone.utc)
+            .isoformat(timespec="seconds")
+            .replace("+00:00", "Z"),
+            "actor": {"login": "owner"},
+            "triggering_actor": {"login": "owner"},
+            "status": "completed",
+            "conclusion": "success",
+        }
+        job = {
+            "name": "evaluate",
+            "run_id": 1,
+            "head_sha": "b" * 40,
+            "status": "completed",
+            "conclusion": "success",
+        }
+        client = mock.Mock()
+        for jobs, allowed in [
+            ([job], True),
+            ([], False),
+            ([dict(job, conclusion="skipped")], False),
+            ([dict(job, head_sha="c" * 40)], False),
+            ([dict(job, run_id=2)], False),
+        ]:
+
+            def get(path):
+                if "/actions/workflows/" in path:
+                    return {"workflow_runs": [run]}
+                if "/jobs?" in path:
+                    return {"total_count": len(jobs), "jobs": jobs}
+                return {"permission": "admin"}
+
+            client.get.side_effect = get
+            self.assertEqual(
+                bool(
+                    p.maintenance_authorization(
+                        client, 32, "a" * 40, "b" * 40, "queue", config
+                    )
+                ),
+                allowed,
+            )
+
     def test_maintenance_tree_does_not_allow_unapproved_files_or_symlinks(self):
         base = {"code.py": ("blob", "100644", "a" * 40)}
         reviewed = dict(
@@ -319,6 +370,82 @@ class PilotTests(unittest.TestCase):
         self.assertFalse(p.current_pr(bad, "a" * 40))
         self.assertFalse(p.current_pr(pr, "b" * 40))
 
+    def test_passing_ci_and_candidate_do_not_override_the_native_scope_hold(self):
+        head, base = "a" * 40, "b" * 40
+        pr = {
+            "state": "open",
+            "draft": False,
+            "mergeable": True,
+            "head": {"sha": head, "repo": {"full_name": p.REPO}},
+            "base": {"ref": "main", "repo": {"full_name": p.REPO}},
+        }
+        config = {
+            "automatic_enabled": True,
+            "maintenance_enabled": True,
+            "maximum_changed_lines": 20,
+        }
+        rows = [
+            {
+                "name": n,
+                "head_sha": head,
+                "app": {"id": 15368},
+                "status": "completed",
+                "conclusion": "success",
+            }
+            for n in p.CHECKS
+        ]
+        client = mock.Mock()
+        client.errors = set()
+        client.get.side_effect = (
+            lambda path: pr
+            if path.endswith("pulls/32")
+            else (
+                {"commit": {"sha": base}}
+                if path.endswith("branches/main") and "/rules/" not in path
+                else rules()
+            )
+        )
+        client.pages.side_effect = (
+            lambda path, key=None: [
+                {"filename": "docs/not-in-pilot.md", "status": "added", "changes": 1}
+            ]
+            if path.endswith("/files")
+            else rows
+        )
+        report = {
+            "stable_during_collection": True,
+            "head_sha": head,
+            "base_sha": base,
+            "candidate_decision": "eligible",
+            "readiness_decision": "hold",
+            "shadow": {"evaluation": {"request_sha256": "c" * 64}},
+        }
+        with (
+            mock.patch.dict(
+                os.environ, {"PILOT_MAINTENANCE": "false", "PILOT_CAN_ENQUEUE": "true"}
+            ),
+            mock.patch.object(p, "configuration", return_value=config),
+            mock.patch.object(p, "maintenance_authorization", return_value=None),
+            mock.patch.object(p.g, "observe", return_value=report),
+            mock.patch.object(p, "trusted_source", return_value=True),
+            mock.patch.object(
+                p, "tree", return_value={p.DOCUMENT: ("blob", "100644", "d" * 40)}
+            ),
+            mock.patch.object(p, "discussions_clear", return_value=True),
+        ):
+            result = p.evaluate(32, head, "enroll", client)
+            self.assertEqual(result["decision"], "hold")
+            assessment = {
+                r["id"]: r["state"] for r in result["evaluation"]["assessments"]
+            }
+            self.assertEqual(assessment["LP-CI"], "passed")
+            self.assertEqual(assessment["LP-CANDIDATE"], "passed")
+            self.assertEqual(assessment["LP-SCOPE"], "failed")
+            with mock.patch.object(p.subprocess, "run") as writer:
+                with self.assertRaises(InputError):
+                    p.enqueue(result)
+                writer.assert_not_called()
+
     def test_a_held_native_result_never_calls_the_writer(self):
         with (
             mock.patch.dict(os.environ, {"PILOT_CAN_ENQUEUE": "true"}),
@@ -349,6 +476,7 @@ class PilotTests(unittest.TestCase):
             ) as run,
         ):
             opener.return_value.open.return_value.__enter__.return_value.read.return_value = b'{"total_count":1,"repositories":[{"full_name":"fullsend-ai/auto-merge"}]}'
+            opener.return_value.open.return_value.__enter__.return_value.status = 200
             self.assertEqual(p.enqueue(result), "native_auto_merge_requested")
             self.assertEqual(
                 run.call_args.kwargs["env"]["GH_TOKEN"], "test-installation-token"

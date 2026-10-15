@@ -413,3 +413,47 @@ discovered repository defect or a failed Gemara installation.
 Validation: all 56 local Python tests passed; all five workflow files parsed;
 required CI context names and shadow/live triggers/permissions were preserved.
 Public-content and diff-whitespace checks passed.
+
+
+## 2026-10-15 repeatable pilot implementation and App mint investigation
+
+Owner authorized a reusable documentation pilot, governed maintenance, App-token
+queue handoff and positive/negative live PR proofs. Replaced the spent PR #30
+expiring grant with a closed repository configuration and separate automatic and
+maintenance activation. Archived the old grant without making it active again.
+Automatic scope remains one ordinary document and at most 20 changed lines; the
+unchanged common/repository candidate policy is still mandatory.
+
+Maintenance uses a separate native policy and exact-head, current-source,
+one-hour maintainer workflow-dispatch authorization. The queue revalidates both
+actor permissions and the successful authorization run. It never treats a failed
+automatic candidate as maintenance without that distinct owner action.
+
+Read-only repository-hosted mint probes 38773661912 and 38773988072 returned 401.
+No token was obtained and neither could run a live writer. Prepared restricted
+upstream Fullsend draft #8467 without changing Fullsend main or mint trust settings.
+Its pinned upstream-hosted read-only probe 38775102361 succeeded, verified only this
+repository was selected, and revoked the token. No PAT or new secret was added.
+Staged upstream pre-commit checks passed, including actionlint and secret scanning;
+make was unavailable, so pre-commit was invoked directly. Sparse-checkout-only lint
+failures were resolved by completing the isolated checkout, not skipping hooks.
+
+The pilot now resolves CI/fullsend completion events as hints, evaluates current
+trusted-main evidence and uses a separate writer only after eligibility. Receipt
+hints cannot authorize entry; merge-group CI cannot retrigger the writer. App
+credentials remain inside the upstream writer and are revoked after use. Actual
+write-handoff and positive/negative merge results are not yet claimed here.
+
+Validation before publication: 65 local Python tests passed. These cover native
+automatic/maintenance policy holds, wrong revision/source/actor/age maintenance
+authorization, extra queued files/symlinks, missing or cross-repository App tokens,
+and event/receipt routing. A passing-CI candidate outside the pilot cohort is held
+by native LP-SCOPE and never invokes the writer. Actionlint passed for the pilot
+and queue workflows. No live positive/negative result is claimed by these tests.
+
+Additional maintenance-authorization validation now requires a successful,
+non-skipped evaluate job from the exact workflow run attempt. A successful probe
+or skipped workflow cannot authorize maintenance. All 66 local tests passed.
+The current main gate still uses the spent one-PR grant, so installing its own
+replacement requires an explicitly recorded bootstrap action; no bootstrap or
+new live merge result has yet been claimed.

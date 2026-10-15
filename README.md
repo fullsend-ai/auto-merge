@@ -8,13 +8,12 @@ evidence. Input artifacts and generated EvaluationLogs are schema-validated.
 Start with the [shadow walkthrough](docs/attempts/02-policy-evaluation/LIVE-TRIAL.md)
 or the [live trial and its limits](docs/attempts/02-policy-evaluation/LIVE-PILOT.md).
 
-[PR #30](https://github.com/fullsend-ai/auto-merge/pull/30) merged through GitHub's
-protected queue after ordinary CI and the required native Gemara gate passed on
-the exact merged commit. This used an explicit one-PR lab exception; production
-readiness still held. The trial required an operator CLI queue handoff after the
-Actions-token request did not start queue CI. The one-shot grant is now disabled
-and the experimental repository protections have subsequently been removed at the
-owner's request to permit direct-main development. This is not unattended rollout.
+The [repeatable pilot](docs/attempts/02-policy-evaluation/LIVE-PILOT.md) introduces
+an owner-enabled documentation cohort and a separate exact-head maintainer
+maintenance policy. The live writer uses a pinned upstream Fullsend spike component
+for a short-lived App token; no personal token is installed in Actions. Read the
+trial record for the actual hosted proof and limits. Main requires the Gemara queue
+gate and ordinary CI. Production readiness remains a separate qualification.
 
 [Attempt 1](docs/attempts/01-agent-led/README.md) preserves the earlier agent-led
 approach at its original paths. That agent and its supplementary dispatch route

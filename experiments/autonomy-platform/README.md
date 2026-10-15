@@ -4,7 +4,8 @@ One engine: native Gemara. The comparison evaluator and custom JSON rule profile
 have been removed. Start with the [walkthrough](../../docs/attempts/02-policy-evaluation/LIVE-TRIAL.md).
 The replay and shadow observer remain read-only. A separate, explicitly granted
 [live pilot](../../docs/attempts/02-policy-evaluation/LIVE-PILOT.md) completed one
-protected-queue merge; its one-shot grant is now disabled.
+protected-queue merge; the one-shot grant has been replaced by a bounded repository pilot configuration
+and exact-head maintainer maintenance path.
 
 ## What to read
 
@@ -128,3 +129,11 @@ requirements still need accepted test-sufficiency, runtime-isolation and shadow
 outcome evidence, plus an authoritative publisher. Unknown evidence stays Unknown;
 the fully supplied readiness case remains explicitly synthetic in demo.py. No
 production threshold or approval is invented from the two test PRs.
+
+## Repeatable pilot and maintenance
+
+See [pilot-config.json](policies/pilot-config.json) and the
+[live walkthrough](../../docs/attempts/02-policy-evaluation/LIVE-PILOT.md).
+The common and repository policies still govern automatic candidates; the separate
+maintenance policy requires an exact-head, current maintainer dispatch. The OIDC
+writer remains a pinned upstream spike proposal, not a released Fullsend capability.

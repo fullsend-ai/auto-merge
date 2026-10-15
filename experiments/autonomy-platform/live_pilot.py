@@ -13,6 +13,7 @@ import time
 import urllib.request
 
 import github_observe as g
+from app_token import verify_scope
 from platform_lab import (
     ROOT,
     InputError,
@@ -259,6 +260,23 @@ def maintenance_authorization(client, number, head, base, phase, config):
             phase == "queue",
         ):
             continue
+        if phase == "queue":
+            jobs = client.get(
+                BASE
+                + f"actions/runs/{run['id']}/attempts/{run['run_attempt']}/jobs?per_page=100"
+            )
+            rows = (jobs or {}).get("jobs", [])
+            evaluations = [job for job in rows if job.get("name") == "evaluate"]
+            if (
+                not jobs
+                or jobs.get("total_count", 101) > 100
+                or len(evaluations) != 1
+                or evaluations[0].get("run_id") != run["id"]
+                or evaluations[0].get("head_sha") != base
+                or evaluations[0].get("status") != "completed"
+                or evaluations[0].get("conclusion") != "success"
+            ):
+                continue
         actors = [run.get("actor"), run.get("triggering_actor")]
         if not all(
             isinstance(actor, dict)
@@ -624,25 +642,7 @@ def enqueue(result):
     ]
     token = os.environ.get("PILOT_ENQUEUE_TOKEN", "")
     require(bool(token), "fullsend_app_token_required")
-    request = urllib.request.Request(
-        "https://api.github.com/installation/repositories?per_page=100",
-        headers={
-            "Authorization": "Bearer " + token,
-            "Accept": "application/vnd.github+json",
-        },
-    )
-    opener = urllib.request.build_opener(
-        urllib.request.ProxyHandler({}), g.NoRedirect()
-    )
-    with opener.open(request, timeout=20) as response:
-        raw = response.read(2 * 1024 * 1024 + 1)
-    require(len(raw) <= 2 * 1024 * 1024, "app_scope_response_too_large")
-    scope = json.loads(raw)
-    require(
-        scope.get("total_count") == 1
-        and [r.get("full_name") for r in scope.get("repositories", [])] == [REPO],
-        "app_token_not_repository_scoped",
-    )
+    verify_scope()
     child_env = {
         k: os.environ[k]
         for k in ["PATH", "HOME", "LANG", "XDG_CONFIG_HOME"]

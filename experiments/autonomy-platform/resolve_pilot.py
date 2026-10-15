@@ -42,6 +42,8 @@ def resolve(event_name, event, client):
         value = (event.get("inputs") or {}).get("pr")
         number = int(value) if valid_pr(value) else None
         expected = (event.get("inputs") or {}).get("head")
+        if not isinstance(expected, str) or not re.fullmatch("[0-9a-f]{40}", expected):
+            return None
     elif event_name == "workflow_run":
         run = event.get("workflow_run") or {}
         if (
