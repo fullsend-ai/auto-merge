@@ -48,3 +48,13 @@ observation, corrected the normalizer to report Unknown until checks finish,
 while any completed unsuccessful check produces a failed CI predicate. Added
 a regression test for pending, mixed failure/pending, mixed success/pending,
 and all-success observations. These trials never request merging.
+
+## Fullsend compatibility correction
+
+Both initial Review jobs failed before publishing a review: the current Review
+manifest required FULLSEND_APP_SET, but the older pinned reusable dispatcher did
+not supply it. Updated only the immutable dispatcher pin to official Fullsend
+commit 02438e1c117d31bf50f9fb9fafabe40856dbfdda, whose Review job supplies the
+standard fullsend-ai default. Checked all existing shim inputs/secrets against
+that revision: no unknown inputs/secrets or newly missing required fields. No
+credential or authentication mode was changed.
