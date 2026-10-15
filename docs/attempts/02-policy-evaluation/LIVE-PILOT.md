@@ -39,11 +39,11 @@ receive clean environments, and no PR or synthetic-commit code is executed.
 
 ## Final authorization on the merge group
 
-During the experiment, the rules require **Gemara pilot queue gate**, bound to the
-GitHub Actions producer, as well as the existing three checks. The queue builds
-and merges one entry at a time. Fullsend approval is mandatory in the native candidate policy. Stale-review
+During the completed experiment, the rules required **Gemara pilot queue gate**, bound to the
+GitHub Actions producer, as well as the existing three checks. The queue built
+and merged one entry at a time. Fullsend approval is mandatory in the native candidate policy. Stale-review
 dismissal and conversation resolution are also required. The separate GitHub
-human-approval count is zero for this owner-authorized experiment.
+human-approval count was zero for this owner-authorized experiment.
 
 [The queue workflow](../../../.github/workflows/autonomy-queue.yml) loads code from
 the platform-supplied trusted main base. It waits for the ordinary CI checks on
@@ -90,3 +90,50 @@ The experiment therefore uses zero independent human approvals, with Fullsend
 approval still enforced by Gemara and the required cumulative queue gate. The
 original repository rules had no required-review count. No review-app permissions
 or administrative merge bypass were added to work around this distinction.
+
+## Verified result: PR #30 merged
+
+On October 15, 2026 at 15:44:03 UTC,
+[PR #30](https://github.com/fullsend-ai/auto-merge/pull/30) merged through the
+protected queue. The exact merged and evaluated commit is
+`58e7440e420c9c62094f77c35ebb71e6a833b6f7`.
+
+- [Controller evaluation and writer](https://github.com/fullsend-ai/auto-merge/actions/runs/38761451293)
+  passed against main `315bb6bc35018c91a5e3c8175fc32bb50c9e5dbd` and reviewed head
+  `d1b22cadb90264675b6ca9f7c5aaa9b8fc44cd93`.
+- [Ordinary queue CI](https://github.com/fullsend-ai/auto-merge/actions/runs/38762151272)
+  passed all three required checks, including the four-minute integration check.
+- [Required Gemara queue gate](https://github.com/fullsend-ai/auto-merge/actions/runs/38762151257)
+  passed all seven native lab controls against that actual cumulative commit.
+  Its independent production-readiness result remained `hold`.
+- [Hosted regression fixtures](https://github.com/fullsend-ai/auto-merge/actions/runs/38759337735)
+  passed 56 Python tests. The final review-count adjustment also passed all 56 locally.
+- [Nonmatching-grant negative run](https://github.com/fullsend-ai/auto-merge/actions/runs/38758510031)
+  rejected PR #29 and skipped the writer. That PR remains unmerged.
+
+### Credential handoff found by the trial
+
+The controller's Actions-token request entered the queue, but its first group
+`5ca817e71f750657e3e94e96897e06728b214a0a` received no Actions workflow runs.
+The operator dequeued it and retried the same exact-head native queue request
+from an authorized local CLI. This produced the successful group above and
+started both required workflows. There was no admin merge and no check bypass
+for the trial PR. This is a verified operator-assisted live merge, not proof
+of a fully unattended Actions-token deployment.
+
+[GitHub documents token-trigger restrictions](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
+The observation is consistent with those restrictions. A hosted Fullsend
+integration should use an appropriately scoped GitHub App installation token for
+queue entry, and repeat this test with that identity. We did not add a PAT, App
+private key, or new secret to this public repository. That hosted credential path
+remains untested here; Gemara does not supply forge credentials or dispatch CI.
+
+### Current state after cleanup
+
+The exact-head one-shot grant is disabled. The original merge queue, its three
+required CI checks, deletion protection and non-fast-forward protection are
+restored with no bypass actors. The temporary fourth required check and extra
+review-rule profile were removed with that restoration; the workflows remain as
+an inactive example. The native auto-merge repository feature was already enabled
+and remains enabled. A future Gemara-controlled trial must explicitly install the
+required queue gate/protection profile and authorize a fresh bounded grant first.

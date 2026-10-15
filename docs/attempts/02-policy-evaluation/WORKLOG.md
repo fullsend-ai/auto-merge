@@ -346,3 +346,33 @@ stale-review dismissal, exact one-PR grant and the required native queue gate re
 No App permission escalation, admin merge or original-protection removal is used.
 Updated the control to accept a configured nonnegative review count and described
 the observed distinction explicitly. All 56 tests still pass.
+
+
+## 2026-10-15 protected-queue live merge and cleanup
+
+Automatic approval review initially blocked lowering the temporary human-review
+count. No change was made until the owner explicitly approved count 1 to 0 and
+subsequent restoration. Applied and read back the exact profile, retaining all CI,
+conversation resolution, stale-review dismissal, single-entry queue and Gemara gate.
+
+Controller 38761451293 passed both jobs on main 315bb6bc35018c91a5e3c8175fc32bb50c9e5dbd.
+Its Actions-token queue request created group 5ca817e71f750657e3e94e96897e06728b214a0a,
+but no Actions workflows started. Recorded this credential/dispatch limitation;
+did not add secrets or synthesize passing checks. First local dequeue API call
+used the wrong GraphQL input name and was rejected without mutation; corrected
+it to the documented id field. The authorized operator then dequeued and retried
+the native exact-head request from the local CLI, without --admin.
+
+The new group 58e7440e420c9c62094f77c35ebb71e6a833b6f7 ran ordinary CI 38762151272
+and required Gemara queue gate 38762151257. Both succeeded. All seven native lab
+controls passed; production readiness remained hold. GitHub merged PR #30 at
+2026-10-15T15:44:03Z with merge_commit_sha equal to that evaluated group SHA.
+Queue-entry metadata confirmed base 315bb6bc35018c91a5e3c8175fc32bb50c9e5dbd and
+the exact reviewed PR head d1b22cadb90264675b6ca9f7c5aaa9b8fc44cd93.
+
+After the verified merge, restored the full saved pre-test rules and read back
+all fields, with no bypass actors. Fast-forwarded the local checkout to the actual
+merge, disabled the committed one-shot grant and updated the walkthrough/README.
+Setup/document publication may use the previously authorized temporary admin-role
+push bypass, restored immediately; it is separate from the trial PR's queue merge.
+A production Fullsend GitHub App queue handoff still needs its own live verification.

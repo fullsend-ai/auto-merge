@@ -1,12 +1,19 @@
 # Auto-Merge Experiments Lab
 
-## Current experiment: read-only policy evaluation
+## Current experiment: native Gemara policy and a verified live merge
 
 [Attempt 2](experiments/autonomy-platform/README.md) evaluates native Gemara
 catalogs and imported common/repository policies against readiness and real PR
 evidence. Input artifacts and generated EvaluationLogs are schema-validated.
-There is one engine; no output grants merge authority. Start with the
-[walkthrough](docs/attempts/02-policy-evaluation/LIVE-TRIAL.md).
+Start with the [shadow walkthrough](docs/attempts/02-policy-evaluation/LIVE-TRIAL.md)
+or the [live trial and its limits](docs/attempts/02-policy-evaluation/LIVE-PILOT.md).
+
+[PR #30](https://github.com/fullsend-ai/auto-merge/pull/30) merged through GitHub's
+protected queue after ordinary CI and the required native Gemara gate passed on
+the exact merged commit. This used an explicit one-PR lab exception; production
+readiness still held. The trial required an operator CLI queue handoff after the
+Actions-token request did not start queue CI. The one-shot grant is now disabled
+and the pre-test repository rules are restored. This is not unattended rollout.
 
 [Attempt 1](docs/attempts/01-agent-led/README.md) preserves the earlier agent-led
 approach at its original paths. That agent and its supplementary dispatch route
