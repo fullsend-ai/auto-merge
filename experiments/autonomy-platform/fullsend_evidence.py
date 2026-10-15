@@ -191,3 +191,74 @@ def risk_gap(comments):
     ):
         return "fullsend_risk_missing_revision_binding"
     return "fullsend_risk_missing"
+
+
+RISK_RECEIPT = re.compile(r"^<!-- fullsend:review-risk-v1:([A-Za-z0-9+/=]+) -->$", re.M)
+
+
+def risk(head, reviews, comments, verify_producer):
+    """Accept only a bound host receipt from a verified completed Fullsend run."""
+    absent = {"value": None, "reason": risk_gap(comments)}
+    ledger = findings(head, reviews, comments)
+    if "summary_comment_id" not in ledger:
+        return absent
+    comment = next(c for c in comments if c.get("id") == ledger["summary_comment_id"])
+    body = current_section(comment.get("body"))
+    receipts = RISK_RECEIPT.findall(body)
+    if not receipts:
+        return absent
+    try:
+        if (
+            len(receipts) != 1
+            or body.count("<!-- fullsend:review-risk-") != 1
+            or len(receipts[0]) > 2048
+        ):
+            raise ValueError("receipt")
+        data = json.loads(
+            base64.b64decode(receipts[0], validate=True),
+            object_pairs_hook=unique_object,
+        )
+        if not isinstance(data, dict) or set(data) != {
+            "version",
+            "head_sha",
+            "score",
+            "level",
+            "config_sha",
+            "run_id",
+            "run_attempt",
+        }:
+            raise ValueError("receipt")
+        if (
+            type(data["version"]) is not int
+            or data["version"] != 1
+            or data["head_sha"] != head
+        ):
+            raise ValueError("binding")
+        score = data["score"]
+        if (
+            type(score) is not int
+            or not 1 <= score <= 5
+            or data["level"]
+            != ["low", "moderate", "elevated", "high", "critical"][score - 1]
+        ):
+            raise ValueError("risk")
+        if not isinstance(data["config_sha"], str) or not re.fullmatch(
+            r"[0-9a-f]{40}", data["config_sha"]
+        ):
+            raise ValueError("binding")
+        for key, maximum in [("run_id", 10**15 - 1), ("run_attempt", 999999)]:
+            if type(data[key]) is not int or not 1 <= data[key] <= maximum:
+                raise ValueError("run")
+    except (ValueError, TypeError, RecursionError, binascii.Error):
+        return {"value": None, "reason": "fullsend_risk_receipt_invalid"}
+    if not verify_producer(data):
+        return {"value": None, "reason": "fullsend_risk_producer_unverified"}
+    return {
+        "value": score,
+        "reason": "fullsend_lab_risk_receipt_verified",
+        "review_id": ledger["review_id"],
+        "summary_comment_id": ledger["summary_comment_id"],
+        "run_id": data["run_id"],
+        "run_attempt": data["run_attempt"],
+        "config_sha": data["config_sha"],
+    }

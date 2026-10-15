@@ -1,0 +1,3 @@
+# Official Review; only host publication gains the lab risk receipt.
+base: https://raw.githubusercontent.com/fullsend-ai/agents/a159f388364279487818325ef5d3cc1bcd31e1ea/harness/review.yaml#sha256=018ea874f6b0faa478fdd3e1eff005938dc59b8445b05a8b8e24d0196f0b9188
+post_script: scripts/post-review-gemara.py

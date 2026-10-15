@@ -8,6 +8,9 @@ runtime: claude
 roles:
     - review
 agents:
+    - name: review
+      source: harness/review-gemara.yaml
+      runtime: claude
     - name: auto-merge
       enabled: false
       source: harness/auto-merge.yaml

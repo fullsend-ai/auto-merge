@@ -1,0 +1,51 @@
+--- a/scripts/post-review.sh
++++ b/scripts/post-review.sh
+@@ -2082,13 +2082,39 @@
+   PRIOR_FINDINGS_ENCODED="$(printf '%s' "${PRIOR_FINDINGS_PROJECTION}" | base64 | tr -d '\n')"
+   PROJECTION_MARKER="<!-- fullsend:review-findings-v2:${PRIOR_FINDINGS_ENCODED} -->"
+ fi
++# Runner-owned revision-bound risk projection; never copy model receipt markers.
++# The observer verifies this run and its trusted configuration before using risk.
++RISK_PROJECTION="$(jq -c \
++  --arg config "${GITHUB_SHA:-}" \
++  --arg run "${GITHUB_RUN_ID:-}" \
++  --arg attempt "${GITHUB_RUN_ATTEMPT:-}" '
++
++  .head_sha as $head
++  | .risk_assessment
++  | select(type == "object" and (has("degraded") | not))
++  | select(.score | type == "number" and floor == . and . >= 1 and . <= 5)
++  | select(.level == (["low", "moderate", "elevated", "high", "critical"][.score - 1]))
++  | select($head | type == "string" and test("^[0-9a-f]{40}$"))
++  | select($config | test("^[0-9a-f]{40}$"))
++  | select($run | test("^[1-9][0-9]{0,14}$"))
++  | select($attempt | test("^[1-9][0-9]{0,5}$"))
++  | {version: 1, head_sha: $head, score, level,
++     config_sha: $config, run_id: ($run | tonumber), run_attempt: ($attempt | tonumber)}
++
++' "${RESULT_FILE}")"
++RISK_PROJECTION_MARKER=""
++if [[ -n "${RISK_PROJECTION}" ]]; then
++  RISK_ENCODED="$(printf '%s' "${RISK_PROJECTION}" | base64 | tr -d '\n')"
++  RISK_PROJECTION_MARKER="<!-- fullsend:review-risk-v1:${RISK_ENCODED} -->"
++fi
+ TMP_RESULT="$(mktemp)"
+ CLEANUP_FILES+=("${TMP_RESULT}")
+-jq --arg marker "${PROJECTION_MARKER}" '
++jq --arg marker "${PROJECTION_MARKER}" --arg risk_marker "${RISK_PROJECTION_MARKER}" '
+   # pre-review ends the current section at the first line containing a
+   # history delimiter, so any copy in the agent body would hide the marker.
+   def strip_reserved:
+     gsub("(?m)^<!-- fullsend:review-findings-v[12]:[A-Za-z0-9+/=]+ -->\\r?$"; "")
++    | gsub("(?m)^<!-- fullsend:review-risk-v[0-9]+:[A-Za-z0-9+/=]+ -->\\r?$"; "")
+     | gsub("<!-- sticky:history-(start|end) -->"; "")
+     | gsub("(?m)^<summary>Previous run( \\([0-9]+\\))?</summary>\\r?$"; "");
+   # Removing a substring can join its neighbours into a new reserved string,
+@@ -2102,6 +2128,7 @@
+   # The marker leads the body: sticky truncation cuts from the end, so a
+   # very long review must never lose its ledger.
+   | if $marker == "" then . else .body = ($marker + "\n\n" + .body) end
++  | if $risk_marker == "" then . else .body = ($risk_marker + "\n\n" + .body) end
+ ' \
+   "${RESULT_FILE}" > "${TMP_RESULT}"
+ mv "${TMP_RESULT}" "${RESULT_FILE}"

@@ -198,3 +198,112 @@ class QueueTests(unittest.TestCase):
             self.assertFalse(g.queue_proof(client, "", rules, tree)["value"])
             run[field] = before
         self.assertFalse(g.queue_proof(client, "", [], tree)["value"])
+
+
+class RiskReceiptTests(unittest.TestCase):
+    def receipt(self, **changes):
+        data = {
+            "version": 1,
+            "head_sha": "a" * 40,
+            "score": 1,
+            "level": "low",
+            "config_sha": "b" * 40,
+            "run_id": 1234,
+            "run_attempt": 1,
+        }
+        data.update(changes)
+        review, comment = fixture()
+        comment["body"] = (
+            "<!-- fullsend:review-risk-v1:" + encode(data) + " -->\n" + comment["body"]
+        )
+        return data, review, comment
+
+    def test_valid_risk_requires_completed_trusted_producer(self):
+        data, review, comment = self.receipt()
+        self.assertEqual(
+            f.risk("a" * 40, [review], [comment], lambda d: d == data)["value"], 1
+        )
+        self.assertIsNone(
+            f.risk("a" * 40, [review], [comment], lambda d: False)["value"]
+        )
+
+    def test_malformed_unbound_degraded_and_inconsistent_risk_are_unknown(self):
+        for changes in [
+            {"score": True},
+            {"score": 0},
+            {"score": 6},
+            {"level": "critical"},
+            {"head_sha": "f" * 40},
+            {"config_sha": "bad"},
+            {"run_id": "1234"},
+            {"run_attempt": 0},
+            {"degraded": "missing-context"},
+            {"version": 2},
+        ]:
+            _, review, comment = self.receipt(**changes)
+
+            def never(data):
+                self.fail("Unvalidated data reached the producer lookup")
+
+            self.assertIsNone(f.risk("a" * 40, [review], [comment], never)["value"])
+
+    def test_producer_is_bound_to_run_attempt_event_and_current_configuration(self):
+        receipt, _, _ = self.receipt()
+        tree = {
+            "tree": [
+                {"path": p, "type": "blob", "sha": "c" * 40}
+                for p in g.RISK_SOURCE_PATHS
+            ]
+        }
+        run = {
+            "id": 1234,
+            "run_attempt": 1,
+            "workflow_id": 365189947,
+            "path": ".github/workflows/fullsend.yaml",
+            "event": "issue_comment",
+            "head_branch": "main",
+            "head_sha": "b" * 40,
+            "status": "completed",
+            "conclusion": "success",
+            "repository": {"full_name": g.REPOSITORY},
+            "head_repository": {"full_name": g.REPOSITORY},
+        }
+
+        class Client:
+            def get(self, path):
+                return tree if "git/trees" in path else run
+
+        client = Client()
+        self.assertTrue(g.risk_producer(client, "", tree, receipt))
+        for key, value in [
+            ("event", "pull_request"),
+            ("run_attempt", 2),
+            ("head_branch", "untrusted"),
+            ("status", "in_progress"),
+            ("conclusion", "failure"),
+            ("workflow_id", 99),
+        ]:
+            old = run[key]
+            run[key] = value
+            self.assertFalse(g.risk_producer(client, "", tree, receipt))
+            run[key] = old
+        changed = copy.deepcopy(tree)
+        changed["tree"][0]["sha"] = "f" * 40
+        self.assertFalse(g.risk_producer(client, "", changed, receipt))
+
+    def test_host_refuses_unpinned_source_before_execution(self):
+        import importlib.util
+        from pathlib import Path
+        from unittest import mock
+
+        path = (
+            Path(__file__).resolve().parents[2]
+            / ".fullsend/scripts/post-review-gemara.py"
+        )
+        spec = importlib.util.spec_from_file_location("receipt_host", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with mock.patch.object(module.subprocess, "run") as run:
+            with self.assertRaises(ValueError):
+                module.prepare(Path("/unused"), b"untrusted", b"untrusted")
+            run.assert_not_called()

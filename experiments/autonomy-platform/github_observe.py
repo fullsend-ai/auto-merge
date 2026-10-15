@@ -22,7 +22,7 @@ from platform_lab import (
     ValidationError,
     source_digests,
 )
-from fullsend_evidence import findings, producer, risk_gap
+from fullsend_evidence import findings, producer, risk
 
 REPOSITORY = "fullsend-ai/auto-merge"
 CHECK_NAMES = {"Example contract", "Delayed integration (4 minutes)"}
@@ -212,6 +212,57 @@ def queue_proof(client, base, rules, tree):
     }
 
 
+RISK_SOURCE_PATHS = {
+    ".fullsend/config.yaml",
+    ".fullsend/harness/review-gemara.yaml",
+    ".fullsend/scripts/post-review-gemara.py",
+    ".fullsend/scripts/review-risk.patch",
+    ".github/workflows/fullsend.yaml",
+}
+
+
+def risk_producer(client, base, current_tree, receipt):
+    """Pin the receipt to completed trusted-main Review execution and host sources."""
+    endpoint = base + f"actions/runs/{receipt['run_id']}"
+    run = client.get(endpoint)
+    if not run or not (
+        run.get("id") == receipt["run_id"]
+        and run.get("run_attempt") == receipt["run_attempt"]
+        and run.get("workflow_id") == 365189947
+        and run.get("path") == ".github/workflows/fullsend.yaml"
+        and run.get("event") == "issue_comment"
+        and run.get("head_branch") == "main"
+        and run.get("head_sha") == receipt["config_sha"]
+        and run.get("status") == "completed"
+        and run.get("conclusion") == "success"
+        and run.get("repository", {}).get("full_name") == REPOSITORY
+        and run.get("head_repository", {}).get("full_name") == REPOSITORY
+    ):
+        return False
+    source_tree = client.get(base + f"git/trees/{receipt['config_sha']}?recursive=1")
+    if (
+        not current_tree
+        or not source_tree
+        or current_tree.get("truncated")
+        or source_tree.get("truncated")
+    ):
+        return False
+
+    def blobs(tree):
+        return {
+            r["path"]: r["sha"]
+            for r in tree.get("tree", [])
+            if r.get("type") == "blob" and r.get("path") in RISK_SOURCE_PATHS
+        }
+
+    current, original = blobs(current_tree), blobs(source_tree)
+    return (
+        set(current) == RISK_SOURCE_PATHS
+        and current == original
+        and client.get(endpoint) == run
+    )
+
+
 def observe(number, client=None):
     require(type(number) is int and 0 < number < 1000000, "invalid_pr")
     client = client or Client()
@@ -233,6 +284,10 @@ def observe(number, client=None):
     rules = client.get(base + "rules/branches/main")
     tree = client.get(base + f"git/trees/{target}?recursive=1")
     queue = queue_proof(client, base, rules, tree)
+    finding_evidence = findings(head, reviews, comments)
+    risk_evidence = risk(
+        head, reviews, comments, lambda data: risk_producer(client, base, tree, data)
+    )
     infrastructure = None
     if tree and not tree.get("truncated"):
         infrastructure = [
@@ -275,8 +330,8 @@ def observe(number, client=None):
     candidate = dict(ready, head_sha=head, base_sha=target)
     bundle = load_bundle()
     values, seen = normalize(pr, checks, reviews, files)
-    finding_evidence = findings(head, reviews, comments)
     values["AM-FINDINGS"] = finding_evidence["value"]
+    values["AM-RISK"] = risk_evidence["value"]
     readiness = {
         "AR-RULES": bool(rules) if rules is not None else None,
         "AR-CHECKS": checks is not None,
@@ -324,11 +379,10 @@ def observe(number, client=None):
         "review_identity_assurance": "Pinned API bot ID/login/type, not a signed production attestation",
         "evidence_details": {
             "AM-FINDINGS": finding_evidence,
-            "AM-RISK": {"value": None, "reason": risk_gap(comments)},
+            "AM-RISK": risk_evidence,
             "AR-QUEUE": queue,
         },
         "unimplemented_evidence": [
-            "revision_bound_risk_attestation",
             "meaningful_test_sufficiency",
             "runtime_isolation",
             "shadow_track_record",

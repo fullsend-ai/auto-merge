@@ -181,3 +181,27 @@ Validation: 39 Python tests cover native evaluations, real-source normalization,
 ledger lifecycle and collection races. Prior pinned Go evaluator code is unchanged.
 The evidence verification made no GitHub writes. Subsequent publication was explicitly
 authorized by the repository owner; hosted producer/readiness work continues below.
+
+
+## 2026-10-15 bounded Review risk producer extension
+
+Registered the existing Review role through documented base composition, pinned
+to official Agents a159f388364279487818325ef5d3cc1bcd31e1ea. The model, read-only
+repository policy, validation loop and providers remain inherited. A small host
+wrapper downloads only the immutable bundled official post-script, verifies its
+hash, applies a pinned local patch in a private temporary directory with no forge
+credentials in the patch process, and verifies the resulting executable hash.
+Only the original official post-script receives its existing role environment.
+
+The patch strips model-provided risk markers and adds a runner-owned receipt
+containing only revision, score/level, source configuration and run/attempt IDs.
+Degraded, missing and inconsistent risk cannot emit a receipt. The observer also
+verifies the completed issue-comment Fullsend run, exact attempt, trusted-main
+configuration and matching current host source blobs before accepting that risk.
+This is a lab extension using supported composition, not an upstream feature or
+new model agent. It does not grant merge or new sandbox permissions.
+
+Validated configuration registration; pinned source/patch/result application and
+bash syntax; all five risk levels plus malformed/degraded projection cases; 43
+Python tests, including wrong run/attempt/event/configuration and tamper rejection.
+Hosted verification follows publication. No trial PR is approved for live merging.
