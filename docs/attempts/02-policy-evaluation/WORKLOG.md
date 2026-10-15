@@ -689,7 +689,8 @@ the exact head/ref and main-base/configuration SHA, with stable re-reads. It als
 checks the actual referenced dispatcher path/commit. Empty, ambiguous, non-main,
 wrong-PR, wrong-source or changing suite evidence holds. Real check-suite records
 for runs 38794894536 and 38819997795 were inspected read-only; unlike the empty
-workflow-run PR list, they contain the independent main-base linkage. No source
+workflow-run PR list, they contain a PR/main-base association. This is not a
+historical attestation of the checkout the run loaded. No source
 workflow or App permission is changed. The missing comment-route head-SHA
 regression and LIVE-TRIAL event-binding explanation are included. GitHub's role
 API verified the authorizing ascerra account has repository admin permission;
@@ -698,3 +699,18 @@ CONTRIBUTOR author association is not a repository-permission classification.
 Validation after the independent-suite correction: all 74 tests, Ruff and a
 read-only observation of PR #36's real automatic receipt pass. The observation
 verified the pinned dispatcher and stable suite/base link and permitted no mutation.
+
+The next review approved the revision with three low-priority follow-ups. The
+deployment preflight stopped on their unresolved threads before changing rules.
+They are addressed by a managed-workflow dispatcher-pin consistency test, more
+precise suite-association wording, and an automatic host-history guard. The
+configuration must be an ancestor of the observed main tip; at most 20 intervening
+commits are inspected individually for host-source modifications/renames, including
+changes later reverted. Unavailable/truncated/oversized history holds. This is
+a bounded fail-closed check, not a claim that a suite attests runtime checkout.
+
+Final follow-up validation: all 77 Python/native tests and Ruff pass. The new
+comparison endpoint is allowed only for two exact SHA values and a fixed bounded
+page size; traversal and branch-name substitutions remain rejected. A real
+read-only PR #36 observation passed the comparison/per-commit history checks and
+still permitted no mutation. No deployment exception has yet been activated.

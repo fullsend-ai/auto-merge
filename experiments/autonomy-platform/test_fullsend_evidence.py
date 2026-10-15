@@ -351,7 +351,7 @@ class RiskReceiptTests(unittest.TestCase):
                 "repo": {"full_name": g.REPOSITORY},
             },
         }
-        self.assertTrue(g.risk_producer(client, "", tree, receipt, pr))
+        self.assertTrue(g.risk_producer(client, "", tree, receipt, pr, "b" * 40))
         self.assertFalse(g.risk_producer(client, "", tree, receipt))
         for side, field, value in [
             ("head", "sha", "f" * 40),
@@ -364,7 +364,9 @@ class RiskReceiptTests(unittest.TestCase):
             changed = copy.deepcopy(pr)
             changed[side][field] = value
             with self.subTest(side=side, field=field):
-                self.assertFalse(g.risk_producer(client, "", tree, receipt, changed))
+                self.assertFalse(
+                    g.risk_producer(client, "", tree, receipt, changed, "b" * 40)
+                )
         for field, value in [
             ("event", "pull_request"),
             ("head_sha", "f" * 40),
@@ -383,11 +385,13 @@ class RiskReceiptTests(unittest.TestCase):
             original = run[field]
             run[field] = value
             with self.subTest(field=field):
-                self.assertFalse(g.risk_producer(client, "", tree, receipt, pr))
+                self.assertFalse(
+                    g.risk_producer(client, "", tree, receipt, pr, "b" * 40)
+                )
             run[field] = original
         changed = copy.deepcopy(tree)
         changed["tree"][0]["sha"] = "f" * 40
-        self.assertFalse(g.risk_producer(client, "", changed, receipt, pr))
+        self.assertFalse(g.risk_producer(client, "", changed, receipt, pr, "b" * 40))
         for head_tree in [None, {"tree": []}, dict(tree, truncated=True), changed]:
 
             class ChangedHeadClient:
@@ -398,7 +402,9 @@ class RiskReceiptTests(unittest.TestCase):
 
             with self.subTest(head_tree=head_tree):
                 self.assertFalse(
-                    g.risk_producer(ChangedHeadClient(), "", tree, receipt, pr)
+                    g.risk_producer(
+                        ChangedHeadClient(), "", tree, receipt, pr, "b" * 40
+                    )
                 )
         suite = client.get("check-suites/4321")
         changed_suites = [
@@ -434,7 +440,9 @@ class RiskReceiptTests(unittest.TestCase):
 
             with self.subTest(suite=changed_suite):
                 self.assertFalse(
-                    g.risk_producer(ChangedSuiteClient(), "", tree, receipt, pr)
+                    g.risk_producer(
+                        ChangedSuiteClient(), "", tree, receipt, pr, "b" * 40
+                    )
                 )
 
         class MovingSuiteClient:
@@ -448,7 +456,9 @@ class RiskReceiptTests(unittest.TestCase):
                     )
                 return client.get(path)
 
-        self.assertFalse(g.risk_producer(MovingSuiteClient(), "", tree, receipt, pr))
+        self.assertFalse(
+            g.risk_producer(MovingSuiteClient(), "", tree, receipt, pr, "b" * 40)
+        )
 
     def test_automatic_producer_changes_during_collection_hold(self):
         receipt, tree, run, client = self.producer_fixture()
@@ -480,7 +490,77 @@ class RiskReceiptTests(unittest.TestCase):
                 self.reads += 1
                 return dict(run, run_attempt=self.reads)
 
-        self.assertFalse(g.risk_producer(ChangingClient(), "", tree, receipt, pr))
+        self.assertFalse(
+            g.risk_producer(ChangingClient(), "", tree, receipt, pr, "b" * 40)
+        )
+
+    def test_dispatcher_pin_matches_managed_workflow(self):
+        from pathlib import Path
+        import re
+
+        workflow = (
+            Path(__file__).resolve().parents[2] / ".github/workflows/fullsend.yaml"
+        )
+        uses = re.findall(
+            r"^    uses: (fullsend-ai/fullsend/\.github/workflows/reusable-dispatch\.yml@\S+)$",
+            workflow.read_text(),
+            re.M,
+        )
+        self.assertEqual(uses, [g.RISK_DISPATCH["path"]])
+        self.assertEqual(uses[0].rsplit("@", 1)[1], g.RISK_DISPATCH["sha"])
+
+    def test_host_history_checks_each_commit_including_a_revert(self):
+        configuration, first, main = "b" * 40, "d" * 40, "e" * 40
+        comparison = {
+            "status": "ahead",
+            "base_commit": {"sha": configuration},
+            "merge_base_commit": {"sha": configuration},
+            "total_commits": 2,
+            "commits": [{"sha": first}, {"sha": main}],
+        }
+        rows = {
+            first: {"sha": first, "files": [{"filename": "docs/one.md"}]},
+            main: {"sha": main, "files": [{"filename": "docs/two.md"}]},
+        }
+
+        class Client:
+            def get(self, path):
+                if "compare/" in path:
+                    return comparison
+                return rows.get(path.split("commits/")[1].split("?")[0])
+
+        client = Client()
+        self.assertTrue(g.risk_host_history(client, "", configuration, main))
+        source = next(iter(g.RISK_SOURCE_PATHS))
+        # A clean final tree cannot conceal an intermediate host-source change.
+        rows[first]["files"] = [{"filename": source}]
+        rows[main]["files"] = [{"filename": source}]
+        self.assertFalse(g.risk_host_history(client, "", configuration, main))
+        rows[main]["files"] = [{"filename": "docs/two.md"}]
+        rows[first]["files"] = [{"filename": "elsewhere", "previous_filename": source}]
+        self.assertFalse(g.risk_host_history(client, "", configuration, main))
+        rows[first]["files"] = [{"filename": "docs/one.md"}]
+        rows[main]["files"] = [{"filename": "docs/two.md"}]
+        for changes in [
+            {"status": "diverged"},
+            {"merge_base_commit": {"sha": "f" * 40}},
+            {"total_commits": 21},
+            {"commits": [{"sha": main}]},
+            {"commits": [{"sha": main}, {"sha": main}]},
+        ]:
+            old = copy.deepcopy(comparison)
+            comparison.update(changes)
+            with self.subTest(changes=changes):
+                self.assertFalse(g.risk_host_history(client, "", configuration, main))
+            comparison.clear()
+            comparison.update(old)
+        for files in [None, [{}], [{"filename": "docs/a.md"}] * 100]:
+            rows[main]["files"] = files
+            self.assertFalse(g.risk_host_history(client, "", configuration, main))
+        rows[main] = None
+        self.assertFalse(g.risk_host_history(client, "", configuration, main))
+        self.assertFalse(g.risk_host_history(client, "", configuration, None))
+        self.assertTrue(g.risk_host_history(client, "", configuration, configuration))
 
     def test_host_refuses_unpinned_source_before_execution(self):
         import importlib.util

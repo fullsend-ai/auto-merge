@@ -95,6 +95,7 @@ class ObserverTests(unittest.TestCase):
             {"tree": [{"path": ".fullsend/config.yaml", "sha": "c" * 40}]},
             receipt,
             pr(),
+            "b" * 40,
         )
 
     def test_api_payload_text_is_never_in_retained_report(self):
@@ -286,6 +287,32 @@ class ObserverTests(unittest.TestCase):
         ]:
             with self.assertRaises(g.InputError):
                 client.get(path)
+
+    def test_comparison_allows_only_fixed_sha_pair_and_bounded_page(self):
+        client = g.Client()
+        endpoint = (
+            "repos/"
+            + g.REPOSITORY
+            + "/compare/"
+            + "b" * 40
+            + "..."
+            + "e" * 40
+            + "?per_page=20"
+        )
+        with mock.patch.object(client.opener, "open") as request:
+            request.return_value.__enter__.return_value.read.return_value = b"{}"
+            self.assertEqual(client.get(endpoint), {})
+            self.assertEqual(
+                request.call_args.args[0].full_url, "https://api.github.com/" + endpoint
+            )
+            for changed in [
+                endpoint.replace("per_page=20", "per_page=100"),
+                endpoint.replace("b" * 40, "../main"),
+                endpoint.replace("e" * 40, "main"),
+            ]:
+                with self.assertRaises(g.InputError):
+                    client.get(changed)
+            self.assertEqual(request.call_count, 1)
 
 
 if __name__ == "__main__":
