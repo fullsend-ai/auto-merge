@@ -101,6 +101,8 @@ jobs:
       actions: read
       checks: read
     uses: ./.github/workflows/gemara-writer.yml
+    secrets:
+      GEMARA_PILOT_APP_PRIVATE_KEY: ${{ secrets.GEMARA_PILOT_APP_PRIVATE_KEY }}
     with:
       pr: ${{ needs.resolve.outputs.pr }}
       head: ${{ needs.resolve.outputs.head }}
@@ -113,6 +115,8 @@ jobs:
       actions: read
       checks: read
     uses: ./.github/workflows/gemara-writer.yml
+    secrets:
+      GEMARA_PILOT_APP_PRIVATE_KEY: ${{ secrets.GEMARA_PILOT_APP_PRIVATE_KEY }}
     with:
       pr: ${{ inputs.pr }}
       head: ${{ inputs.head }}

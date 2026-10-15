@@ -604,3 +604,28 @@ make an explicitly requested execute hold fail even in the evaluation job, and
 remove pre-merge-only deployment wording from the resulting documentation.
 The same approved PR #32 bootstrap will be retried only after final-head CI and
 review-thread checks pass. No additional repository or broader exception is used.
+
+### Bootstrap installed; deployed credential probe exposed a wiring gap
+
+PR #32 merged as 5e076df280a213b76990fce18a290bf41f3b5ff3 under the explicit
+owner bootstrap. Ordinary merge-group CI 38790385822 passed; the old spent-grant
+Gemara job failed under the documented installation exception. Immediately after
+merge, API verification confirmed all four required checks restored, code-owner
+reviews enabled and no bypass actors. This is installation evidence only.
+
+Deployed read-only App probe 38791166882 failed before minting: the token action
+received an empty private-key input. The reusable job was bound to the correct
+main-only environment; the secret existed and the non-secret App ID resolved.
+GitHub's current reusable-workflow documentation requires explicit secret-name
+forwarding even when the value exists only in the callee's environment.
+The prepared follow-up declares that single secret required and forwards only
+its name from both callers. No broad inheritance, repository-level key copy,
+permission expansion or new App key is proposed. Hosted token/merge proof remains
+pending. Another governance deployment exception needs explicit owner approval;
+no further rule changes have been made and no demo PR was opened yet.
+
+The owner explicitly approved this follow-up's commit, push and deployment
+exception: after exact-head CI passes, waive only the Gemara queue requirement
+and code-owner review for this owner-authored fix, retain the queue and three
+ordinary required checks, then restore both protections immediately. The App
+receives no bypass. A separate hosted probe will verify the resulting wiring.
