@@ -17,6 +17,10 @@ The exact-head attestation flow keeps correctness, security, and intent
 judgment with the Fullsend Review Agent. Auto-Merge verifies that the Review
 result is legible and bound to this revision before queue entry.
 
+An owner-authorized documentation trial evaluates policy before queue entry.
+The required queue check validates the reviewed document again on the cumulative
+merge-group commit before GitHub merges it.
+
 ## Verification
 
 Run `python3 scripts/validate_example.py` and confirm both pull-request CI jobs
