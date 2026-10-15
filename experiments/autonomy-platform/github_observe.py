@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Read public PR metadata; never fetch logs, download artifacts or perform writes."""
 
+from pathlib import Path
 from datetime import datetime, timezone
 import argparse
 import json
@@ -272,12 +273,57 @@ def observe(number, client=None):
     }
 
 
+def summary(report):
+    """Render only normalized fields; never publish raw API responses."""
+    lines = [
+        "# Gemara shadow trial — no merge authority",
+        "",
+        f"PR #{report['pull_request']} · head `{report['head_sha']}`",
+        "",
+        "A successful workflow means evaluation completed, not permission to merge.",
+        "Readiness and PR eligibility are separate. Missing evidence remains Unknown.",
+        "",
+    ]
+    for item in report["results"]:
+        lines += [
+            f"## {item['adapter']}: {item['shadow']['decision']}",
+            "",
+            "| Scope | Control | Assessment | Reason |",
+            "| --- | --- | --- | --- |",
+        ]
+        for scope, result in [
+            ("Repository readiness", item["qualification"]["result"]),
+            ("PR candidate", item["shadow"]["evaluation"]),
+        ]:
+            for row in result["assessments"]:
+                lines.append(
+                    f"| {scope} | {row['id']} | {row['state']} | {row['reason']} |"
+                )
+        lines += ["", "Hold reasons: " + ", ".join(item["shadow"]["reasons"]), ""]
+    lines += [
+        "## What this proves",
+        "",
+        "Real GitHub metadata reached native Gemara assessment functions and an independent reference adapter.",
+        "The predicates and shared/repository profiles are lab code, not native Gemara Policy execution.",
+        "Bot login metadata does not establish a trusted review/finding/risk attestation.",
+        "No rules were changed and no merge, comment or status was requested.",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pr", type=int, required=True)
+    parser.add_argument(
+        "--summary",
+        action="store_true",
+        help="Write normalized results to the GitHub job summary",
+    )
     args = parser.parse_args()
     try:
         report = observe(args.pr)
+        if args.summary:
+            Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text(summary(report))
         destination = new_output("github")
         (destination / "report.json").write_text(json.dumps(report, indent=2) + "\n")
         print(

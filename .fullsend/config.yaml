@@ -6,10 +6,7 @@
 version: "1"
 runtime: claude
 roles:
-    - triage
-    - coder
     - review
-    - fix
 agents:
     - name: auto-merge
       enabled: false

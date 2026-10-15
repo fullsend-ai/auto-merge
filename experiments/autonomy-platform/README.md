@@ -26,10 +26,23 @@ stricter repository profiles, missing/stale/wrong-revision evidence, invalidated
 readiness, engine switching, and credential isolation. These are simulations;
 all modes emit `mutation_permitted: false` and no authorized actions.
 
-## Observe a real PR in shadow mode
+## Run on GitHub
 
-After the setup is reviewed and landed, verify the legacy agent is disabled and
-separately restore normal Fullsend Review dispatch. Open a harmless PR changing
+`Autonomy shadow observation` runs from trusted default-branch code after CI or
+Fullsend completes, when that run identifies a PR. It can also be dispatched
+manually on `main` with a PR number. The job has read-only contents, PR and check
+permissions. It does not check out PR code, persist credentials or upload reports.
+Open the run's Summary to see readiness and candidate controls for both adapters.
+A green workflow means collection/evaluation completed; a `hold` is a policy
+result, not a workflow failure. This job is not a required merge check.
+
+The lab configuration enables only Fullsend Review. The old custom agent remains
+disabled and its supplementary workflow stays paused. Automatic runs may occur
+before Review publishes its results; dispatch again afterward when necessary.
+
+## Observe a real PR locally in shadow mode
+
+After the setup is landed and normal Fullsend Review dispatch restored, open a harmless PR changing
 only `docs/example-feature.md`, wait for CI and Fullsend Review, then run:
 
 ```sh
@@ -69,3 +82,19 @@ Assessment predicates are authored by this lab and passed to the SDK; Gemara doe
 not automatically know GitHub or Fullsend semantics. General policy imports,
 exceptions and central distribution are not implemented. See
 [scope and known compatibility limit](../../docs/attempts/02-policy-evaluation/README.md).
+
+## Why there is Go code here
+
+Gemara's SDK supplies assessment execution, evidence collection and aggregation.
+It does not supply a Fullsend Review or GitHub CI checker. `sdk/main.go` attaches
+our normalized observations to those native helpers. `platform_lab.py` supplies
+the experimental mode/profile and readiness binding. These scripts are a lab
+implementation of an integration boundary, not code every repository should copy.
+
+The alternative adapter is `native-json-reference`: a small independent Python
+evaluator used to test that the boundary is not tied to Gemara. It is not OPA,
+Kyverno, Cedar or a second installed service. Only `gemara-sdk` calls Gemara.
+
+Upstream describes this division in its [integration FAQ](https://gemara.openssf.org/faq/#how-do-evaluation-tools-connect-to-gemara):
+existing tools may need glue to emit Gemara evaluation results. Merely authoring
+a Policy document does not implement the GitHub/Fullsend evidence checks.

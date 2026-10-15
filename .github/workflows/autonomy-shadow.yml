@@ -1,0 +1,47 @@
+name: Autonomy shadow observation
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Public auto-merge PR number to observe (no merge authority)
+        required: true
+        type: string
+  workflow_run:
+    workflows: [CI, fullsend]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+
+jobs:
+  observe:
+    if: >-
+      github.repository == 'fullsend-ai/auto-merge'
+      && github.ref == 'refs/heads/main'
+      && (github.event_name == 'workflow_dispatch'
+          || github.event.workflow_run.pull_requests[0].number)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      # workflow_run uses the default branch SHA, never the triggering PR's code.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.6'
+          cache: false
+      - name: Build assessment adapter without credentials
+        env:
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
+        run: python3 experiments/autonomy-platform/build_sdk.py
+      - name: Observe public metadata and write a normalized summary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr || github.event.workflow_run.pull_requests[0].number }}
+        run: python3 experiments/autonomy-platform/github_observe.py --pr "$PR_NUMBER" --summary

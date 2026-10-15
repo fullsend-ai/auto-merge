@@ -79,6 +79,16 @@ class ObserverTests(unittest.TestCase):
         )
         self.assertFalse(result["mutation_permitted"])
 
+    def test_summary_explains_holds_without_raw_api_text(self):
+        report = g.observe(26, FixtureClient())
+        text = g.summary(report)
+        self.assertIn("no merge authority", text)
+        self.assertIn("Repository readiness", text)
+        self.assertIn("PR candidate", text)
+        self.assertIn("gemara-sdk: hold", text)
+        self.assertNotIn("SYNTHETIC_SECRET_SENTINEL", text)
+        self.assertIn("not native Gemara Policy execution", text)
+
     def test_changed_candidate_and_closed_pr_cannot_pass(self):
         for client in [FixtureClient(changed=True), FixtureClient(closed=True)]:
             result = g.observe(26, client)

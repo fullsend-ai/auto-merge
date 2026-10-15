@@ -23,3 +23,14 @@ No GitHub/model/merge calls are part of that workflow.
 Publication state: PR #27 remains a draft. Both legacy dispatch workflows were
 manually paused before its initial publication. This reduction does not restore
 dispatch, modify GitHub rules, publish a status, or activate merging.
+
+## Real-PR trial setup
+
+User authorized landing setup and iterating on main. Retained the existing rules
+and merge queue. Added a trusted-main, read-only observer workflow with normalized
+job summaries; scoped Fullsend roles to Review only. No PR checkout, workflow
+logs, arbitrary commands, raw payload publication, merge or status writes are
+part of the observer. Legacy custom-agent/context routes remain disabled.
+
+Validation: 25 Python tests, 4 native Go tests, lint/format and example validation.
+The new test checks that job summaries explain holds without retaining API text.
