@@ -1,0 +1,85 @@
+{
+  "title": "Auto-Merge repository policy",
+  "metadata": {
+    "id": "autonomy-repository",
+    "type": "Policy",
+    "gemara-version": "1.5.0",
+    "version": "0.1.0",
+    "description": "Auto-Merge research policy; not an approved organizational standard",
+    "author": {
+      "id": "autonomy-lab",
+      "name": "Auto-Merge research lab",
+      "type": "Software Assisted"
+    },
+    "draft": true,
+    "mapping-references": [
+      {
+        "id": "autonomy-common",
+        "title": "Common autonomy policy",
+        "version": "0.1.0"
+      },
+      {
+        "id": "autonomy-controls",
+        "title": "Autonomy controls",
+        "version": "0.1.0"
+      }
+    ]
+  },
+  "contacts": {
+    "responsible": [
+      {
+        "name": "Repository maintainers"
+      }
+    ],
+    "accountable": [
+      {
+        "name": "Policy owners"
+      }
+    ]
+  },
+  "scope": {
+    "in": {
+      "technologies": [
+        "github"
+      ],
+      "groups": [
+        "fullsend-ai/auto-merge"
+      ]
+    }
+  },
+  "imports": {
+    "policies": [
+      {
+        "reference-id": "autonomy-common"
+      }
+    ]
+  },
+  "adherence": {
+    "assessment-plans": [
+      {
+        "id": "repository-documentation-only",
+        "requirement-id": "AM-CLASS-1",
+        "frequency": "every evaluation",
+        "evaluation-methods": [
+          {
+            "id": "change-class",
+            "type": "Intent",
+            "mode": "Automated",
+            "required": true
+          }
+        ],
+        "parameters": [
+          {
+            "id": "allowed-change-classes",
+            "label": "Repository change classes",
+            "description": "This trial permits documentation changes only",
+            "accepted-values": [
+              "documentation"
+            ]
+          }
+        ]
+      }
+    ],
+    "non-compliance": "Hold the PR for human handling."
+  }
+}

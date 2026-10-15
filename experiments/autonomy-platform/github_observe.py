@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import argparse
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 
@@ -14,11 +15,11 @@ from platform_lab import (
     InputError,
     digest,
     gate,
-    load,
     new_output,
     qualification,
     require,
-    resolve,
+    load_bundle,
+    ValidationError,
     source_digests,
 )
 
@@ -202,9 +203,7 @@ def observe(number, client=None):
         "configuration_sha256": configuration,
     }
     candidate = dict(ready, head_sha=head, base_sha=target)
-    policy = resolve(
-        load(ROOT / "policies/shared.json"), load(ROOT / "policies/repository.json")
-    )
+    bundle = load_bundle()
     values, seen = normalize(pr, checks, reviews, files)
     readiness = {
         "AR-RULES": bool(rules) if rules is not None else None,
@@ -230,24 +229,13 @@ def observe(number, client=None):
             if value is not None
         }
 
-    results = []
-    for adapter in ["gemara-sdk", "native-json-reference"]:
-        receipt = qualification(
-            policy, ready, now, observations(readiness, ready), adapter
-        )
-        result = gate(
-            policy,
-            candidate,
-            now,
-            observations(values, candidate),
-            "shadow",
-            receipt,
-            adapter,
-        )
-        if not current:
-            result["decision"] = "hold"
-            result["reasons"].append("candidate_not_current_open_pr")
-        results.append({"adapter": adapter, "qualification": receipt, "shadow": result})
+    receipt = qualification(bundle, ready, now, observations(readiness, ready))
+    result = gate(
+        bundle, candidate, now, observations(values, candidate), "shadow", receipt
+    )
+    if not current:
+        result["decision"] = "hold"
+        result["reasons"].append("candidate_not_current_open_pr")
     return {
         "provenance": "read-only-public-github-observation",
         "source_digests": source_digests(),
@@ -260,7 +248,7 @@ def observe(number, client=None):
         "historical_pr_observation": pr["state"] != "open",
         "stable_during_collection": stable,
         "fullsend_review_metadata_present": seen,
-        "policy_authority": "local-unpublished-experiment-only",
+        "policy_authority": "native-gemara-prototype-not-approved-standard",
         "review_identity_assurance": "API bot-login metadata, not a production attestation",
         "unimplemented_evidence": [
             "current_fullsend_finding_ledger",
@@ -271,7 +259,9 @@ def observe(number, client=None):
             "trusted_status_publication",
         ],
         "api_errors": sorted(client.errors),
-        "results": results,
+        "engine": "gemara",
+        "qualification": receipt,
+        "shadow": result,
         "mutation_permitted": False,
         "authorized_actions": [],
     }
@@ -304,27 +294,26 @@ def summary(report):
         "Readiness and PR eligibility are separate. Missing evidence remains Unknown.",
         "",
     ]
-    for item in report["results"]:
-        lines += [
-            f"## {item['adapter']}: {item['shadow']['decision']}",
-            "",
-            "| Scope | Control | Assessment | Reason |",
-            "| --- | --- | --- | --- |",
-        ]
-        for scope, result in [
-            ("Repository readiness", item["qualification"]["result"]),
-            ("PR candidate", item["shadow"]["evaluation"]),
-        ]:
-            for row in result["assessments"]:
-                lines.append(
-                    f"| {scope} | {names.get(row['id'], row['id'])} (`{row['id']}`) | {row['state']} | {row['reason']} |"
-                )
-        lines += ["", "Hold reasons: " + ", ".join(item["shadow"]["reasons"]), ""]
+    lines += [
+        f"## Gemara: {report['shadow']['decision']}",
+        "",
+        "| Scope | Control | Policy / plan | Assessment | Reason |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for scope, result in [
+        ("Repository readiness", report["qualification"]["result"]),
+        ("PR candidate", report["shadow"]["evaluation"]),
+    ]:
+        for row in result["assessments"]:
+            lines.append(
+                f"| {scope} | {names.get(row['id'], row['id'])} (`{row['id']}`) | {row['policy']} / {row['plan']} | {row['state']} | {row['reason']} |"
+            )
+    lines += ["", "Hold reasons: " + ", ".join(report["shadow"]["reasons"]), ""]
     lines += [
         "## What this proves",
         "",
-        "Real GitHub metadata reached native Gemara assessment functions and an independent reference adapter.",
-        "The predicates and shared/repository profiles are lab code, not native Gemara Policy execution.",
+        "Real GitHub metadata was assessed through native Gemara catalog requirements and imported Policy assessment plans.",
+        "The catalog, policies and generated evaluation logs are schema-validated. GitHub/Fullsend evidence checks are evaluator glue; unsupported policy semantics hold explicitly.",
         "Bot login metadata does not establish a trusted review/finding/risk attestation.",
         "No rules were changed and no merge, comment or status was requested.",
     ]
@@ -352,14 +341,22 @@ def main():
                     "repository": REPOSITORY,
                     "pull_request": args.pr,
                     "stable": report["stable_during_collection"],
-                    "decisions": [x["shadow"]["decision"] for x in report["results"]],
+                    "decision": report["shadow"]["decision"],
                     "mutation_permitted": False,
                     "output": str(destination.relative_to(ROOT)),
                 }
             )
         )
         return 0
-    except (InputError, KeyError, TypeError, ValueError, OSError):
+    except (InputError, ValidationError) as exc:
+        code = str(exc)
+        if not re.fullmatch(r"[A-Za-z_]{1,80}", code):
+            code = "observation_failed"
+        print(
+            json.dumps({"error": code, "decision": "hold", "mutation_permitted": False})
+        )
+        return 2
+    except (KeyError, TypeError, ValueError, OSError):
         print(
             '{"error":"observation_failed","decision":"hold","mutation_permitted":false}'
         )

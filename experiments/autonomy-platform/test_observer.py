@@ -74,19 +74,16 @@ class ObserverTests(unittest.TestCase):
         result = g.observe(26, FixtureClient())
         self.assertNotIn("SYNTHETIC_SECRET_SENTINEL", json.dumps(result))
         self.assertTrue(result["fullsend_review_metadata_present"])
-        self.assertEqual(
-            [x["shadow"]["decision"] for x in result["results"]], ["hold", "hold"]
-        )
+        self.assertEqual(result["shadow"]["decision"], "hold")
         self.assertFalse(result["mutation_permitted"])
-        for adapter in result["results"]:
-            findings = next(
-                row
-                for row in adapter["shadow"]["evaluation"]["assessments"]
-                if row["id"] == "AM-FINDINGS"
-            )
-            self.assertEqual(
-                (findings["state"], findings["reason"]), ("unknown", "missing")
-            )
+        findings = next(
+            row
+            for row in result["shadow"]["evaluation"]["assessments"]
+            if row["id"] == "AM-FINDINGS"
+        )
+        self.assertEqual(
+            (findings["state"], findings["reason"]), ("unknown", "missing")
+        )
 
     def test_summary_explains_holds_without_raw_api_text(self):
         report = g.observe(26, FixtureClient())
@@ -94,18 +91,36 @@ class ObserverTests(unittest.TestCase):
         self.assertIn("no merge authority", text)
         self.assertIn("Repository readiness", text)
         self.assertIn("PR candidate", text)
-        self.assertIn("gemara-sdk: hold", text)
+        self.assertIn("Gemara: hold", text)
         self.assertNotIn("SYNTHETIC_SECRET_SENTINEL", text)
-        self.assertIn("not native Gemara Policy execution", text)
+        self.assertIn("Policy assessment plans", text)
+
+    def test_cli_surfaces_safe_unsupported_policy_code(self):
+        import contextlib
+        import io
+        import json
+
+        with (
+            mock.patch("sys.argv", ["github_observe.py", "--pr", "28"]),
+            mock.patch.object(
+                g,
+                "observe",
+                side_effect=g.InputError("gemara_unsupported_policy_semantics"),
+            ),
+        ):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(g.main(), 2)
+        self.assertEqual(
+            json.loads(output.getvalue())["error"],
+            "gemara_unsupported_policy_semantics",
+        )
 
     def test_changed_candidate_and_closed_pr_cannot_pass(self):
         for client in [FixtureClient(changed=True), FixtureClient(closed=True)]:
             result = g.observe(26, client)
-            for adapter in result["results"]:
-                self.assertEqual(adapter["shadow"]["decision"], "hold")
-                self.assertIn(
-                    "candidate_not_current_open_pr", adapter["shadow"]["reasons"]
-                )
+            self.assertEqual(result["shadow"]["decision"], "hold")
+            self.assertIn("candidate_not_current_open_pr", result["shadow"]["reasons"])
 
     def test_current_revision_and_latest_decisive_review_required(self):
         review = {

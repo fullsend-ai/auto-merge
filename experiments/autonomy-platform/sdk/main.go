@@ -1,4 +1,4 @@
-// A local assessment adapter. No forge, model, shell or mutation client.
+// Native Gemara policy evaluation. No network, forge or mutation client.
 package main
 
 import (
@@ -7,20 +7,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	gemara "github.com/gemaraproj/go-gemara"
 	"io"
 	"os"
 	"regexp"
 	"sort"
 	"time"
-
-	gemara "github.com/gemaraproj/go-gemara"
 )
 
-type Rule struct {
-	ID       string `json:"id"`
-	Kind     string `json:"kind"`
-	Expected any    `json:"expected"`
-}
 type Observation struct {
 	Subject   string `json:"subject_sha256"`
 	Collected string `json:"collected_at"`
@@ -28,29 +22,31 @@ type Observation struct {
 	Value     any    `json:"value"`
 }
 type Request struct {
-	Version      string                 `json:"schema_version"`
-	SubjectHash  string                 `json:"subject_sha256"`
-	AsOf         string                 `json:"as_of"`
-	MaximumAge   int                    `json:"maximum_age_seconds"`
-	Rules        []Rule                 `json:"rules"`
-	Observations map[string]Observation `json:"observations"`
+	Version      string                           `json:"schema_version"`
+	SubjectHash  string                           `json:"subject_sha256"`
+	AsOf         string                           `json:"as_of"`
+	Purpose      string                           `json:"purpose"`
+	Repository   string                           `json:"repository"`
+	RootPolicy   string                           `json:"root_policy"`
+	Catalogs     map[string]gemara.ControlCatalog `json:"catalogs"`
+	Policies     map[string]gemara.Policy         `json:"policies"`
+	Observations map[string]Observation           `json:"observations"`
 }
 type Payload struct {
 	gemara.EvidenceCollector
 	Request Request
-	Rule    Rule
-	Reason  string
+	Binding binding
 }
 type Row struct {
-	ID     string `json:"id"`
-	State  string `json:"state"`
-	Reason string `json:"reason"`
+	ID          string `json:"id"`
+	Policy      string `json:"policy"`
+	Plan        string `json:"plan"`
+	Requirement string `json:"requirement"`
+	State       string `json:"state"`
+	Reason      string `json:"reason"`
 }
 
-func canonical(v any) []byte {
-	b, _ := json.Marshal(v)
-	return b
-}
+func canonical(v any) []byte { b, _ := json.Marshal(v); return b }
 
 // Reject duplicate keys and deeply nested input before decoding typed records.
 func keys(d *json.Decoder, depth int) error {
@@ -95,8 +91,8 @@ func keys(d *json.Decoder, depth int) error {
 }
 
 func check(p *Payload) (gemara.Result, string, gemara.ConfidenceLevel) {
-	r := p.Request
-	o, ok := r.Observations[p.Rule.ID]
+	b, r := p.Binding, p.Request
+	o, ok := r.Observations[b.Control.Id]
 	if !ok {
 		return gemara.Unknown, "missing", gemara.Undetermined
 	}
@@ -106,123 +102,165 @@ func check(p *Payload) (gemara.Result, string, gemara.ConfidenceLevel) {
 		return gemara.Unknown, "untrusted_or_wrong_subject", gemara.Undetermined
 	}
 	age := now.Sub(observed).Seconds()
-	if age < 0 || age > float64(r.MaximumAge) {
+	if age < 0 || age > float64(b.MaximumAge) {
 		return gemara.Unknown, "stale_or_future", gemara.Undetermined
 	}
 	passed := false
-	switch p.Rule.Kind {
-	case "boolean":
+	switch b.Control.Id {
+	case "AM-RISK":
+		v, ok := o.Value.(float64)
+		if !ok || v < 0 || v > 5 || v != float64(int(v)) {
+			return gemara.Unknown, "invalid_value", gemara.Undetermined
+		}
+		passed = v <= float64(b.MaximumRisk)
+	case "AM-CLASS":
+		v, ok := o.Value.(string)
+		if !ok {
+			return gemara.Unknown, "invalid_value", gemara.Undetermined
+		}
+		for _, x := range b.Classes {
+			passed = passed || v == x
+		}
+	default:
 		v, ok := o.Value.(bool)
 		if !ok {
 			return gemara.Unknown, "invalid_value", gemara.Undetermined
 		}
 		passed = v
-	case "maximum":
-		v, ok := o.Value.(float64)
-		limit, ok2 := p.Rule.Expected.(float64)
-		if !ok || !ok2 || v < 0 || v != float64(int64(v)) {
-			return gemara.Unknown, "invalid_value", gemara.Undetermined
-		}
-		passed = v <= limit
-	case "equals":
-		if _, ok := o.Value.(string); !ok {
-			return gemara.Unknown, "invalid_value", gemara.Undetermined
-		}
-		passed = bytes.Equal(canonical(o.Value), canonical(p.Rule.Expected))
-	case "member":
-		v, ok := o.Value.(string)
-		choices, ok2 := p.Rule.Expected.([]any)
-		if !ok || !ok2 {
-			return gemara.Unknown, "invalid_value", gemara.Undetermined
-		}
-		for _, choice := range choices {
-			if choice == v {
-				passed = true
-			}
-		}
-	default:
-		return gemara.Unknown, "unsupported_rule", gemara.Undetermined
 	}
-	raw := canonical(o)
-	hash := sha256.Sum256(raw)
-	// The SDK captures this evidence from the assessment payload automatically.
+	hash := sha256.Sum256(canonical(o))
 	var ev gemara.Evidence
-	_ = json.Unmarshal(canonical(map[string]any{"id": p.Rule.ID, "type": "normalized-observation", "collected-at": o.Collected, "payload": o, "source": map[string]any{"reference-id": "observations", "coordinate": p.Rule.ID, "digest": "sha256:" + hex.EncodeToString(hash[:])}}), &ev)
+	_ = json.Unmarshal(canonical(map[string]any{"id": b.Control.Id, "type": "normalized-observation", "collected-at": o.Collected, "payload": o, "source": map[string]any{"reference-id": "observations", "coordinate": b.Control.Id, "digest": "sha256:" + hex.EncodeToString(hash[:])}}), &ev)
 	p.AddEvidence(ev)
 	if passed {
 		return gemara.Passed, "satisfied", gemara.Undetermined
 	}
 	return gemara.Failed, "condition_failed", gemara.Undetermined
 }
-
+func evaluate(r Request) (map[string]any, error) {
+	bindings, err := resolve(r)
+	if err != nil {
+		return nil, err
+	}
+	evaluations := []*gemara.ControlEvaluation{}
+	byControl := map[string]*gemara.ControlEvaluation{}
+	rows := []Row{}
+	for _, b := range bindings {
+		key := b.Catalog + "/" + b.Control.Id
+		c := byControl[key]
+		if c == nil {
+			c = &gemara.ControlEvaluation{Name: b.Control.Title, Control: gemara.EntryMapping{ReferenceId: b.Catalog, EntryId: b.Control.Id}}
+			byControl[key] = c
+			evaluations = append(evaluations, c)
+		}
+		payload := &Payload{Request: r, Binding: b}
+		a := c.AddAssessment(b.Requirement.Id, b.Requirement.Text, b.Requirement.Applicability, []gemara.AssessmentStep{gemara.NamedStep(b.Method, func(any) (gemara.Result, string, gemara.ConfidenceLevel) { return check(payload) })})
+		a.Requirement.ReferenceId = b.Catalog
+		a.Plan = &gemara.EntryMapping{ReferenceId: b.Policy, EntryId: b.Plan.Id}
+		// Execute only this plan's assessment. Control aggregation below includes all siblings.
+		a.Run(payload)
+		state := "unknown"
+		if a.Result == gemara.Passed {
+			state = "passed"
+		}
+		if a.Result == gemara.Failed {
+			state = "failed"
+		}
+		rows = append(rows, Row{b.Control.Id, b.Policy, b.Plan.Id, b.Requirement.Id, state, a.Message})
+	}
+	aggregate := gemara.NotRun
+	for _, c := range evaluations {
+		c.Result = gemara.NotRun
+		for _, a := range c.AssessmentLogs {
+			c.Result = gemara.UpdateAggregateResult(c.Result, a.Result)
+		}
+		c.Message = "Native Gemara assessments; shadow evaluation only"
+		aggregate = gemara.UpdateAggregateResult(aggregate, c.Result)
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].ID+rows[i].Policy < rows[j].ID+rows[j].Policy })
+	decision := "eligible"
+	for _, row := range rows {
+		if row.State != "passed" {
+			decision = "hold"
+		}
+	}
+	references := []map[string]any{}
+	for id, catalog := range r.Catalogs {
+		references = append(references, map[string]any{"id": id, "title": catalog.Title, "version": catalog.Metadata.Version})
+	}
+	for id, policy := range r.Policies {
+		references = append(references, map[string]any{"id": id, "title": policy.Title, "version": policy.Metadata.Version})
+	}
+	sort.Slice(references, func(i, j int) bool { return references[i]["id"].(string) < references[j]["id"].(string) })
+	requestHash := sha256.Sum256(canonical(r))
+	log := map[string]any{
+		"metadata": map[string]any{"id": "evaluation-" + hex.EncodeToString(requestHash[:]), "type": "EvaluationLog", "gemara-version": "1.5.0", "description": "Native policy-plan evaluation of revision-bound normalized evidence", "mapping-references": references, "author": map[string]any{"id": "autonomy-evaluator", "name": "Auto-Merge Gemara evaluator", "type": "Software"}},
+		"target":   map[string]any{"id": "sha256:" + r.SubjectHash, "name": r.Repository + "/" + r.Purpose, "type": "Software"},
+		"result":   aggregate, "evaluations": evaluations,
+	}
+	return map[string]any{"engine": "gemara", "sdk_schema_version": gemara.SchemaVersion, "decision": decision, "assessments": rows, "evaluation_log": log, "mutation_permitted": false}, nil
+}
 func run() error {
 	raw, err := io.ReadAll(io.LimitReader(os.Stdin, 1024*1024+1))
 	if err != nil || len(raw) > 1024*1024 {
 		return fmt.Errorf("invalid_request")
 	}
-	keyDecoder := json.NewDecoder(bytes.NewReader(raw))
-	if keys(keyDecoder, 0) != nil {
+	d := json.NewDecoder(bytes.NewReader(raw))
+	if keys(d, 0) != nil {
 		return fmt.Errorf("invalid_request")
 	}
-	if _, err := keyDecoder.Token(); err != io.EOF {
+	if _, err := d.Token(); err != io.EOF {
 		return fmt.Errorf("invalid_request")
 	}
 	if len(os.Args) != 1 {
 		return fmt.Errorf("invalid_arguments")
 	}
 	var r Request
-	d := json.NewDecoder(bytes.NewReader(raw))
+	d = json.NewDecoder(bytes.NewReader(raw))
 	d.DisallowUnknownFields()
-	if d.Decode(&r) != nil || d.Decode(new(any)) != io.EOF || r.Version != "adapter-request/v1" || len(r.Rules) == 0 || len(r.Rules) > 40 || r.MaximumAge < 1 || r.MaximumAge > 600 || len(r.Observations) > 40 {
+	if d.Decode(&r) != nil || d.Decode(new(any)) != io.EOF || r.Version != "gemara-evaluation/v1" || !regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(r.SubjectHash) || len(r.Observations) > 40 {
 		return fmt.Errorf("invalid_request")
 	}
-	if _, err := time.Parse(time.RFC3339, r.AsOf); err != nil {
+	if _, e := time.Parse(time.RFC3339, r.AsOf); e != nil {
 		return fmt.Errorf("invalid_request")
 	}
-	if !regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(r.SubjectHash) {
+	if !regexp.MustCompile(`^(fullsend-ai|example)/[a-z0-9-]{1,50}$`).MatchString(r.Repository) {
 		return fmt.Errorf("invalid_request")
 	}
-	// Requests are also strictly validated by the host contract before this adapter.
-	rows := []Row{}
-	logs := []*gemara.ControlEvaluation{}
-	aggregate := gemara.NotRun
-	seen := map[string]bool{}
-	for _, rule := range r.Rules {
-		if !regexp.MustCompile(`^[A-Z][A-Z0-9-]{0,31}$`).MatchString(rule.ID) || seen[rule.ID] {
-			return fmt.Errorf("invalid_request")
+	for id, o := range r.Observations {
+		if !regexp.MustCompile(`^[A-Z][A-Z0-9-]{0,31}$`).MatchString(id) || !regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(o.Subject) {
+			return fmt.Errorf("invalid_observation")
 		}
-		seen[rule.ID] = true
-		payload := &Payload{Request: r, Rule: rule}
-		c := &gemara.ControlEvaluation{Name: rule.ID, Control: gemara.EntryMapping{ReferenceId: "platform-controls", EntryId: rule.ID}}
-		a := c.AddAssessment(rule.ID+"-1", "Assess one normalized observation", []string{"lab"}, []gemara.AssessmentStep{gemara.NamedStep("assess-normalized-observation", func(v any) (gemara.Result, string, gemara.ConfidenceLevel) { return check(v.(*Payload)) })})
-		a.Requirement.ReferenceId = "platform-controls"
-		a.Plan = &gemara.EntryMapping{ReferenceId: "platform-policy", EntryId: rule.ID + "-plan"}
-		c.Evaluate(payload, []string{"lab"})
-		state := "unknown"
-		if c.Result == gemara.Passed {
-			state = "passed"
+		if _, e := time.Parse(time.RFC3339, o.Collected); e != nil {
+			return fmt.Errorf("invalid_observation")
 		}
-		if c.Result == gemara.Failed {
-			state = "failed"
+		switch v := o.Value.(type) {
+		case nil, bool:
+		case float64:
+			if v < 0 || v > 100 || v != float64(int(v)) {
+				return fmt.Errorf("invalid_observation")
+			}
+		case string:
+			if !regexp.MustCompile(`^[A-Za-z0-9 -]{1,60}$`).MatchString(v) {
+				return fmt.Errorf("invalid_observation")
+			}
+		default:
+			return fmt.Errorf("invalid_observation")
 		}
-		rows = append(rows, Row{rule.ID, state, a.Message})
-		logs = append(logs, c)
-		aggregate = gemara.UpdateAggregateResult(aggregate, c.Result)
 	}
-	sort.Slice(rows, func(i, j int) bool { return rows[i].ID < rows[j].ID })
-	decision := "hold"
-	all := true
-	for _, row := range rows {
-		all = all && row.State == "passed"
+	result, err := evaluate(r)
+	if err != nil {
+		return err
 	}
-	if all {
-		decision = "eligible"
-	}
-	return json.NewEncoder(os.Stdout).Encode(map[string]any{"adapter": "gemara-sdk", "sdk_schema_version": gemara.SchemaVersion, "decision": decision, "assessments": rows, "sdk_evaluations": logs, "sdk_aggregate": aggregate, "mutation_permitted": false})
+	return json.NewEncoder(os.Stdout).Encode(result)
 }
 func main() {
 	if err := run(); err != nil {
-		fmt.Println(`{"error":"invalid_request","decision":"hold","mutation_permitted":false}`)
+		code := err.Error()
+		if !regexp.MustCompile(`^[a-z_]{1,80}$`).MatchString(code) {
+			code = "invalid_policy_or_evidence"
+		}
+		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"error": code, "decision": "hold", "mutation_permitted": false})
 		os.Exit(2)
 	}
 }

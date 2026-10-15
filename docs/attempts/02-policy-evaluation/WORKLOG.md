@@ -89,3 +89,39 @@ both passed CI, Review metadata, change class and governed-path predicates. Both
 held overall with findings/risk and readiness assurance still missing. Dispatched
 hosted observer run 38667624427 for that exact scenario. Negative PR #29 remains
 unmerged with intentionally failed CI. No trial PR was queued for merge.
+
+## Native Gemara rewrite (local preparation)
+
+User requested removal of the alternative adapter and an end-to-end native Gemara
+trial. Archived the comparison implementation locally. Removed its evaluator and
+custom JSON profiles from the active path. Added official-schema ControlCatalog,
+common Policy and importing repository Policy; a single native SDK evaluator
+resolves imports/versions, scope, coverage, assessment plans and supported method
+parameters. Child assessments cannot replace common ones. Unsupported semantic
+features explicitly hold instead of being ignored. Native EvaluationLogs include
+catalog, requirement and policy-plan references and pass output validation.
+
+Selected official schema v1.5.0 to match the tested SDK's declared schema version.
+CUE and schema archive/file hashes are pinned; dependencies live in ignored tools,
+not a repository vendor tree. No Policy serialization round trip is required.
+The historical SDK/v1.6 round-trip limitation is not claimed fixed.
+
+Replaced comparison tests with native import, scope, schema, method, inheritance,
+coverage, stale/missing/wrong-subject evidence and credential-isolation tests.
+Added a compact six-case runnable synthetic replay and prepared trusted-main
+workflow changes. No commit, push, rules change or workflow activation is part of
+this local rewrite; those require this turn's explicit Git permission.
+
+Validation: 30 Python tests, 4 native SDK Go tests, six replay cases and four
+mode simulations passed. Local credential-free native observations of #28 and
+#29 were stable and returned no API errors. #28 passed CI/Review; #29 failed CI;
+both held on missing evidence. All native logs passed the matching official
+EvaluationLog schema. Raw data and reports remain local/ignored, not committed.
+
+## 2026-10-15 publication authorization
+
+User explicitly authorized committing/pushing the native Gemara path and running
+hosted tests and real-PR observations, including fixes justified by those runs.
+Verified remote main still matches the prepared baseline. The existing GitHub
+permissions and read-only observer boundaries remain in place; no merge authority
+is being activated. Hosted proof is recorded separately after execution.

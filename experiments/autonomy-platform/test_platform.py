@@ -1,316 +1,331 @@
 import copy
 import json
 import os
-import tempfile
+import subprocess
 import unittest
 from unittest import mock
 
-from platform_lab import (
-    ROOT,
-    InputError,
-    assess,
-    digest,
-    gate,
-    load,
-    observations_for,
-    qualification,
-    request,
-    resolve,
-    subject,
-)
+import platform_lab as p
+from schema import ValidationError
 
 NOW = "2026-10-14T18:00:00Z"
-ADAPTERS = ["gemara-sdk", "native-json-reference"]
 
 
-class PlatformTests(unittest.TestCase):
+def evidence(bundle, who, purpose):
+    values = {"AM-RISK": 1, "AM-CLASS": "documentation"}
+    return {
+        c["id"]: {
+            "subject_sha256": p.digest(who),
+            "collected_at": NOW,
+            "trusted_source": True,
+            "value": values.get(c["id"], True),
+        }
+        for catalog in bundle["catalogs"].values()
+        for c in catalog["controls"]
+        if purpose in c["assessment-requirements"][0]["applicability"]
+    }
+
+
+class NativePolicyTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.base = p.load_bundle()
+
     def setUp(self):
-        self.shared = load(ROOT / "policies/shared.json")
-        self.repo = load(ROOT / "policies/repository.json")
-        self.policy = resolve(self.shared, self.repo)
-        self.ready = subject()
-        self.who = subject(candidate=True)
-        self.ready_obs = observations_for(self.ready, self.policy["readiness"], NOW)
-        self.obs = observations_for(self.who, self.policy["candidate"], NOW)
+        self.bundle = copy.deepcopy(self.base)
+        self.who = p.subject(repository="fullsend-ai/auto-merge", candidate=True)
+        self.ready = {
+            k: v for k, v in self.who.items() if k not in {"head_sha", "base_sha"}
+        }
+        self.obs = evidence(self.bundle, self.who, "candidate")
+        self.ready_obs = evidence(self.bundle, self.ready, "readiness")
 
-    def req(self, observations=None):
-        return request(
-            self.policy,
+    def evaluate(self, obs=None, bundle=None, who=None):
+        return p.assess(
+            bundle or self.bundle,
             "candidate",
-            self.who,
-            self.obs if observations is None else observations,
+            who or self.who,
+            self.obs if obs is None else obs,
             NOW,
         )
 
-    def both(self, req):
-        values = [assess(req, a) for a in ADAPTERS]
-        self.assertEqual(values[0]["decision"], values[1]["decision"])
-        self.assertEqual(values[0]["assessments"], values[1]["assessments"])
-        return values
+    def test_native_schema_valid_evaluation_traces_catalog_policy_and_plan(self):
+        result = self.evaluate()
+        self.assertEqual(result["decision"], "eligible")
+        self.assertEqual(result["evaluation_log"]["result"], "Passed")
+        self.assertEqual(result["sdk_schema_version"], "v1.5.0")
+        self.assertEqual(len(result["assessments"]), 7)
+        policies = {row["policy"] for row in result["assessments"]}
+        self.assertEqual(policies, {"autonomy-common", "autonomy-repository"})
+        for control in result["evaluation_log"]["evaluations"]:
+            self.assertEqual(control["control"]["reference-id"], "autonomy-controls")
+            for assessment in control["assessment-logs"]:
+                self.assertIn(assessment["plan"]["reference-id"], policies)
+                self.assertTrue(assessment.get("evidence"))
 
-    def test_independent_adapters_match_all_rule_outcomes(self):
-        for rule in self.policy["candidate"]:
-            for value in [True, False, None, 0, 3, "documentation", "unapproved"]:
-                obs = copy.deepcopy(self.obs)
-                obs[rule["id"]]["value"] = value
-                with self.subTest(control=rule["id"], value=value):
-                    self.both(self.req(obs))
-
-    def test_four_modes_never_mutate(self):
-        for adapter in ADAPTERS:
-            receipt = qualification(
-                self.policy, self.ready, NOW, self.ready_obs, adapter
-            )
-            for mode in ["off", "shadow", "light", "policy"]:
-                result = gate(
-                    self.policy, self.who, NOW, self.obs, mode, receipt, adapter
-                )
-                self.assertEqual(
-                    result["decision"], "hold" if mode == "off" else "would_allow"
-                )
-                self.assertFalse(result["mutation_permitted"])
-                self.assertEqual(result["authorized_actions"], [])
-
-    def test_light_scope_differs_from_governed_policy(self):
-        self.obs["AM-CLASS"]["value"] = "documentation"
-        for adapter in ADAPTERS:
-            receipt = qualification(
-                self.policy, self.ready, NOW, self.ready_obs, adapter
-            )
-            self.assertIn(
-                "outside_light_class",
-                gate(self.policy, self.who, NOW, self.obs, "light", receipt, adapter)[
-                    "reasons"
-                ],
-            )
-            self.assertEqual(
-                gate(self.policy, self.who, NOW, self.obs, "policy", receipt, adapter)[
-                    "decision"
-                ],
-                "would_allow",
-            )
-
-    def test_each_readiness_control_can_prevent_qualification(self):
-        for rule in self.policy["readiness"]:
-            obs = copy.deepcopy(self.ready_obs)
-            obs[rule["id"]]["value"] = False
-            for adapter in ADAPTERS:
-                r = qualification(self.policy, self.ready, NOW, obs, adapter)
-                self.assertEqual(r["decision"], "hold")
-                self.assertIn(
-                    "qualification_unavailable",
-                    gate(self.policy, self.who, NOW, self.obs, "shadow", r, adapter)[
-                        "reasons"
-                    ],
-                )
-
-    def test_configuration_policy_and_time_revoke_qualification(self):
-        for adapter in ADAPTERS:
-            receipt = qualification(
-                self.policy, self.ready, NOW, self.ready_obs, adapter
-            )
-            changed = copy.deepcopy(self.who)
-            changed["configuration_sha256"] = "d" * 64
-            self.assertIn(
-                "qualification_unavailable",
-                gate(self.policy, changed, NOW, self.obs, "shadow", receipt, adapter)[
-                    "reasons"
-                ],
-            )
-            newer_repo = copy.deepcopy(self.repo)
-            newer_repo["maximum_risk"] = 0
-            newer = resolve(self.shared, newer_repo)
-            self.assertIn(
-                "qualification_unavailable",
-                gate(newer, self.who, NOW, self.obs, "shadow", receipt, adapter)[
-                    "reasons"
-                ],
-            )
-            self.assertIn(
-                "qualification_expired",
-                gate(
-                    self.policy,
-                    self.who,
-                    "2026-10-14T18:10:01Z",
-                    self.obs,
-                    "shadow",
-                    receipt,
-                    adapter,
-                )["reasons"],
-            )
-
-    def test_revision_or_base_or_repository_cannot_reuse_evidence(self):
-        for key, value in [
-            ("head_sha", "d" * 40),
-            ("base_sha", "e" * 40),
-            ("repository", "example/other"),
-        ]:
-            changed = copy.deepcopy(self.who)
-            changed[key] = value
-            req = request(self.policy, "candidate", changed, self.obs, NOW)
-            self.assertEqual(self.both(req)[0]["decision"], "hold")
-
-    def test_missing_stale_future_wrong_subject_and_untrusted(self):
-        variants = []
-        obs = copy.deepcopy(self.obs)
-        del obs["AM-REVIEW"]
-        variants.append(obs)
-        for key, value in [
-            ("collected_at", "2026-10-14T17:49:59Z"),
-            ("collected_at", "2026-10-14T18:00:01Z"),
-            ("trusted_source", False),
-            ("subject_sha256", "f" * 64),
-        ]:
-            obs = copy.deepcopy(self.obs)
-            obs["AM-REVIEW"][key] = value
-            variants.append(obs)
-        for obs in variants:
-            self.assertEqual(self.both(self.req(obs))[0]["decision"], "hold")
-
-    def test_repo_adds_requirement_and_tightens_risk(self):
-        self.repo["additional_checks"] = [
-            {"id": "AM-SECURITY", "kind": "boolean", "expected": True}
-        ]
-        self.policy = resolve(self.shared, self.repo)
-        self.assertEqual(self.both(self.req())[0]["decision"], "hold")
-        self.obs["AM-SECURITY"] = {
-            "subject_sha256": digest(self.who),
-            "collected_at": NOW,
-            "trusted_source": True,
-            "value": True,
+    def test_repository_native_policy_adds_a_requirement_without_replacing_parent(self):
+        self.obs["AM-CLASS"]["value"] = "dependency-digest"
+        result = self.evaluate()
+        rows = {
+            x["policy"]: x["state"]
+            for x in result["assessments"]
+            if x["id"] == "AM-CLASS"
         }
-        self.assertEqual(self.both(self.req())[0]["decision"], "eligible")
-        self.obs["AM-RISK"]["value"] = 2
-        self.assertEqual(self.both(self.req())[0]["decision"], "hold")
+        self.assertEqual(
+            rows, {"autonomy-common": "passed", "autonomy-repository": "failed"}
+        )
+        self.assertEqual(result["decision"], "hold")
 
-    def test_policy_weakening_and_unknown_instructions_rejected(self):
+    def test_looser_child_plan_cannot_erase_failed_common_assessment(self):
+        policy = self.bundle["policies"]["autonomy-repository"]
+        parent = self.bundle["policies"]["autonomy-common"]
+        risk = copy.deepcopy(
+            next(
+                x
+                for x in parent["adherence"]["assessment-plans"]
+                if x["requirement-id"] == "AM-RISK-1"
+            )
+        )
+        risk["id"] = "repository-looser-risk"
+        risk["parameters"][0]["accepted-values"] = ["5"]
+        policy["adherence"]["assessment-plans"].append(risk)
+        self.obs["AM-RISK"]["value"] = 3
+        result = self.evaluate()
+        self.assertEqual(result["decision"], "hold")
+        rows = [x["state"] for x in result["assessments"] if x["id"] == "AM-RISK"]
+        self.assertCountEqual(rows, ["failed", "passed"])
+        self.assertEqual(result["evaluation_log"]["result"], "Failed")
+
+    def test_missing_stale_future_wrong_subject_and_untrusted_evidence_hold(self):
         for key, value in [
-            ("maximum_risk", 3),
-            ("classes", ["arbitrary"]),
-            ("exclusions", ["AM-REVIEW"]),
-            ("command", "anything"),
+            (None, None),
+            ("collected_at", "2026-10-14T17:00:00Z"),
+            ("collected_at", "2026-10-14T19:00:00Z"),
+            ("subject_sha256", "0" * 64),
+            ("trusted_source", False),
         ]:
-            repo = copy.deepcopy(self.repo)
-            repo[key] = value
-            with self.assertRaises(InputError):
-                resolve(self.shared, repo)
-        with self.assertRaisesRegex(InputError, "untrusted_policy"):
-            resolve(self.shared, self.repo, trusted=False)
-        for purpose in ["readiness", "candidate"]:
-            shared = copy.deepcopy(self.shared)
-            shared[purpose].pop()
-            with self.assertRaisesRegex(InputError, "minimum_removed"):
-                resolve(shared, self.repo)
-
-    def test_candidate_cannot_change_trusted_policy_and_protected_paths_hold(self):
-        self.obs["AM-PROTECTED"]["value"] = False
-        self.assertEqual(self.both(self.req())[0]["decision"], "hold")
-
-    def test_bad_requests_do_not_succeed(self):
-        for key, value in [
-            ("rules", []),
-            ("maximum_age_seconds", 601),
-            ("subject_sha256", "not-a-digest"),
-        ]:
-            req = self.req()
-            req[key] = value
-            for adapter in ADAPTERS:
-                with self.assertRaises(InputError):
-                    assess(req, adapter)
-        req = self.req()
-        req["observations"]["AM-REVIEW"]["value"] = {"secret": "SYNTHETIC_SENTINEL"}
-        with self.assertRaises(InputError):
-            assess(req, "gemara-sdk")
-
-    def test_sdk_captures_evidence_for_pass_fail_and_unknown(self):
-        for key, replacement in [(None, None), ("AM-CI", False), ("AM-REVIEW", None)]:
             obs = copy.deepcopy(self.obs)
-            if key:
-                if replacement is None:
-                    del obs[key]
-                else:
-                    obs[key]["value"] = replacement
-            req = self.req(obs)
-            result = assess(req, "gemara-sdk")
-            evidence = [
-                e
-                for c in result["sdk_evaluations"]
-                for a in c["assessment-logs"]
-                for e in a.get("evidence", [])
+            if key is None:
+                del obs["AM-REVIEW"]
+            else:
+                obs["AM-REVIEW"][key] = value
+            with self.subTest(key=key, value=value):
+                result = self.evaluate(obs)
+                self.assertEqual(result["decision"], "hold")
+                row = next(x for x in result["assessments"] if x["id"] == "AM-REVIEW")
+                self.assertEqual(row["state"], "unknown")
+
+    def test_required_failure_is_not_masked_by_another_pass(self):
+        self.obs["AM-CI"]["value"] = False
+        self.assertEqual(self.evaluate()["decision"], "hold")
+
+    def test_missing_plan_cannot_turn_into_vacuous_success(self):
+        policy = self.bundle["policies"]["autonomy-common"]
+        policy["adherence"]["assessment-plans"] = [
+            x
+            for x in policy["adherence"]["assessment-plans"]
+            if x["requirement-id"] != "AM-REVIEW-1"
+        ]
+        with self.assertRaisesRegex(p.InputError, "missing_assessment_plan"):
+            self.evaluate()
+
+    def test_import_version_and_missing_import_fail_closed(self):
+        for value in ["wrong-version", "missing-reference"]:
+            bundle = copy.deepcopy(self.bundle)
+            ref = bundle["policies"]["autonomy-repository"]["metadata"][
+                "mapping-references"
+            ][0]
+            if value == "wrong-version":
+                ref["version"] = "99.0.0"
+            else:
+                bundle["policies"]["autonomy-repository"]["imports"]["policies"][0][
+                    "reference-id"
+                ] = value
+                ref["id"] = value
+            with self.subTest(value=value), self.assertRaises(p.InputError):
+                self.evaluate(bundle=bundle)
+
+    def test_import_cycle_cannot_recurse_or_execute(self):
+        common = self.bundle["policies"]["autonomy-common"]
+        common["imports"]["policies"] = [{"reference-id": "autonomy-repository"}]
+        common["metadata"]["mapping-references"].append(
+            {
+                "id": "autonomy-repository",
+                "title": "Repository policy",
+                "version": "0.1.0",
+            }
+        )
+        with self.assertRaisesRegex(p.InputError, "policy_import_cycle"):
+            self.evaluate()
+
+    def test_unknown_method_and_manual_method_do_not_silently_pass(self):
+        for key, value in [
+            ("id", "execute-arbitrary-script"),
+            ("mode", "Manual"),
+            ("required", False),
+        ]:
+            bundle = copy.deepcopy(self.bundle)
+            method = bundle["policies"]["autonomy-repository"]["adherence"][
+                "assessment-plans"
+            ][0]["evaluation-methods"][0]
+            method[key] = value
+            with (
+                self.subTest(key=key),
+                self.assertRaisesRegex(p.InputError, "unsupported_evaluation_method"),
+            ):
+                self.evaluate(bundle=bundle)
+
+    def test_scope_exclusion_and_other_repository_hold(self):
+        other = dict(self.who, repository="fullsend-ai/other")
+        with self.assertRaisesRegex(p.InputError, "scope_mismatch"):
+            self.evaluate(who=other)
+        self.bundle["policies"]["autonomy-repository"]["scope"]["out"] = {
+            "groups": ["fullsend-ai/auto-merge"]
+        }
+        with self.assertRaisesRegex(p.InputError, "scope_mismatch"):
+            self.evaluate()
+
+    def test_unavailable_scope_dimension_is_not_ignored(self):
+        self.bundle["policies"]["autonomy-repository"]["scope"]["in"]["users"] = [
+            "maintainers"
+        ]
+        with self.assertRaisesRegex(p.InputError, "scope_mismatch"):
+            self.evaluate()
+
+    def test_unsupported_native_constraint_is_an_explicit_error(self):
+        imp = self.bundle["policies"]["autonomy-common"]["imports"]["catalogs"][0]
+        imp["constraints"] = [
+            {
+                "id": "constraint-1",
+                "target-id": "AM-CI",
+                "text": "Manual requirement needs a supported evaluator",
+            }
+        ]
+        with self.assertRaisesRegex(p.InputError, "unsupported_catalog_modification"):
+            self.evaluate()
+
+    def test_risk_acceptance_does_not_silently_waive_controls(self):
+        policy = self.bundle["policies"]["autonomy-repository"]
+        policy["risks"] = {
+            "accepted": [
+                {
+                    "id": "acceptance-1",
+                    "risk": {
+                        "reference-id": "autonomy-controls",
+                        "entry-id": "AM-RISK",
+                    },
+                    "justification": "Requires a supported risk evaluator and approval contract",
+                }
             ]
-            self.assertTrue(evidence)
-            self.assertEqual(result["sdk_schema_version"], "v1.5.0")
-            self.assertEqual(evidence[0]["source"]["reference-id"], "observations")
+        }
+        with self.assertRaisesRegex(p.InputError, "unsupported_policy_semantics"):
+            self.evaluate()
 
-    def test_sdk_child_has_clean_environment(self):
-        import platform_lab
+    def test_policy_freshness_parameter_cannot_extend_runtime_cap(self):
+        plan = self.bundle["policies"]["autonomy-repository"]["adherence"][
+            "assessment-plans"
+        ][0]
+        plan["parameters"].append(
+            {
+                "id": "maximum-age-seconds",
+                "label": "Evidence age",
+                "description": "Native method parameter",
+                "accepted-values": ["601"],
+            }
+        )
+        with self.assertRaisesRegex(p.InputError, "invalid_freshness"):
+            self.evaluate()
 
-        real = platform_lab.subprocess.run
-        seen = []
+    def test_schema_rejects_unknown_native_fields_before_execution(self):
+        self.bundle["policies"]["autonomy-repository"]["private_instruction"] = (
+            "SYNTHETIC_SENTINEL"
+        )
+        real = p.subprocess.run
+        native_calls = []
 
-        def observe(*a, **kw):
-            seen.append(kw["env"])
-            return real(*a, **kw)
+        def observe(*args, **kwargs):
+            if str(args[0][0]).endswith("gemara-evaluator"):
+                native_calls.append(args)
+            return real(*args, **kwargs)
 
         with (
-            mock.patch.dict(os.environ, {"GH_TOKEN": "SYNTHETIC_SENTINEL"}),
-            mock.patch.object(platform_lab.subprocess, "run", side_effect=observe),
+            mock.patch("platform_lab.subprocess.run", side_effect=observe),
+            self.assertRaises(ValidationError) as error,
         ):
-            result = assess(self.req(), "gemara-sdk")
-        self.assertEqual(set(seen[0]), {"PATH", "LANG"})
-        self.assertNotIn("SYNTHETIC_SENTINEL", json.dumps(result))
+            self.evaluate()
+        self.assertNotIn("SYNTHETIC_SENTINEL", str(error.exception))
+        self.assertEqual(native_calls, [])
 
-    def test_alternative_adapter_needs_no_sdk_or_cue_process(self):
-        with mock.patch(
-            "platform_lab.subprocess.run",
-            side_effect=AssertionError("unexpected external process"),
-        ):
+    def test_four_modes_never_authorize_mutation(self):
+        receipt = p.qualification(self.bundle, self.ready, NOW, self.ready_obs)
+        for mode in p.MODES:
+            result = p.gate(self.bundle, self.who, NOW, self.obs, mode, receipt)
+            self.assertFalse(result["mutation_permitted"])
+            self.assertEqual(result["authorized_actions"], [])
             self.assertEqual(
-                assess(self.req(), "native-json-reference")["decision"], "eligible"
+                result["decision"],
+                "would_allow" if mode in {"shadow", "gemara"} else "hold",
             )
 
-    def test_switching_engine_requires_new_qualification(self):
-        receipt = qualification(
-            self.policy, self.ready, NOW, self.ready_obs, "gemara-sdk"
+    def test_off_does_not_execute_evaluator(self):
+        with mock.patch(
+            "platform_lab.assess", side_effect=AssertionError("off must not execute")
+        ):
+            self.assertEqual(
+                p.gate(self.bundle, self.who, NOW, {}, "off", None)["decision"], "hold"
+            )
+
+    def test_qualification_binds_configuration_policy_and_expiry(self):
+        receipt = p.qualification(self.bundle, self.ready, NOW, self.ready_obs)
+        who = dict(self.who, configuration_sha256="d" * 64)
+        self.assertIn(
+            "qualification_unavailable",
+            p.gate(self.bundle, who, NOW, self.obs, "shadow", receipt)["reasons"],
+        )
+        later = "2026-10-14T18:11:00Z"
+        self.assertIn(
+            "qualification_expired",
+            p.gate(self.bundle, self.who, later, self.obs, "shadow", receipt)[
+                "reasons"
+            ],
+        )
+        self.bundle["policies"]["autonomy-repository"]["metadata"]["description"] += (
+            " Revised"
         )
         self.assertIn(
             "qualification_unavailable",
-            gate(
-                self.policy,
-                self.who,
-                NOW,
-                self.obs,
-                "shadow",
-                receipt,
-                "native-json-reference",
-            )["reasons"],
+            p.gate(self.bundle, self.who, NOW, self.obs, "shadow", receipt)["reasons"],
         )
 
-    def test_extra_equality_rule_has_consistent_typed_behavior(self):
-        self.repo["additional_checks"] = [
-            {"id": "AM-SCANNER", "kind": "equals", "expected": "success"}
-        ]
-        self.policy = resolve(self.shared, self.repo)
-        for value in [True, False, 0, None, "success", "failure"]:
-            self.obs["AM-SCANNER"] = {
-                "subject_sha256": digest(self.who),
-                "collected_at": NOW,
-                "trusted_source": True,
-                "value": value,
-            }
-            self.both(self.req())
+    def test_evaluator_child_does_not_inherit_credentials(self):
+        real = p.subprocess.run
+        seen = []
 
-    def test_output_symlink_is_rejected(self):
-        import platform_lab
-        from pathlib import Path
+        def observe(*args, **kwargs):
+            if str(args[0][0]).endswith("gemara-evaluator"):
+                seen.append(kwargs["env"])
+            return real(*args, **kwargs)
 
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / "outside").mkdir()
-            (root / "out").symlink_to(root / "outside", target_is_directory=True)
-            with mock.patch.object(platform_lab, "ROOT", root):
-                with self.assertRaisesRegex(InputError, "symlink_output"):
-                    platform_lab.new_output("test")
+        with (
+            mock.patch.dict(os.environ, {"GH_TOKEN": "SYNTHETIC_SENTINEL"}),
+            mock.patch("platform_lab.subprocess.run", side_effect=observe),
+        ):
+            result = self.evaluate()
+        self.assertEqual(set(seen[0]), {"PATH", "LANG"})
+        self.assertNotIn("SYNTHETIC_SENTINEL", json.dumps(result))
+
+    def test_duplicate_json_does_not_echo_or_execute_supplied_data(self):
+        child = subprocess.run(
+            [str(p.ROOT / ".tools/gemara-evaluator")],
+            input='{"root_policy":"SYNTHETIC_SENTINEL","root_policy":"duplicate"}',
+            text=True,
+            capture_output=True,
+            timeout=5,
+            env={"PATH": "/usr/bin:/bin"},
+        )
+        self.assertNotEqual(child.returncode, 0)
+        self.assertNotIn("SYNTHETIC_SENTINEL", child.stdout + child.stderr)
+        self.assertFalse(json.loads(child.stdout)["mutation_permitted"])
 
 
 if __name__ == "__main__":

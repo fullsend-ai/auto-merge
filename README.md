@@ -2,10 +2,11 @@
 
 ## Current experiment: read-only policy evaluation
 
-[Attempt 2](experiments/autonomy-platform/README.md) tests repository readiness
-and a real PR against a pinned native Gemara SDK adapter and an independent JSON
-adapter. The shared/repository profiles are experimental inputs, not a Red Hat
-standard or a general Gemara policy implementation. No output grants merge authority.
+[Attempt 2](experiments/autonomy-platform/README.md) evaluates native Gemara
+catalogs and imported common/repository policies against readiness and real PR
+evidence. Input artifacts and generated EvaluationLogs are schema-validated.
+There is one engine; no output grants merge authority. Start with the
+[walkthrough](docs/attempts/02-policy-evaluation/LIVE-TRIAL.md).
 
 [Attempt 1](docs/attempts/01-agent-led/README.md) preserves the earlier agent-led
 approach at its original paths. This change disables that agent and its

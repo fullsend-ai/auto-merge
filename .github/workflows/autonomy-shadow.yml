@@ -35,7 +35,12 @@ jobs:
         with:
           go-version: '1.26.6'
           cache: false
-      - name: Build assessment adapter without credentials
+      - name: Install pinned native schema validator and definitions
+        env:
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
+        run: python3 experiments/autonomy-platform/bootstrap_tools.py
+      - name: Build native evaluator without credentials
         env:
           GH_TOKEN: ''
           GITHUB_TOKEN: ''

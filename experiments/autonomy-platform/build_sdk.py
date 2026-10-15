@@ -23,7 +23,7 @@ def build(offline=False):
     tools.mkdir(exist_ok=True)
     if tools.is_symlink():
         raise SystemExit("Refusing a symlink tool directory.")
-    destination = tools / "gemara-adapter"
+    destination = tools / "gemara-evaluator"
     if destination.is_symlink():
         raise SystemExit("Refusing a symlink executable.")
     env = {
@@ -63,15 +63,18 @@ def build(offline=False):
         "sdk_commit": "5e33fda460a80ffa99e9efbe19afb43e7d4c4dd2",
         "sdk_module": "v0.11.1-0.20261009030221-5e33fda460a8",
         "sdk_schema_version": "v1.5.0",
-        "adapter_binary_sha256": hashlib.sha256(destination.read_bytes()).hexdigest(),
-        "adapter_sources": {
+        "evaluator_binary_sha256": hashlib.sha256(destination.read_bytes()).hexdigest(),
+        "evaluator_sources": {
             str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
-            for p in [SDK / "main.go", SDK / "go.mod", SDK / "go.sum"]
+            for p in sorted(
+                [p for p in SDK.glob("*.go") if not p.name.endswith("_test.go")]
+                + [SDK / "go.mod", SDK / "go.sum"]
+            )
         },
     }
     (ROOT / "build-lock.json").write_text(json.dumps(lock, indent=2) + "\n")
     print(
-        "Pinned Gemara SDK adapter built; module hashes verified; clean build environment."
+        "Pinned native Gemara evaluator built; module hashes verified; clean build environment."
     )
 
 

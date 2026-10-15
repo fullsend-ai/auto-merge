@@ -1,102 +1,93 @@
-# Minimal autonomy policy trial
+# Native Gemara autonomy trial
 
-This is a test harness, not a supported Fullsend feature or a per-repository
-installation requirement. It asks: can readiness and exact-PR evidence cross a
-small adapter boundary while Fullsend remains independent of the policy engine?
+One engine: native Gemara. The comparison evaluator and custom JSON rule profiles
+have been removed. Start with the [walkthrough](../../docs/attempts/02-policy-evaluation/LIVE-TRIAL.md).
+Every mode remains a read-only experiment; no result grants merge authority.
 
-Start with the [real-PR walkthrough](../../docs/attempts/02-policy-evaluation/LIVE-TRIAL.md).
+## What to read
 
-## Run the offline tests
+- [controls.json](policies/controls.json): native ControlCatalog defining readiness
+  and PR-candidate requirements.
+- [common-policy.json](policies/common-policy.json): native Policy importing that
+  catalog and binding requirements to named automated assessment methods.
+- [repository-policy.json](policies/repository-policy.json): native Policy importing
+  the common policy and adding a documentation-only requirement for this lab.
+- `sdk/policy.go`: resolves these imports, scope and assessment plans using native
+  Gemara types; binds supported method names to executable checks.
+- `sdk/main.go`: executes native SDK assessments/evidence collection/aggregation
+  and emits a native EvaluationLog, including catalog, requirement and policy-plan
+  references. The host validates that log before using its result.
+- `github_observe.py`: reads GitHub metadata and supplies bounded observations.
 
-Requires Python 3.11+ and Go 1.25+ (CI pins Go 1.26.6).
-From the repository root:
+JSON is a supported Gemara artifact format; these files are not a Fullsend policy
+language. Policies name the requirements and parameters; the evaluator still
+implements what GitHub CI, Fullsend approval and other evidence mean. Gemara does
+not interpret arbitrary prose as executable checks. See [upstream policy authoring](https://gemara.openssf.org/tutorials/policy/policy-guide).
+
+## Run
+
+Requires Python 3.11+ and Go 1.25+; CI pins Go 1.26.6.
 
 ```sh
+python3 experiments/autonomy-platform/bootstrap_tools.py
 python3 experiments/autonomy-platform/build_sdk.py
 python3 -m unittest discover -s experiments/autonomy-platform -p 'test_*.py'
+python3 experiments/autonomy-platform/demo.py
+python3 experiments/autonomy-platform/github_observe.py --pr 28
 ```
 
-The first build downloads checksum-pinned Go modules from the public Go proxy;
-use `build_sdk.py --offline` after setup. Build and adapter children receive a
-clean environment without credentials. Binary, build receipt and reports are
-ignored. CI runs only these synthetic tests on an ephemeral hosted runner with
-read-only permissions, pinned actions, no secrets/OIDC, credential persistence,
-caches or artifact uploads. It never calls GitHub or runs Fullsend/model agents.
+Setup downloads hash-pinned CUE/schema data and checksum-pinned Go modules. Use
+`build_sdk.py --offline` after dependency setup. Build/evaluator/validator children
+receive clean environments without forge credentials. Tools, build receipts and
+reports are ignored; schema source is downloaded into `.tools/`, not vendored in Git.
 
-The tests cover Off, Shadow, Light and policy-governed modes, shared minimums,
-stricter repository profiles, missing/stale/wrong-revision evidence, invalidated
-readiness, engine switching, and credential isolation. These are simulations;
-all modes emit `mutation_permitted: false` and no authorized actions.
-
-## Run on GitHub
-
-`Autonomy shadow observation` runs from trusted default-branch code after CI or
-Fullsend completes, when that run identifies a PR. It can also be dispatched
-manually on `main` with a PR number. The job has read-only contents, PR and check
-permissions. It does not check out PR code, persist credentials or upload reports.
-Open the run's Summary to see readiness and candidate controls for both adapters.
-A green workflow means collection/evaluation completed; a `hold` is a policy
-result, not a workflow failure. This job is not a required merge check.
-
-The lab configuration enables only Fullsend Review. The old custom agent remains
-disabled and its supplementary workflow stays paused. Automatic runs may occur
-before Review publishes its results; dispatch again afterward when necessary.
-
-## Observe a real PR locally in shadow mode
-
-After the setup is landed and normal Fullsend Review dispatch restored, open a harmless PR changing
-only `docs/example-feature.md`, wait for CI and Fullsend Review, then run:
-
-```sh
-python3 experiments/autonomy-platform/github_observe.py --pr NUMBER
-```
+The replay uses explicitly synthetic evidence. Its cases cover satisfied, failed,
+missing, stale, wrong-revision and stricter repository-policy outcomes. Off does
+not evaluate; Shadow/Gemara simulate policy decisions; Light additionally limits
+change class to dependency digests. This repository's policy permits documentation
+only, so Light holds here. None of those simulations enables a real merge.
+`demo.py --write-report` saves complete native logs in ignored `out/`.
 
 The observer is fixed to public `fullsend-ai/auto-merge` and `main`. It makes
-bounded GET-only requests to GitHub's API; it refuses redirects and fails closed
-on incomplete pagination or a changing candidate. If authentication is needed,
-supply an approved read credential through GH_TOKEN/GITHUB_TOKEN in the local
-environment. Never paste credentials into arguments, reports or this repository.
-The observer never executes PR code, reads workflow logs, downloads artifacts,
-posts comments/statuses, changes branch rules, or requests a merge.
+bounded GET-only requests, refuses redirects and holds on incomplete/changing
+state. It never executes PR code, downloads artifacts, reads workflow logs, posts
+comments/statuses or changes rules. An approved read credential can be supplied
+locally via GH_TOKEN/GITHUB_TOKEN when needed; it is not passed to the evaluator.
+Reports discard API bodies, patches, review text and actor identities.
 
-A local ignored `out/github-*/report.json` contains normalized assessments from
-both adapters, source/policy hashes, head/base revisions and reasons. Raw API
-bodies, patches, review text, actor identities and credentials are not retained.
-Repeat after a new revision/review to compare the reasons. Do not commit reports.
+The proposed `Autonomy shadow observation` workflow runs trusted main code after
+CI, and after Fullsend runs when GitHub associates a PR. Manual dispatch on main
+with a PR number handles Review commands that have no associated PR in the
+workflow event. The Summary lists each native policy/plan and its result. A green
+workflow means evaluation completed; read the decision, which can still hold.
+The separate fixture workflow uses synthetic data only. Neither workflow installs
+merge rules or publishes an authoritative eligibility check.
 
-**Expected result: hold.** GitHub check observations and Review bot metadata are
-available, but trusted findings/risk, meaningful-test sufficiency, execution
-assurance, promotion history and status-publication proof remain unknown. Bot
-login metadata is not a production attestation; a hash is not a signature.
-GitHub rules are observed and hashed, not installed or treated as fully evaluated.
+## Supported policy semantics
 
-## Implementation boundaries
+This evaluator handles the configured auto-merge use case, not every possible
+Gemara application. It resolves local policy/catalog references with exact artifact
+versions, rejects cycles/unresolved references, checks scope, applies catalog
+exclusions, and requires executable coverage of every imported applicable
+requirement. Imported policy assessments remain mandatory: child plans add to
+rather than replace them. A looser child cannot erase a failed common assessment.
 
-- `github_observe.py`: reads GitHub and normalizes evidence; always shadow.
-- `platform_lab.py`: closed lab profiles, revision binding and adapter dispatch.
-- `sdk/`: pinned native Gemara assessment, evidence and aggregation helpers.
-- `policies/`: local shared/repository test profiles, not Gemara Policy documents.
-- The independent JSON adapter demonstrates engine substitution without invoking
-  Gemara; it is a test reference, not another production engine.
+Scope values are OR within a dimension and AND across dimensions, with exclusions
+applied afterward. `technologies` and `groups` map to the GitHub platform and
+repository; missing context for other dimensions holds. Named Intent/Automated
+methods support risk limits, change classes and a maximum evidence age up to 600
+seconds. Unknown methods, manual methods, prose constraints, requirement
+modifications, risk acceptances/mitigations, implementation timelines, guidance
+imports and enforcement actions produce an explicit error/hold. They are not
+silently ignored or represented as implemented. No policy URL is fetched or run.
 
-Native SDK pin: [go-gemara commit 5e33fda](https://github.com/gemaraproj/go-gemara/tree/5e33fda460a80ffa99e9efbe19afb43e7d4c4dd2).
-Assessment predicates are authored by this lab and passed to the SDK; Gemara does
-not automatically know GitHub or Fullsend semantics. General policy imports,
-exceptions and central distribution are not implemented. See
-[scope and known compatibility limit](../../docs/attempts/02-policy-evaluation/README.md).
+SDK and official schemas are deliberately matched at Gemara **v1.5.0**. Schema and
+binary hashes are pinned in `tool-lock.json`; the tested SDK module is pinned in
+`sdk/go.mod`. We do not round-trip native Policy structs or claim v1.6 compatibility.
+Input documents and every generated EvaluationLog must pass official validation.
 
-## Why there is Go code here
-
-Gemara's SDK supplies assessment execution, evidence collection and aggregation.
-It does not supply a Fullsend Review or GitHub CI checker. `sdk/main.go` attaches
-our normalized observations to those native helpers. `platform_lab.py` supplies
-the experimental mode/profile and readiness binding. These scripts are a lab
-implementation of an integration boundary, not code every repository should copy.
-
-The alternative adapter is `native-json-reference`: a small independent Python
-evaluator used to test that the boundary is not tied to Gemara. It is not OPA,
-Kyverno, Cedar or a second installed service. Only `gemara-sdk` calls Gemara.
-
-Upstream describes this division in its [integration FAQ](https://gemara.openssf.org/faq/#how-do-evaluation-tools-connect-to-gemara):
-existing tools may need glue to emit Gemara evaluation results. Merely authoring
-a Policy document does not implement the GitHub/Fullsend evidence checks.
+Readiness and candidate results bind the repository configuration and exact
+candidate revision to hashes of the native policy bundle. Receipts are local and
+unsigned. Bot approval metadata is not a full finding/risk attestation. Missing
+readiness assurance, findings or risk still holds even with green CI and approval.
+This remains a prototype, not an approved company standard or a production merger.

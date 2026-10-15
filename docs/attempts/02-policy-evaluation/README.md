@@ -1,45 +1,30 @@
-# Attempt 2: minimal policy-boundary trial
+# Attempt 2: native Gemara policy evaluation
 
-Goal: learn whether Fullsend can supply normalized evidence to Gemara for
-repository readiness and PR eligibility, without coupling Fullsend to one engine.
-See the [runbook](../../../experiments/autonomy-platform/README.md).
+The current work replaces the comparison trial with one Gemara-native path:
+ControlCatalog → common Policy → repository Policy → bound evidence → native
+EvaluationLog → shadow decision. See the [runbook](../../../experiments/autonomy-platform/README.md)
+and [walkthrough](LIVE-TRIAL.md).
 
-## What this change tests
+Policies are now actual schema-validated Gemara documents. Repository assessments
+are additive to imported common assessments; the host no longer composes a custom
+JSON rules profile. GitHub/Fullsend data collection and method implementations
+remain evaluator glue. The SDK provides native types and assessment execution,
+not a ready-made GitHub merge checker.
 
-- Shared minimums plus repository restrictions in a closed experimental profile.
-- Native Gemara assessment/evidence helpers versus an independent JSON adapter.
-- Separate readiness and candidate decisions bound to configuration, policy,
-  engine and time; the candidate also binds the exact head/base revisions.
-- Four-mode behavior using synthetic evidence; only read-only shadow observation
-  of real GitHub PRs. Every mode forbids mutation in this experiment.
+The configured scope/import/plan/parameter path is implemented. Unsupported
+native features hold explicitly; the runbook names them. This is not a claim to
+implement all Gemara semantics or every governance layer. Risk acceptance is not
+inferred from a review comment or an unimplemented policy field.
 
-## What it does not establish
+The trial uses official schemas matching the SDK's declared v1.5.0 version.
+It validates native inputs and outputs without depending on the earlier SDK
+Policy serialization round trip. That historical v1.6 compatibility finding has
+not been dismissed or declared universally fixed.
 
-The profiles and their composition are local scaffolding, not native Gemara
-Policy execution or an approved company standard. There is no policy registry,
-GitHub rules installer, signed qualification, trusted status publisher, automatic
-observer workflow, Fullsend platform API, or merge controller implementation.
-A real PR should hold while readiness, finding or risk evidence is missing.
+Only Fullsend Review is enabled in the lab. The legacy custom auto-merge agent
+and supplementary context workflow remain disabled. The observer has read-only
+permissions and no merge/status writer. Actual merge execution, qualification
+attestations, trusted findings/risk contracts and promotion remain separate work.
 
-Earlier research found a Policy serialization compatibility gap between the
-pinned SDK (declares schema v1.5.0) and official v1.6.0 schemas. The broader
-reproducer is retained locally, outside this minimal trial. This change exercises
-assessment helpers, does not round-trip Policy documents, and makes no claim of
-v1.6.0 schema validation. Establishing a supported version pair remains open.
-
-Per-repository rollout should eventually require small configuration and policy
-references; these lab scripts should become shared integration work if the
-experiment supports that direction. They are not an installation template.
-
-## Safety and next experiment
-
-The legacy agent registration is disabled and its context workflow is gated off.
-Both legacy dispatch workflows were also manually paused before PR publication.
-Merging does not restore them. Verify the landed configuration before restoring
-normal Fullsend Review dispatch; leave the legacy auto-merge route disabled.
-Then open a harmless docs PR, let Fullsend Review assess it, and run the local
-read-only observer. Do not change required checks or infer merge permission.
-
-The larger initial evaluator, retained outputs, schemas, vendor probe and planning
-material were removed from the proposed change and preserved in local research.
-The original attempt's ADR/security documents have not been moved or rewritten.
+The previous comparison implementation and larger research are retained locally
+and in version history. They are no longer part of the active evaluation path.
