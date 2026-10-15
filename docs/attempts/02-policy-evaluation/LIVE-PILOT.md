@@ -77,9 +77,11 @@ The selected upstream host is a demonstrated mint boundary, not a Gemara feature
 Only manual `workflow_dispatch` may authorize maintenance. Its trusted workflow
 run title binds the PR and full head SHA. Both original and rerun actors must still
 have repository admin or maintain permission. The source SHA must equal current
-main. The run must be no older than one hour.
+main. The run must be no older than one hour. Recent dispatches are searched through
+the age boundary with bounded pagination. The authorizing evaluation must have
+completed successfully; its separate writer may still be finishing queue entry.
 
-The queue gate looks up a successful matching dispatch, checks those properties
+The queue gate looks up a matching dispatch with a successful evaluation job, checks those properties
 again and evaluates the separate
 [maintenance policy](../../../experiments/autonomy-platform/policies/maintenance-policy.json).
 Changing the head, advancing main, expiring the authorization or removing the

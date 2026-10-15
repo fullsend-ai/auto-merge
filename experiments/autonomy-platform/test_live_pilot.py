@@ -259,6 +259,76 @@ class PilotTests(unittest.TestCase):
             p.maintenance_scope([dict(files[0], previous_filename="old.yml")])
         )
 
+    def test_maintenance_deletions_require_regular_base_entries(self):
+        name = "docs/removed.md"
+        files = [{"filename": name, "status": "removed", "changes": 1}]
+        for kind, mode, allowed in [
+            ("blob", "100644", True),
+            ("blob", "100755", True),
+            ("blob", "120000", False),
+            ("commit", "160000", False),
+        ]:
+            self.assertEqual(
+                p.maintenance_tree({name: (kind, mode, "a" * 40)}, {}, {}, files),
+                allowed,
+            )
+
+    def test_maintenance_lookup_paginates_and_accepts_a_completed_evaluation_in_a_running_writer(
+        self,
+    ):
+        now = datetime.now(timezone.utc)
+        run = {
+            "id": 101,
+            "run_attempt": 1,
+            "event": "workflow_dispatch",
+            "path": ".github/workflows/autonomy-pilot.yml",
+            "head_sha": "b" * 40,
+            "repository": {"full_name": p.REPO},
+            "display_title": f"Gemara maintenance PR #32 @{'a' * 40}",
+            "created_at": (now - timedelta(seconds=100))
+            .isoformat(timespec="seconds")
+            .replace("+00:00", "Z"),
+            "actor": {"login": "owner"},
+            "triggering_actor": {"login": "owner"},
+            "status": "in_progress",
+            "conclusion": None,
+        }
+        newer = [
+            dict(
+                run,
+                id=i + 1,
+                display_title="Read-only probe",
+                created_at=(now - timedelta(seconds=i))
+                .isoformat(timespec="seconds")
+                .replace("+00:00", "Z"),
+            )
+            for i in range(100)
+        ]
+        job = {
+            "name": "evaluate",
+            "run_id": 101,
+            "head_sha": "b" * 40,
+            "status": "completed",
+            "conclusion": "success",
+        }
+
+        def get(path):
+            if "/actions/workflows/" in path:
+                return {"workflow_runs": newer if path.endswith("page=1") else [run]}
+            if "/jobs?" in path:
+                return {"total_count": 1, "jobs": [job]}
+            return {"permission": "admin"}
+
+        client = mock.Mock()
+        client.get.side_effect = get
+        config = {"maintenance_enabled": True, "maintenance_maximum_age_seconds": 3600}
+        self.assertIsNotNone(
+            p.maintenance_authorization(client, 32, "a" * 40, "b" * 40, "queue", config)
+        )
+        self.assertTrue(
+            any(call.args[0].endswith("page=2") for call in client.get.call_args_list)
+        )
+
     def test_maintenance_native_policy_still_requires_authority_ci_and_exact_tree(self):
         bundle = p.bundle(True)
         subject = {

@@ -457,3 +457,11 @@ or skipped workflow cannot authorize maintenance. All 66 local tests passed.
 The current main gate still uses the spent one-PR grant, so installing its own
 replacement requires an explicitly recorded bootstrap action; no bootstrap or
 new live merge result has yet been claimed.
+
+Implementation review caught and fixed a maintenance authorization timing race,
+a too-short first-page lookup, and non-regular base-file deletions. Queue CI now
+finishes before selecting the current authorization/source snapshot; authorization
+requires the completed evaluation job, not completion of its concurrent writer.
+Dispatch lookup paginates to the age boundary with a hard cap. Both base and
+reviewed maintenance entries must be ordinary files or absent. Writer concurrency
+is per PR, so irrelevant completion events cannot displace maintainer dispatches.

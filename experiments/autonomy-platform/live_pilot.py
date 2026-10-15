@@ -196,9 +196,9 @@ def maintenance_tree(base, reviewed, queued, files):
         maintenance_scope(files)
         and all(
             queued.get(name) == reviewed.get(name)
-            and (
-                reviewed.get(name) is None
-                or reviewed[name][:2] in {("blob", "100644"), ("blob", "100755")}
+            and all(
+                entry is None or entry[:2] in {("blob", "100644"), ("blob", "100755")}
+                for entry in (base.get(name), reviewed.get(name))
             )
             for name in changed
         )
@@ -207,7 +207,7 @@ def maintenance_tree(base, reviewed, queued, files):
     )
 
 
-def maintenance_run_matches(run, number, head, base, maximum_age, completed):
+def maintenance_run_matches(run, number, head, base, maximum_age, queue_phase):
     try:
         age = (datetime.now(timezone.utc) - utc(run["created_at"])).total_seconds()
         return bool(
@@ -222,10 +222,10 @@ def maintenance_run_matches(run, number, head, base, maximum_age, completed):
             and run["run_attempt"] > 0
             and 0 <= age <= maximum_age
             and (
-                not completed
+                not queue_phase
                 or (
-                    run.get("status") == "completed"
-                    and run.get("conclusion") == "success"
+                    run.get("status") in {"in_progress", "completed"}
+                    and run.get("conclusion") in {None, "success"}
                 )
             )
         )
@@ -244,12 +244,30 @@ def maintenance_authorization(client, number, head, base, phase, config):
             return None
         rows = [client.get(BASE + f"actions/runs/{run_id}")]
     else:
-        # Bounded, recent successful dispatches only; no logs or artifacts are read.
-        value = client.get(
-            BASE
-            + "actions/workflows/autonomy-pilot.yml/runs?event=workflow_dispatch&status=success&per_page=20"
-        )
-        rows = (value or {}).get("workflow_runs", [])
+        rows = []
+        previous = datetime.now(timezone.utc)
+        for page in range(1, 11):
+            value = client.get(
+                BASE
+                + f"actions/workflows/autonomy-pilot.yml/runs?event=workflow_dispatch&per_page=100&page={page}"
+            )
+            batch = (value or {}).get("workflow_runs")
+            require(isinstance(batch, list), "maintenance_search_incomplete")
+            reached_boundary = False
+            for candidate in batch:
+                created = utc(candidate.get("created_at"))
+                require(created <= previous, "maintenance_search_order_unknown")
+                previous = created
+                if (datetime.now(timezone.utc) - created).total_seconds() > config[
+                    "maintenance_maximum_age_seconds"
+                ]:
+                    reached_boundary = True
+                    break
+                rows.append(candidate)
+            if reached_boundary or len(batch) < 100:
+                break
+        else:
+            raise InputError("maintenance_search_incomplete")
     for run in rows:
         if not run or not maintenance_run_matches(
             run,
@@ -471,17 +489,6 @@ def evaluate(number, expected_head, phase, client=None):
     client = client or g.Client()
     group_sha = os.environ.get("PILOT_GROUP_SHA") if phase == "queue" else None
     group_base = os.environ.get("PILOT_GROUP_BASE") if phase == "queue" else None
-    pr = client.get(BASE + f"pulls/{number}")
-    branch = client.get(BASE + "branches/main")
-    require(current_pr(pr, expected_head) and branch, "pilot_candidate_not_current")
-    base_sha = branch["commit"]["sha"]
-    permission = maintenance_authorization(
-        client, number, expected_head, base_sha, phase, config
-    )
-    maintenance = permission is not None
-    if phase == "enroll" and os.environ.get("PILOT_MAINTENANCE") == "true":
-        require(maintenance, "maintenance_authorization_missing")
-    require(maintenance or config["automatic_enabled"], "pilot_not_enabled")
     if phase == "queue":
         require(
             re.fullmatch("[0-9a-f]{40}", group_sha or "")
@@ -494,6 +501,17 @@ def evaluate(number, expected_head, phase, client=None):
             "unrecognized_merge_group",
         )
         group_ci = wait_queue_ci(client, group_sha)
+    pr = client.get(BASE + f"pulls/{number}")
+    branch = client.get(BASE + "branches/main")
+    require(current_pr(pr, expected_head) and branch, "pilot_candidate_not_current")
+    base_sha = branch["commit"]["sha"]
+    permission = maintenance_authorization(
+        client, number, expected_head, base_sha, phase, config
+    )
+    maintenance = permission is not None
+    if phase == "enroll" and os.environ.get("PILOT_MAINTENANCE") == "true":
+        require(maintenance, "maintenance_authorization_missing")
+    require(maintenance or config["automatic_enabled"], "pilot_not_enabled")
     report = None if maintenance else g.observe(number, client)
     current_head = pr["head"]["sha"]
     target = group_sha or current_head

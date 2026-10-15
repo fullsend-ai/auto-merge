@@ -27,12 +27,9 @@ on:
     workflows: [CI, fullsend]
     types: [completed]
 permissions: {}
-concurrency:
-  group: autonomy-live-pilot
-  cancel-in-progress: false
 jobs:
   resolve:
-    if: github.repository == 'fullsend-ai/auto-merge' && github.ref == 'refs/heads/main' && !inputs.probe
+    if: github.repository == 'fullsend-ai/auto-merge' && github.ref == 'refs/heads/main' && !inputs.probe && (github.event_name != 'workflow_run' || github.event.workflow_run.event != 'merge_group')
     runs-on: ubuntu-24.04
     timeout-minutes: 3
     permissions:
@@ -90,6 +87,9 @@ jobs:
         run: python3 experiments/autonomy-platform/live_pilot.py --phase enroll --pr "$PILOT_PR" --head "$PILOT_HEAD"
   enqueue:
     needs: [resolve, evaluate]
+    concurrency:
+      group: gemara-writer-${{ needs.resolve.outputs.pr }}
+      cancel-in-progress: false
     if: (inputs.execute || github.event_name == 'workflow_run') && github.ref == 'refs/heads/main'
     permissions:
       contents: read
