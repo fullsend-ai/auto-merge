@@ -82,6 +82,7 @@ def source_digests():
         for name in [
             "platform_lab.py",
             "github_observe.py",
+            "fullsend_evidence.py",
             "schema.py",
             "tool-lock.json",
         ]

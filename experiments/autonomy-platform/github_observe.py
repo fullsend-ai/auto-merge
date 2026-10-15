@@ -22,9 +22,13 @@ from platform_lab import (
     ValidationError,
     source_digests,
 )
+from fullsend_evidence import findings, producer, risk_gap
 
 REPOSITORY = "fullsend-ai/auto-merge"
 CHECK_NAMES = {"Example contract", "Delayed integration (4 minutes)"}
+QUEUE_PROOF_PR = 27
+QUEUE_PROOF_RUN = 38665663244
+QUEUE_PATHS = {".github/workflows/ci.yml", "scripts/validate_example.py"}
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -115,12 +119,7 @@ def normalize(pr, checks, reviews, files):
     approved = None
     seen = False
     if reviews is not None:
-        matching = [
-            r
-            for r in reviews
-            if (r.get("user") or {}).get("login") == "fullsend-ai-review[bot]"
-            and (r.get("user") or {}).get("type") == "Bot"
-        ]
+        matching = [r for r in reviews if producer(r)]
         seen = bool(matching)
         decisive = [
             r
@@ -152,6 +151,67 @@ def normalize(pr, checks, reviews, files):
     }, seen
 
 
+def queue_proof(client, base, rules, tree):
+    """Historical route proof, invalidated when its CI/validator sources change."""
+    absent = {"value": None, "reason": "queue_proof_unavailable"}
+    if rules is None or tree is None or tree.get("truncated"):
+        return absent
+    kinds = {r.get("type") for r in rules}
+    required = [r for r in rules if r.get("type") == "required_status_checks"]
+    contexts = {
+        (c.get("context"), c.get("integration_id"))
+        for r in required
+        for c in r.get("parameters", {}).get("required_status_checks", [])
+    }
+    if "merge_queue" not in kinds or not all(
+        (n, 15368) in contexts for n in CHECK_NAMES | {"Merge group proof"}
+    ):
+        return {"value": False, "reason": "queue_rules_not_enforced"}
+    pull = client.get(base + f"pulls/{QUEUE_PROOF_PR}")
+    run = client.get(base + f"actions/runs/{QUEUE_PROOF_RUN}")
+    if not pull or not run:
+        return absent
+    sha = pull.get("merge_commit_sha")
+    if not (
+        pull.get("merged") is True
+        and pull.get("base", {}).get("ref") == "main"
+        and pull.get("base", {}).get("repo", {}).get("full_name") == REPOSITORY
+        and re.fullmatch(r"[0-9a-f]{40}", sha or "")
+        and run.get("repository", {}).get("full_name") == REPOSITORY
+        and run.get("head_repository", {}).get("full_name") == REPOSITORY
+        and run.get("id") == QUEUE_PROOF_RUN
+        and run.get("workflow_id") == 365189945
+        and run.get("event") == "merge_group"
+        and run.get("path") == ".github/workflows/ci.yml"
+        and run.get("status") == "completed"
+        and run.get("conclusion") == "success"
+        and run.get("head_sha") == sha
+        and (run.get("head_branch") or "").startswith("gh-readonly-queue/main/pr-27-")
+    ):
+        return {"value": False, "reason": "queue_proof_mismatch"}
+    prior = client.get(base + f"git/trees/{sha}?recursive=1")
+    if not prior or prior.get("truncated"):
+        return absent
+
+    def blobs(snapshot):
+        return {
+            r["path"]: r["sha"]
+            for r in snapshot.get("tree", [])
+            if r.get("type") == "blob" and r.get("path") in QUEUE_PATHS
+        }
+
+    current, old = blobs(tree), blobs(prior)
+    if set(current) != QUEUE_PATHS or current != old:
+        return {"value": None, "reason": "queue_proof_configuration_changed"}
+    return {
+        "value": True,
+        "reason": "queue_route_demonstrated",
+        "pull_request": QUEUE_PROOF_PR,
+        "run_id": QUEUE_PROOF_RUN,
+        "head_sha": sha,
+    }
+
+
 def observe(number, client=None):
     require(type(number) is int and 0 < number < 1000000, "invalid_pr")
     client = client or Client()
@@ -168,9 +228,11 @@ def observe(number, client=None):
         base + f"commits/{head}/check-runs?filter=latest", "check_runs"
     )
     reviews = client.pages(base + f"pulls/{number}/reviews")
+    comments = client.pages(base + f"issues/{number}/comments")
     files = client.pages(base + f"pulls/{number}/files")
     rules = client.get(base + "rules/branches/main")
     tree = client.get(base + f"git/trees/{target}?recursive=1")
+    queue = queue_proof(client, base, rules, tree)
     infrastructure = None
     if tree and not tree.get("truncated"):
         infrastructure = [
@@ -178,8 +240,13 @@ def observe(number, client=None):
             for f in tree.get("tree", [])
             if f["path"].startswith((".github/", ".fullsend/"))
         ]
-    again = client.get(base + f"pulls/{number}")
+    reviews_again = client.pages(base + f"pulls/{number}/reviews")
+    comments_again = client.pages(base + f"issues/{number}/comments")
+    checks_again = client.pages(
+        base + f"commits/{head}/check-runs?filter=latest", "check_runs"
+    )
     rules_again = client.get(base + "rules/branches/main")
+    again = client.get(base + f"pulls/{number}")
     stable = (
         again is not None
         and (
@@ -190,6 +257,9 @@ def observe(number, client=None):
         )
         == (head, target, pr["state"], pr.get("draft"))
         and rules == rules_again
+        and reviews == reviews_again
+        and comments == comments_again
+        and checks == checks_again
     )
     now = (
         datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -205,6 +275,8 @@ def observe(number, client=None):
     candidate = dict(ready, head_sha=head, base_sha=target)
     bundle = load_bundle()
     values, seen = normalize(pr, checks, reviews, files)
+    finding_evidence = findings(head, reviews, comments)
+    values["AM-FINDINGS"] = finding_evidence["value"]
     readiness = {
         "AR-RULES": bool(rules) if rules is not None else None,
         "AR-CHECKS": checks is not None,
@@ -212,7 +284,7 @@ def observe(number, client=None):
         "AR-STATUS": None,
         "AR-TESTS": None,
         "AR-ISOLATION": None,
-        "AR-QUEUE": None,
+        "AR-QUEUE": queue["value"],
         "AR-HISTORY": None,
     }
     current = stable and pr["state"] == "open" and not pr.get("draft", False)
@@ -249,10 +321,14 @@ def observe(number, client=None):
         "stable_during_collection": stable,
         "fullsend_review_metadata_present": seen,
         "policy_authority": "native-gemara-prototype-not-approved-standard",
-        "review_identity_assurance": "API bot-login metadata, not a production attestation",
+        "review_identity_assurance": "Pinned API bot ID/login/type, not a signed production attestation",
+        "evidence_details": {
+            "AM-FINDINGS": finding_evidence,
+            "AM-RISK": {"value": None, "reason": risk_gap(comments)},
+            "AR-QUEUE": queue,
+        },
         "unimplemented_evidence": [
-            "current_fullsend_finding_ledger",
-            "trusted_risk_attestation",
+            "revision_bound_risk_attestation",
             "meaningful_test_sufficiency",
             "runtime_isolation",
             "shadow_track_record",
@@ -314,8 +390,15 @@ def summary(report):
         "",
         "Real GitHub metadata was assessed through native Gemara catalog requirements and imported Policy assessment plans.",
         "The catalog, policies and generated evaluation logs are schema-validated. GitHub/Fullsend evidence checks are evaluator glue; unsupported policy semantics hold explicitly.",
-        "Bot login metadata does not establish a trusted review/finding/risk attestation.",
+        "Finding evidence uses the official v2 ledger, pinned bot identity, explicit head marker and matching approval; it is not a signed production attestation.",
         "No rules were changed and no merge, comment or status was requested.",
+    ]
+    lines += ["", "## Evidence collection details", ""]
+    for control, detail in report["evidence_details"].items():
+        lines.append(f"- `{control}`: `{detail['reason']}`")
+    lines += [
+        "",
+        "Risk needs a revision-bound producer result. Meaningful tests, runtime isolation, a trusted eligibility publisher and an accepted shadow history still need their own evidence; neither approval nor a successful queue run proves them.",
     ]
     return "\n".join(lines) + "\n"
 

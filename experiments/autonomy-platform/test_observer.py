@@ -37,11 +37,17 @@ class FixtureClient:
         raise AssertionError("unexpected endpoint")
 
     def pages(self, path, key=None):
+        if "/comments" in path:
+            return []
         if "reviews" in path:
             return [
                 {
                     "id": 1,
-                    "user": {"login": "fullsend-ai-review[bot]", "type": "Bot"},
+                    "user": {
+                        "id": 278716355,
+                        "login": "fullsend-ai-review[bot]",
+                        "type": "Bot",
+                    },
                     "commit_id": "a" * 40,
                     "state": "APPROVED",
                     "body": "SYNTHETIC_SECRET_SENTINEL",
@@ -122,10 +128,34 @@ class ObserverTests(unittest.TestCase):
             self.assertEqual(result["shadow"]["decision"], "hold")
             self.assertIn("candidate_not_current_open_pr", result["shadow"]["reasons"])
 
+    def test_reviews_comments_and_ci_must_stay_stable(self):
+        for endpoint in ["/reviews", "/comments", "/check-runs"]:
+
+            class ChangingClient(FixtureClient):
+                def __init__(self):
+                    super().__init__()
+                    self.seen = 0
+
+                def pages(self, path, key=None):
+                    result = super().pages(path, key)
+                    if endpoint in path:
+                        self.seen += 1
+                        if self.seen > 1:
+                            return result + [{"id": 999}]
+                    return result
+
+            result = g.observe(26, ChangingClient())
+            self.assertFalse(result["stable_during_collection"])
+            self.assertEqual(result["shadow"]["decision"], "hold")
+
     def test_current_revision_and_latest_decisive_review_required(self):
         review = {
             "id": 1,
-            "user": {"login": "fullsend-ai-review[bot]", "type": "Bot"},
+            "user": {
+                "id": 278716355,
+                "login": "fullsend-ai-review[bot]",
+                "type": "Bot",
+            },
             "commit_id": "a" * 40,
             "state": "APPROVED",
         }

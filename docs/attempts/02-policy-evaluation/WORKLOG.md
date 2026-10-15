@@ -153,3 +153,31 @@ workflow logs and API bodies were not retained or published. The observer itself
 never reads workflow logs. No test PR was merged or given auto-merge authority.
 The remaining boundary is evidence production/assurance and promotion governance,
 not whether the demonstrated native catalog/import/plan/evaluation path executes.
+
+
+## 2026-10-15 evidence collection update
+
+Verified live main 44ae8556011a65765c88335cee2500c9822319d3 and unchanged open
+trial heads before editing. Inspected current official Agents source at
+a159f388364279487818325ef5d3cc1bcd31e1ea and normalized public Review metadata.
+Added consumption of its v2 findings ledger, pinned bot identity and exact head,
+with safe closed-disposition handling and rejection of malformed/duplicate data.
+Added historical queue proof with current rules and source-blob binding. Recheck
+reviews, comments and checks during collection; a changed collection holds.
+
+Local live native observations: #28 findings and queue evidence passed, risk
+remained Unknown because the actual risk comment has no head binding. #29 queue
+proof passed, but its intentional failed CI and absent Review still hold.
+Both collections were stable with no API errors; mutation remained forbidden.
+No reports retain comment bodies, file anchors, raw API payloads or identities.
+
+Prepared a small producer-side risk receipt patch in the local research archive,
+not in this public repository. Its shell syntax and ten actual jq projection
+cases passed. This is proposed upstream work, not deployed support. No upstream
+file or workflow was changed. Independent readiness assurances and human promotion
+criteria remain required; none was fabricated from CI success or approval.
+
+Validation: 39 Python tests cover native evaluations, real-source normalization,
+ledger lifecycle and collection races. Prior pinned Go evaluator code is unchanged.
+The evidence verification made no GitHub writes. Subsequent publication was explicitly
+authorized by the repository owner; hosted producer/readiness work continues below.

@@ -53,7 +53,15 @@ bounded GET-only requests, refuses redirects and holds on incomplete/changing
 state. It never executes PR code, downloads artifacts, reads workflow logs, posts
 comments/statuses or changes rules. An approved read credential can be supplied
 locally via GH_TOKEN/GITHUB_TOKEN when needed; it is not passed to the evaluator.
-Reports discard API bodies, patches, review text and actor identities.
+Reports discard API bodies, patches, review text and actor identities. The collector
+uses the official v2 findings projection with a pinned bot ID, explicit head and
+matching approval; any open finding holds. It verifies a historical queue route
+against current rules and CI/validator source hashes. Reviews, comments and CI
+are rechecked for collection stability. Only normalized control results and source
+identifiers enter reports. The separate risk comment currently lacks revision
+binding and therefore cannot satisfy the risk control. See the
+[evidence update](../../docs/attempts/02-policy-evaluation/LIVE-TRIAL.md#local-evidence-collection-update-not-yet-published)
+for verified sources and the remaining evidence owners.
 
 The `Autonomy shadow observation` workflow runs trusted main code after
 CI, and after Fullsend runs when GitHub associates a PR. Manual dispatch on main
@@ -88,6 +96,7 @@ Input documents and every generated EvaluationLog must pass official validation.
 
 Readiness and candidate results bind the repository configuration and exact
 candidate revision to hashes of the native policy bundle. Receipts are local and
-unsigned. Bot approval metadata is not a full finding/risk attestation. Missing
+unsigned. Bot approval alone is not a finding/risk attestation. The findings
+projection has its own source checks; it is not a signed production receipt. Missing
 readiness assurance, findings or risk still holds even with green CI and approval.
 This remains a prototype, not an approved company standard or a production merger.
