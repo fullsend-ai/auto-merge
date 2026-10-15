@@ -44,6 +44,42 @@ Fullsend slash-command runs without linked PR metadata, it can use a matching
 pinned-producer risk receipt as a routing hint. The evaluator independently verifies
 that evidence; the hint grants no authority. Merge-group CI cannot retrigger entry.
 
+The evidence verifier supports both automatic `pull_request_target` reviews and
+`/fs-review` runs triggered by `issue_comment`. Automatic runs must match the
+current PR's exact head commit and branch in this repository; the receipt's
+configuration commit must match the PR's base snapshot on `main`. Comment runs
+must instead identify `main` and the receipt's configuration commit in their run
+metadata. Both routes still require the pinned workflow, successful completed
+run and attempt, official review identity, revision-bound findings/risk receipt,
+and host source blobs identical to the current trusted evaluator's pins.
+For automatic reviews, GitHub's Actions check-suite association must match
+exactly this PR number, the pinned repository ID on both
+sides, the reviewed head/ref and the main base/configuration commit. An empty,
+ambiguous, mismatched or changing suite holds. The workflow-run API's PR list can
+be empty; it is not substituted for this check. The actual referenced dispatcher
+must also match the pinned reusable-workflow path and commit. A receipt's own
+configuration claim is insufficient without these GitHub-owned bindings.
+The suite matches the associated PR/base snapshot; it is not a historical
+attestation of the run's checkout. The configuration must also be an ancestor of
+the observed main tip. If it is older than main, every intervening commit is
+checked for host-source changes, including changes later reverted. More than
+20 commits, an incomplete comparison or a commit with 100 or more returned files
+holds instead of assuming the history is complete. A fresh review using current
+main avoids that history window. A regression test ties the dispatcher pin to
+the managed workflow, so a scaffold pin change requires explicit revalidation.
+An oversized API response can conservatively stop the whole observation with a
+hold rather than return only an AM-RISK-specific result; it cannot authorize entry.
+Automatic runs also require those host source blobs at the PR head to match,
+so the receipt cannot authorize a PR that changes its own Review host sources.
+This assumes the pinned Fullsend dispatcher loads base-branch configuration;
+the additional PR-head source check holds even if that assumption regresses.
+An unknown event, fork, changed base binding, stale head or changed host source
+holds. A slash command is therefore optional when the automatic evidence passes;
+this adds no approval, risk or policy exemption.
+The strict base binding can hold after main or the PR's base snapshot advances;
+a fresh automatic Review run with a matching base/configuration binding is then
+required. Host-source equality alone does not waive this lab restriction.
+
 A read-only job evaluates native Gemara policy. Only if eligible does a separate
 writer repeat the evaluation and request GitHub's protected queue with
 `--auto --match-head-commit`. There is no admin merge in the live path.

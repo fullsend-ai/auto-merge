@@ -247,7 +247,7 @@ class RiskReceiptTests(unittest.TestCase):
 
             self.assertIsNone(f.risk("a" * 40, [review], [comment], never)["value"])
 
-    def test_producer_is_bound_to_run_attempt_event_and_current_configuration(self):
+    def producer_fixture(self):
         receipt, _, _ = self.receipt()
         tree = {
             "tree": [
@@ -267,10 +267,35 @@ class RiskReceiptTests(unittest.TestCase):
             "conclusion": "success",
             "repository": {"full_name": g.REPOSITORY},
             "head_repository": {"full_name": g.REPOSITORY},
+            "check_suite_id": 4321,
+            "referenced_workflows": [dict(g.RISK_DISPATCH)],
+        }
+        suite = {
+            "id": 4321,
+            "app": {"id": 15368},
+            "head_sha": "a" * 40,
+            "head_branch": "feature",
+            "pull_requests": [
+                {
+                    "number": 26,
+                    "head": {
+                        "ref": "feature",
+                        "sha": "a" * 40,
+                        "repo": {"id": g.REPOSITORY_ID},
+                    },
+                    "base": {
+                        "ref": "main",
+                        "sha": "b" * 40,
+                        "repo": {"id": g.REPOSITORY_ID},
+                    },
+                }
+            ],
         }
 
         class Client:
             def get(self, path):
+                if "check-suites/" in path:
+                    return suite
                 return tree if "git/trees" in path else run
 
         client = Client()
@@ -283,11 +308,19 @@ class RiskReceiptTests(unittest.TestCase):
         )
         patcher.start()
         self.addCleanup(patcher.stop)
+        return receipt, tree, run, client
+
+    def test_producer_is_bound_to_run_attempt_event_and_current_configuration(self):
+        receipt, tree, run, client = self.producer_fixture()
         self.assertTrue(g.risk_producer(client, "", tree, receipt))
+        self.assertTrue(
+            g.risk_producer(client, "", tree, receipt, {"head": {"sha": "a" * 40}})
+        )
         for key, value in [
             ("event", "pull_request"),
             ("run_attempt", 2),
             ("head_branch", "untrusted"),
+            ("head_sha", "f" * 40),
             ("status", "in_progress"),
             ("conclusion", "failure"),
             ("workflow_id", 99),
@@ -299,6 +332,279 @@ class RiskReceiptTests(unittest.TestCase):
         changed = copy.deepcopy(tree)
         changed["tree"][0]["sha"] = "f" * 40
         self.assertFalse(g.risk_producer(client, "", changed, receipt))
+
+    def test_automatic_review_binds_pr_head_and_base_configuration_separately(self):
+        receipt, tree, run, client = self.producer_fixture()
+        run.update(
+            event="pull_request_target", head_branch="feature", head_sha="a" * 40
+        )
+        pr = {
+            "number": 26,
+            "head": {
+                "sha": "a" * 40,
+                "ref": "feature",
+                "repo": {"full_name": g.REPOSITORY},
+            },
+            "base": {
+                "sha": "b" * 40,
+                "ref": "main",
+                "repo": {"full_name": g.REPOSITORY},
+            },
+        }
+        self.assertTrue(g.risk_producer(client, "", tree, receipt, pr, "b" * 40))
+        self.assertFalse(g.risk_producer(client, "", tree, receipt))
+        for side, field, value in [
+            ("head", "sha", "f" * 40),
+            ("head", "ref", "other"),
+            ("head", "repo", {"full_name": "someone/fork"}),
+            ("base", "sha", "f" * 40),
+            ("base", "ref", "other"),
+            ("base", "repo", {"full_name": "someone/other"}),
+        ]:
+            changed = copy.deepcopy(pr)
+            changed[side][field] = value
+            with self.subTest(side=side, field=field):
+                self.assertFalse(
+                    g.risk_producer(client, "", tree, receipt, changed, "b" * 40)
+                )
+        for field, value in [
+            ("event", "pull_request"),
+            ("head_sha", "f" * 40),
+            ("head_branch", "other"),
+            ("run_attempt", 2),
+            ("status", "in_progress"),
+            ("conclusion", "failure"),
+            ("workflow_id", 99),
+            ("path", ".github/workflows/other.yaml"),
+            ("head_repository", {"full_name": "someone/fork"}),
+            ("repository", {"full_name": "someone/other"}),
+            ("check_suite_id", 99),
+            ("referenced_workflows", []),
+            ("referenced_workflows", [dict(g.RISK_DISPATCH, sha="f" * 40)]),
+        ]:
+            original = run[field]
+            run[field] = value
+            with self.subTest(field=field):
+                self.assertFalse(
+                    g.risk_producer(client, "", tree, receipt, pr, "b" * 40)
+                )
+            run[field] = original
+        changed = copy.deepcopy(tree)
+        changed["tree"][0]["sha"] = "f" * 40
+        self.assertFalse(g.risk_producer(client, "", changed, receipt, pr, "b" * 40))
+        for head_tree in [None, {"tree": []}, dict(tree, truncated=True), changed]:
+
+            class ChangedHeadClient:
+                def get(self, path):
+                    if f"git/trees/{receipt['head_sha']}?" in path:
+                        return head_tree
+                    return client.get(path)
+
+            with self.subTest(head_tree=head_tree):
+                self.assertFalse(
+                    g.risk_producer(
+                        ChangedHeadClient(), "", tree, receipt, pr, "b" * 40
+                    )
+                )
+        suite = client.get("check-suites/4321")
+        changed_suites = [
+            None,
+            {},
+            dict(suite, pull_requests=[]),
+            dict(suite, pull_requests=suite["pull_requests"] * 2),
+            dict(suite, app={"id": 999}),
+            dict(suite, head_sha="f" * 40),
+            dict(suite, head_branch="other"),
+        ]
+        for side, field, value in [
+            ("base", "ref", "non-main"),
+            ("base", "sha", "f" * 40),
+            ("base", "repo", {"id": 999}),
+            ("head", "sha", "f" * 40),
+            ("head", "ref", "other"),
+            ("head", "repo", {"id": 999}),
+        ]:
+            changed = copy.deepcopy(suite)
+            changed["pull_requests"][0][side][field] = value
+            changed_suites.append(changed)
+        changed = copy.deepcopy(suite)
+        changed["pull_requests"][0]["number"] = 99
+        changed_suites.append(changed)
+        for changed_suite in changed_suites:
+
+            class ChangedSuiteClient:
+                def get(self, path):
+                    return (
+                        changed_suite if "check-suites/" in path else client.get(path)
+                    )
+
+            with self.subTest(suite=changed_suite):
+                self.assertFalse(
+                    g.risk_producer(
+                        ChangedSuiteClient(), "", tree, receipt, pr, "b" * 40
+                    )
+                )
+
+        class MovingSuiteClient:
+            reads = 0
+
+            def get(self, path):
+                if "check-suites/" in path:
+                    self.reads += 1
+                    return (
+                        suite if self.reads == 1 else dict(suite, head_branch="other")
+                    )
+                return client.get(path)
+
+        self.assertFalse(
+            g.risk_producer(MovingSuiteClient(), "", tree, receipt, pr, "b" * 40)
+        )
+
+    def test_automatic_producer_changes_during_collection_hold(self):
+        receipt, tree, run, client = self.producer_fixture()
+        run.update(
+            event="pull_request_target", head_branch="feature", head_sha="a" * 40
+        )
+        pr = {
+            "number": 26,
+            "head": {
+                "sha": "a" * 40,
+                "ref": "feature",
+                "repo": {"full_name": g.REPOSITORY},
+            },
+            "base": {
+                "sha": "b" * 40,
+                "ref": "main",
+                "repo": {"full_name": g.REPOSITORY},
+            },
+        }
+
+        class ChangingClient:
+            reads = 0
+
+            def get(self, path):
+                if "check-suites/" in path:
+                    return client.get(path)
+                if "git/trees" in path:
+                    return tree
+                self.reads += 1
+                return dict(run, run_attempt=self.reads)
+
+        self.assertFalse(
+            g.risk_producer(ChangingClient(), "", tree, receipt, pr, "b" * 40)
+        )
+
+    def test_producer_checks_history_against_observed_main_tip(self):
+        receipt, tree, run, client = self.producer_fixture()
+        run.update(
+            event="pull_request_target", head_branch="feature", head_sha="a" * 40
+        )
+        pr = {
+            "number": 26,
+            "head": {
+                "sha": "a" * 40,
+                "ref": "feature",
+                "repo": {"full_name": g.REPOSITORY},
+            },
+            "base": {
+                "sha": "b" * 40,
+                "ref": "main",
+                "repo": {"full_name": g.REPOSITORY},
+            },
+        }
+        main = "e" * 40
+        comparison = {
+            "status": "ahead",
+            "base_commit": {"sha": "b" * 40},
+            "merge_base_commit": {"sha": "b" * 40},
+            "total_commits": 1,
+            "commits": [{"sha": main}],
+        }
+        commit = {"sha": main, "files": [{"filename": "docs/example-feature.md"}]}
+
+        class HistoryClient:
+            def get(self, path):
+                if "compare/" in path:
+                    self_test.assertIn("b" * 40 + "..." + main, path)
+                    return comparison
+                if "commits/" in path:
+                    return commit
+                return client.get(path)
+
+        self_test = self
+        history = HistoryClient()
+        self.assertTrue(g.risk_producer(history, "", tree, receipt, pr, main))
+        commit["files"] = [{"filename": next(iter(g.RISK_SOURCE_PATHS))}]
+        self.assertFalse(g.risk_producer(history, "", tree, receipt, pr, main))
+        self.assertFalse(g.risk_producer(history, "", tree, receipt, pr, None))
+
+    def test_dispatcher_pin_matches_managed_workflow(self):
+        from pathlib import Path
+        import re
+
+        workflow = (
+            Path(__file__).resolve().parents[2] / ".github/workflows/fullsend.yaml"
+        )
+        uses = re.findall(
+            r"^    uses: (fullsend-ai/fullsend/\.github/workflows/reusable-dispatch\.yml@\S+)$",
+            workflow.read_text(),
+            re.M,
+        )
+        self.assertEqual(uses, [g.RISK_DISPATCH["path"]])
+        self.assertEqual(uses[0].rsplit("@", 1)[1], g.RISK_DISPATCH["sha"])
+
+    def test_host_history_checks_each_commit_including_a_revert(self):
+        configuration, first, main = "b" * 40, "d" * 40, "e" * 40
+        comparison = {
+            "status": "ahead",
+            "base_commit": {"sha": configuration},
+            "merge_base_commit": {"sha": configuration},
+            "total_commits": 2,
+            "commits": [{"sha": first}, {"sha": main}],
+        }
+        rows = {
+            first: {"sha": first, "files": [{"filename": "docs/one.md"}]},
+            main: {"sha": main, "files": [{"filename": "docs/two.md"}]},
+        }
+
+        class Client:
+            def get(self, path):
+                if "compare/" in path:
+                    return comparison
+                return rows.get(path.split("commits/")[1].split("?")[0])
+
+        client = Client()
+        self.assertTrue(g.risk_host_history(client, "", configuration, main))
+        source = next(iter(g.RISK_SOURCE_PATHS))
+        # A clean final tree cannot conceal an intermediate host-source change.
+        rows[first]["files"] = [{"filename": source}]
+        rows[main]["files"] = [{"filename": source}]
+        self.assertFalse(g.risk_host_history(client, "", configuration, main))
+        rows[main]["files"] = [{"filename": "docs/two.md"}]
+        rows[first]["files"] = [{"filename": "elsewhere", "previous_filename": source}]
+        self.assertFalse(g.risk_host_history(client, "", configuration, main))
+        rows[first]["files"] = [{"filename": "docs/one.md"}]
+        rows[main]["files"] = [{"filename": "docs/two.md"}]
+        for changes in [
+            {"status": "diverged"},
+            {"merge_base_commit": {"sha": "f" * 40}},
+            {"total_commits": 21},
+            {"commits": [{"sha": main}]},
+            {"commits": [{"sha": main}, {"sha": main}]},
+        ]:
+            old = copy.deepcopy(comparison)
+            comparison.update(changes)
+            with self.subTest(changes=changes):
+                self.assertFalse(g.risk_host_history(client, "", configuration, main))
+            comparison.clear()
+            comparison.update(old)
+        for files in [None, [{}], [{"filename": "docs/a.md"}] * 100]:
+            rows[main]["files"] = files
+            self.assertFalse(g.risk_host_history(client, "", configuration, main))
+        rows[main] = None
+        self.assertFalse(g.risk_host_history(client, "", configuration, main))
+        self.assertFalse(g.risk_host_history(client, "", configuration, None))
+        self.assertTrue(g.risk_host_history(client, "", configuration, configuration))
 
     def test_host_refuses_unpinned_source_before_execution(self):
         import importlib.util

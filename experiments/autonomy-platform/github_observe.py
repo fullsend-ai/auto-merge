@@ -26,6 +26,11 @@ from platform_lab import (
 from fullsend_evidence import findings, producer, risk
 
 REPOSITORY = "fullsend-ai/auto-merge"
+REPOSITORY_ID = 1383516376
+RISK_DISPATCH = {
+    "path": "fullsend-ai/fullsend/.github/workflows/reusable-dispatch.yml@02438e1c117d31bf50f9fb9fafabe40856dbfdda",
+    "sha": "02438e1c117d31bf50f9fb9fafabe40856dbfdda",
+}
 CHECK_NAMES = {"Example contract", "Delayed integration (4 minutes)"}
 QUEUE_PROOF_PR = 27
 QUEUE_PROOF_RUN = 38665663244
@@ -45,9 +50,15 @@ class Client:
         self.errors = set()
 
     def get(self, path):
+        comparison = re.fullmatch(
+            re.escape("repos/" + REPOSITORY + "/compare/")
+            + r"[0-9a-f]{40}\.\.\.[0-9a-f]{40}\?per_page=20",
+            path,
+        )
         require(
             path.startswith("repos/" + REPOSITORY + "/")
-            and not any(x in path for x in ["..", "\n", "\r", "#", ":"]),
+            and not any(x in path for x in ["\n", "\r", "#", ":"])
+            and (".." not in path or comparison is not None),
             "unsupported_endpoint",
         )
         headers = {
@@ -235,8 +246,106 @@ def local_risk_blobs():
     return result
 
 
-def risk_producer(client, base, current_tree, receipt):
-    """Pin the receipt to completed trusted-main Review execution and host sources."""
+def risk_run_subject(run, receipt, pr):
+    """Separate the reviewed revision from the trusted configuration revision."""
+    if run.get("event") == "issue_comment":
+        return (
+            run.get("head_branch") == "main"
+            and run.get("head_sha") == receipt["config_sha"]
+        )
+    if run.get("event") != "pull_request_target" or not isinstance(pr, dict):
+        return False
+    head, target = pr.get("head") or {}, pr.get("base") or {}
+    return (
+        (head.get("repo") or {}).get("full_name") == REPOSITORY
+        and (target.get("repo") or {}).get("full_name") == REPOSITORY
+        and target.get("ref") == "main"
+        and target.get("sha") == receipt["config_sha"]
+        and head.get("sha") == receipt["head_sha"] == run.get("head_sha")
+        and bool(head.get("ref"))
+        and head["ref"] == run.get("head_branch")
+    )
+
+
+def risk_suite_subject(suite, run, receipt, pr):
+    """Require GitHub's own unambiguous PR/base association for automatic runs."""
+    if not isinstance(suite, dict) or not isinstance(pr, dict):
+        return False
+    linked = suite.get("pull_requests")
+    if not isinstance(linked, list) or len(linked) != 1:
+        return False
+    item = linked[0]
+    if not isinstance(item, dict):
+        return False
+    head, target = item.get("head") or {}, item.get("base") or {}
+    return (
+        suite.get("id") == run["check_suite_id"]
+        and (suite.get("app") or {}).get("id") == 15368
+        and suite.get("head_sha") == receipt["head_sha"]
+        and suite.get("head_branch") == run["head_branch"]
+        and type(pr.get("number")) is int
+        and item.get("number") == pr["number"]
+        and (head.get("repo") or {}).get("id") == REPOSITORY_ID
+        and (target.get("repo") or {}).get("id") == REPOSITORY_ID
+        and head.get("sha") == receipt["head_sha"]
+        and head.get("ref") == run["head_branch"]
+        and target.get("ref") == "main"
+        and target.get("sha") == receipt["config_sha"]
+    )
+
+
+def risk_host_history(client, base, configuration, main):
+    """Reject changed-and-restored host sources, not only unequal final trees."""
+    if not isinstance(main, str) or not re.fullmatch("[0-9a-f]{40}", main):
+        return False
+    if configuration == main:
+        return True
+    comparison = client.get(base + f"compare/{configuration}...{main}?per_page=20")
+    if not comparison or not (
+        comparison.get("status") == "ahead"
+        and (comparison.get("base_commit") or {}).get("sha") == configuration
+        and (comparison.get("merge_base_commit") or {}).get("sha") == configuration
+        and type(comparison.get("total_commits")) is int
+        and 0 < comparison["total_commits"] <= 20
+    ):
+        return False
+    commits = comparison.get("commits")
+    if not isinstance(commits, list) or len(commits) != comparison["total_commits"]:
+        return False
+    identifiers = [c.get("sha") for c in commits if isinstance(c, dict)]
+    if (
+        len(identifiers) != len(commits)
+        or any(
+            not isinstance(s, str) or not re.fullmatch("[0-9a-f]{40}", s)
+            for s in identifiers
+        )
+        or len(set(identifiers)) != len(commits)
+        or main not in identifiers
+    ):
+        return False
+    for identifier in identifiers:
+        commit = client.get(base + f"commits/{identifier}?per_page=100")
+        files = (commit or {}).get("files")
+        if (
+            not commit
+            or commit.get("sha") != identifier
+            or not isinstance(files, list)
+            or len(files) >= 100
+        ):
+            return False
+        for file in files:
+            if (
+                not isinstance(file, dict)
+                or not isinstance(file.get("filename"), str)
+                or file["filename"] in RISK_SOURCE_PATHS
+                or file.get("previous_filename") in RISK_SOURCE_PATHS
+            ):
+                return False
+    return True
+
+
+def risk_producer(client, base, current_tree, receipt, pr=None, main_sha=None):
+    """Bind completed Review execution to its event subject and pinned host sources."""
     endpoint = base + f"actions/runs/{receipt['run_id']}"
     run = client.get(endpoint)
     if not run or not (
@@ -244,15 +353,26 @@ def risk_producer(client, base, current_tree, receipt):
         and run.get("run_attempt") == receipt["run_attempt"]
         and run.get("workflow_id") == 365189947
         and run.get("path") == ".github/workflows/fullsend.yaml"
-        and run.get("event") == "issue_comment"
-        and run.get("head_branch") == "main"
-        and run.get("head_sha") == receipt["config_sha"]
+        and risk_run_subject(run, receipt, pr)
         and run.get("status") == "completed"
         and run.get("conclusion") == "success"
         and run.get("repository", {}).get("full_name") == REPOSITORY
         and run.get("head_repository", {}).get("full_name") == REPOSITORY
     ):
         return False
+    suite_endpoint, suite = None, None
+    if run["event"] == "pull_request_target":
+        if run.get("referenced_workflows") != [RISK_DISPATCH]:
+            return False
+        suite_id = run.get("check_suite_id")
+        if type(suite_id) is not int or suite_id <= 0:
+            return False
+        suite_endpoint = base + f"check-suites/{suite_id}"
+        suite = client.get(suite_endpoint)
+        if not risk_suite_subject(suite, run, receipt, pr):
+            return False
+        if not risk_host_history(client, base, receipt["config_sha"], main_sha):
+            return False
     source_tree = client.get(base + f"git/trees/{receipt['config_sha']}?recursive=1")
     if (
         not current_tree
@@ -270,10 +390,15 @@ def risk_producer(client, base, current_tree, receipt):
         }
 
     current, original = blobs(current_tree), blobs(source_tree)
+    if run["event"] == "pull_request_target":
+        head_tree = client.get(base + f"git/trees/{receipt['head_sha']}?recursive=1")
+        if not head_tree or head_tree.get("truncated") or blobs(head_tree) != original:
+            return False
     return (
         set(current) == RISK_SOURCE_PATHS
         and current == original == local_risk_blobs()
         and client.get(endpoint) == run
+        and (suite_endpoint is None or client.get(suite_endpoint) == suite)
     )
 
 
@@ -308,7 +433,10 @@ def observe(number, client=None):
     queue = queue_proof(client, base, rules, tree)
     finding_evidence = findings(head, reviews, comments)
     risk_evidence = risk(
-        head, reviews, comments, lambda data: risk_producer(client, base, tree, data)
+        head,
+        reviews,
+        comments,
+        lambda data: risk_producer(client, base, tree, data, pr, target),
     )
     infrastructure = None
     if tree and not tree.get("truncated"):
@@ -498,7 +626,7 @@ def summary(report):
         lines.append(f"- `{control}`: `{detail['reason']}`")
     lines += [
         "",
-        "The lab risk receipt must bind a completed trusted-main Fullsend run, its attempt, the exact reviewed head and the current pinned host sources. Meaningful tests, runtime isolation, a trusted eligibility publisher and an accepted shadow history need independent evidence; neither approval nor a successful queue run proves them.",
+        "The lab risk receipt must bind a completed Fullsend run, its attempt, the exact reviewed head and the current pinned host sources. Automatic pull_request_target runs also bind the PR head branch and base configuration commit; issue_comment runs bind the main configuration commit. Meaningful tests, runtime isolation, a trusted eligibility publisher and an accepted shadow history need independent evidence; neither approval nor a successful queue run proves them.",
     ]
     return "\n".join(lines) + "\n"
 

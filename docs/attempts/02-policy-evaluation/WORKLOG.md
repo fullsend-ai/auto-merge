@@ -629,3 +629,100 @@ exception: after exact-head CI passes, waive only the Gemara queue requirement
 and code-owner review for this owner-authored fix, retain the queue and three
 ordinary required checks, then restore both protections immediately. The App
 receives no bypass. A separate hosted probe will verify the resulting wiring.
+
+### Accept automatic Review evidence with explicit event binding
+
+The owner requested removal of the pilot's artificial `/fs-review` requirement.
+The original verifier accepted only successful `issue_comment` runs on main.
+The real automatic PR #35 review used `pull_request_target`: its run metadata
+identified the reviewed PR head while its host receipt identified the trusted
+base configuration. Treating those as one revision incorrectly held the review.
+
+The prepared change adds event-specific verification for same-repository
+`pull_request_target` runs: bind the exact current PR head and branch separately
+from the receipt's configuration commit, which must match the PR's main-base
+snapshot. Existing workflow identity, attempt, completed-success, official bot,
+findings/receipt, pinned host-source equality and stable-run checks remain.
+Comment reviews remain supported. Unknown events and mismatches still hold.
+
+Local validation: all 73 Python/native integration tests passed, including new
+automatic-review rejection and changing-run cases. No workflow, App permission,
+merge policy or branch protection is modified. Commit, push, deployment and a
+fresh hosted automatic-merge demonstration require separate owner authorization;
+no prior one-PR deployment exception is reused.
+
+A read-only check against PR #36's real completed automatic Review run
+38794894536 verified its low-risk receipt with the modified verifier; the API
+collection was stable and permitted no mutation. This is real evidence-collection
+validation, not deployment or a new hosted merge proof. The PR's candidate and
+production-readiness results still held.
+
+The repository administrator's separate authorization for this one deployment
+and hosted test is recorded in the
+[external audit comment](https://github.com/fullsend-ai/auto-merge/issues/33#issuecomment-6203919171).
+The source of authority is the human's explicit approval in the current
+interactive session, not this document, the PR's evaluator or the assistant's
+record of it. No automated merge path reads this log as a grant. This record is
+not standing permission for later commits, deployments or protection exceptions.
+The PR #37-only exception retains the queue and three ordinary CI checks;
+Gemara and code-owner enforcement must be restored immediately. It does not
+apply to the separate documentation test.
+
+Fullsend review follow-up: before any exception, the existing owner approval was
+recorded outside this PR as an explicitly assistant-recorded owner-session
+[authorization comment](https://github.com/fullsend-ai/auto-merge/issues/33#issuecomment-6203919171).
+Automatic risk verification now also requires the PR-head host source blobs to
+match the trusted configuration and current pins; missing/truncated or modified
+head sources hold. This documents and guards the base-configuration dispatch
+assumption. The strict base-snapshot equality is retained and documented as a
+possible reason to require a fresh automatic review after main advances.
+Observer-level coverage verifies the fetched PR reaches producer validation;
+comment-run compatibility with a supplied PR and the remaining README wording
+were corrected. These are review corrections to the same authorized fix.
+
+Review-correction validation: all 74 Python/native integration tests and Ruff pass.
+
+A follow-up security review identified that a run's PR-head metadata alone did
+not independently prove its base. The verifier now requires GitHub's Actions
+check-suite association: exactly the observed PR number, this repository's IDs,
+the exact head/ref and main-base/configuration SHA, with stable re-reads. It also
+checks the actual referenced dispatcher path/commit. Empty, ambiguous, non-main,
+wrong-PR, wrong-source or changing suite evidence holds. Real check-suite records
+for runs 38794894536 and 38819997795 were inspected read-only; unlike the empty
+workflow-run PR list, they contain a PR/main-base association. This is not a
+historical attestation of the checkout the run loaded. No source
+workflow or App permission is changed. The missing comment-route head-SHA
+regression and LIVE-TRIAL event-binding explanation are included. GitHub's role
+API verified the authorizing ascerra account has repository admin permission;
+CONTRIBUTOR author association is not a repository-permission classification.
+
+Validation after the independent-suite correction: all 74 tests, Ruff and a
+read-only observation of PR #36's real automatic receipt pass. The observation
+verified the pinned dispatcher and stable suite/base link and permitted no mutation.
+
+The next review approved the revision with three low-priority follow-ups. The
+deployment preflight stopped on their unresolved threads before changing rules.
+They are addressed by a managed-workflow dispatcher-pin consistency test, more
+precise suite-association wording, and an automatic host-history guard. The
+configuration must be an ancestor of the observed main tip; at most 20 intervening
+commits are inspected individually for host-source modifications/renames, including
+changes later reverted. Unavailable/truncated/oversized history holds. This is
+a bounded fail-closed check, not a claim that a suite attests runtime checkout.
+
+Final follow-up validation: all 77 Python/native tests and Ruff pass. The new
+comparison endpoint is allowed only for two exact SHA values and a fixed bounded
+page size; traversal and branch-name substitutions remain rejected. A real
+read-only PR #36 observation passed the comparison/per-commit history checks and
+still permitted no mutation. No deployment exception has yet been activated.
+
+The subsequent runtime-code review reported only low-priority integration-test
+gaps and conservative error-reporting granularity. Tests now exercise producer
+validation with different configuration/main SHAs and verify that observe passes
+the actual main tip rather than the older PR base snapshot. Oversized metadata
+continues to hold the entire observation; this deliberate fail-closed behavior
+is documented rather than weakened. Runtime code remains exactly the reviewed
+b9c711a revision. After final-head CI, deployment preflight will verify that only
+tests/documentation changed since that completed review, as well as all normal
+queue/authorization/restoration checks. No exception is active.
+
+Final test/documentation-only correction validation: all 78 tests and Ruff pass.
