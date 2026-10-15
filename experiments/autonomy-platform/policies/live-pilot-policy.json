@@ -15,7 +15,7 @@
     "mapping-references": [
       {
         "id": "autonomy-live-pilot-controls",
-        "title": "One-PR lab merge controls",
+        "title": "Repeatable documentation auto-merge pilot controls",
         "version": "0.1.0"
       }
     ]

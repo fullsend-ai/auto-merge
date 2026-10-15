@@ -577,3 +577,17 @@ Gemara requirement and enable code-owner reviews immediately. The App must never
 receive a bypass role. This exception installs the new policy; it is not proof
 of a Gemara-authorized autonomous merge. Validation before push: 71 Python tests,
 actionlint, Ruff and the diff secret scan passed.
+
+Latest-review follow-up: the per-PR concurrency claim applies across different
+PRs only. GitHub can replace a pending writer for the same PR; this fails closed,
+and experimental maintenance remains disabled. Timestamp regressions now use
+valid forge UTC timestamps for expired and future authorizations. Live-policy
+catalog naming and the shared repository constant are corrected. The token's
+permission bound is established by the verified App installation permissions and
+the pinned action's explicit permission request; the repository-list endpoint is
+a repository-scope check, not a token-permission introspection API. No stronger
+runtime introspection claim is made.
+
+Repository-local tracking issue: https://github.com/fullsend-ai/auto-merge/issues/33.
+It records the owner-authorized scope and bootstrap exception without internal
+links or credentials. Latest follow-up validation: 71 local Python tests pass.

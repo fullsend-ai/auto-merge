@@ -159,7 +159,21 @@ class PilotTests(unittest.TestCase):
             {"path": ".github/workflows/ci.yml"},
             {"conclusion": "failure"},
             {"repository": {"full_name": "other/repo"}},
-            {"created_at": (now - timedelta(hours=2)).isoformat()},
+            {
+                "created_at": (now - timedelta(hours=2))
+                .isoformat(timespec="seconds")
+                .replace("+00:00", "Z")
+            },
+            {
+                "created_at": (now - timedelta(seconds=3601))
+                .isoformat(timespec="seconds")
+                .replace("+00:00", "Z")
+            },
+            {
+                "created_at": (now + timedelta(seconds=60))
+                .isoformat(timespec="seconds")
+                .replace("+00:00", "Z")
+            },
         ]:
             self.assertFalse(
                 p.maintenance_run_matches(

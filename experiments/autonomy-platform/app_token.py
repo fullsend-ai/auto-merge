@@ -5,10 +5,8 @@ import json
 import os
 import sys
 import urllib.request
-from github_observe import NoRedirect
+from github_observe import NoRedirect, REPOSITORY
 from platform_lab import require
-
-REPOSITORY = "fullsend-ai/auto-merge"
 
 
 def installation_request(path, method="GET"):
