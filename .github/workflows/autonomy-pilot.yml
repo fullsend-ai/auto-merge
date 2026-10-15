@@ -1,4 +1,4 @@
-name: Autonomy live pilot
+name: Gemara live merge pilot
 on:
   workflow_dispatch:
     inputs:

@@ -23,7 +23,7 @@ to production qualification, not an approved organizational readiness standard.
 
 ## The actual controller
 
-[Autonomy live pilot](../../../.github/workflows/autonomy-pilot.yml) is manually
+[Gemara live merge pilot](../../../.github/workflows/autonomy-pilot.yml) is manually
 dispatched on main with a PR number and head. `execute=false` evaluates only.
 `execute=true` allows a separate write-capable job after the read-only evaluation
 succeeds. That writer repeats the full evaluation immediately before invoking:
@@ -128,20 +128,18 @@ queue entry, and repeat this test with that identity. We did not add a PAT, App
 private key, or new secret to this public repository. That hosted credential path
 remains untested here; Gemara does not supply forge credentials or dispatch CI.
 
-### Current state after cleanup and owner-directed simplification
+### Current state after cleanup
 
-Immediately after the trial, the original protections were restored. The owner
-subsequently requested removing those experimental protections to allow direct
-pushes to main. The `merge queue proof` ruleset was deleted; readback confirmed
-zero rulesets and no classic main-branch protection. This later change does not
-alter the evidence of the protected merge above.
+The one-shot grant remains disabled. The original protections were restored after
+the trial, briefly removed at the owner's request, then restored from the exact
+saved snapshot when the owner corrected that instruction. Main currently has the
+original merge queue, three required CI checks, deletion/force-push protection and
+no bypass actors. The current ruleset ID is 25172387.
 
-The one-shot grant remains disabled. The workflows and native policies remain in
-place; ordinary PR CI still runs, but it is no longer enforced by branch rules.
-A future protected-queue pilot must explicitly reinstall its required gate and
-protection profile and authorize a fresh grant. The live controller checks that
-profile and holds when it is missing. Direct-main writes are development actions,
-not evidence of a policy-governed merge.
+The restored baseline does not require `Gemara pilot queue gate`. A future live
+Gemara pilot must install that additional required gate and its single-entry
+protection profile and authorize a fresh grant. The live controller holds when
+that profile is absent. This setup is not an always-on auto-merge service.
 
 ## What this example actually did
 
@@ -192,3 +190,41 @@ APIs with owner authorization; Gemara complements that enforcement.
 
 See [Gemara's integration FAQ](https://gemara.openssf.org/faq/) for the distinction
 between reusable artifacts and evaluation-tool integration.
+
+## Workflow list
+
+- **Gemara shadow observation:** read-only evaluation of a real PR; records a
+  policy decision and does not merge.
+- **Gemara live merge pilot:** manually evaluates an exact-head grant and can
+  request queue entry through a separate writer.
+- **Gemara merge queue validation:** evaluates the actual cumulative queue commit.
+  Its PR-stage check only defers final validation until a group exists.
+- **CI:** ordinary example checks, plus a PR-only Gemara integration-test job using
+  synthetic evidence. Those tests validate our integration, not a real PR's eligibility.
+- **fullsend:** the supported Fullsend dispatcher, including Review.
+
+Removed the disabled old agent-context workflow and unused Prioritize workflow.
+Folded the separate fixture workflow into CI without dropping its tests. Historical
+Actions runs are retained; GitHub may still display entries for deleted workflows.
+The workflow filenames for the three Gemara paths stay unchanged because the
+controller verifies their source paths. No shadow/live triggers or permissions changed.
+
+## Why the successful trial still reported readiness hold
+
+There are two questions: is this specific PR eligible, and is this repository
+qualified for repeated unattended merges? The trial answered the first under an
+explicit one-PR lab authorization. It did not certify the second.
+
+Our collector deliberately supplies no accepted evidence for four readiness inputs:
+
+- **AR-TESTS:** the toy document validator is not an accepted test-sufficiency assessment.
+- **AR-ISOLATION:** deployed Review runtime isolation has not been attested.
+- **AR-STATUS:** the read-only observer is not an approved authoritative eligibility publisher.
+- **AR-HISTORY:** shadow outcomes and promotion criteria have not been accepted.
+
+These are unknowns in this prototype, not proof of unsafe behavior. Gemara evaluates
+the supplied policy and evidence; it has not independently investigated those areas.
+The native queue check did enforce the separate lab policy, but this did not supply
+or automatically approve the missing general production-readiness evidence. The
+collectors for that evidence and the owner-approved acceptance criteria still need
+implementation before routine unattended use can be claimed.

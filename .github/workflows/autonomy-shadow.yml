@@ -1,4 +1,4 @@
-name: Autonomy shadow observation
+name: Gemara shadow observation
 
 on:
   workflow_dispatch:
