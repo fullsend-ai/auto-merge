@@ -313,3 +313,18 @@ SHA, not its reviewed head. Corrected that assumption before activation and adde
 a read-only queue-entry check that separately binds PR number, reviewed head,
 base and synthetic head. Native tests now total 55 and all pass. The actual queue
 entry values and required check will be verified during the live experiment.
+
+
+## 2026-10-15 hosted negative proof and final mutation preconditions
+
+Hosted fixture run 38758504370 passed 55 Python tests on c0d2c70f7e1b0734ac9f22f44109f9cae173a763.
+Execute=true negative run 38758510031 held PR #29 with pilot_grant_does_not_match;
+the separate enqueue job was skipped. Verified only normalized error/test-count
+lines, discarding raw logs. Stronger pilot protections are installed with no bypass
+actors. GitHub adds default pull-request-rule fields; applied rules were checked
+against the actual native pilot requirements rather than omitting those defaults.
+
+Added explicit last-moment open/non-draft/same-repository/exact-head/mergeable=true
+requirements. Unknown or false mergeability holds. The new regression test brings
+the local total to 56, all passing. Official Fullsend Review is running for #30;
+no queue request has been made yet.

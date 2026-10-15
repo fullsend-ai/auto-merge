@@ -159,6 +159,27 @@ class PilotTests(unittest.TestCase):
         rows[0]["status"] = "in_progress"
         self.assertFalse(p.checks_pass(rows, "a" * 40))
 
+    def test_unknown_mergeability_draft_and_foreign_heads_hold(self):
+        pr = {
+            "state": "open",
+            "draft": False,
+            "mergeable": True,
+            "head": {"sha": "a" * 40, "repo": {"full_name": p.REPO}},
+            "base": {"ref": "main", "repo": {"full_name": p.REPO}},
+        }
+        self.assertTrue(p.current_pr(pr, "a" * 40))
+        for key, value in [
+            ("mergeable", None),
+            ("mergeable", False),
+            ("draft", True),
+            ("state", "closed"),
+        ]:
+            self.assertFalse(p.current_pr(dict(pr, **{key: value}), "a" * 40))
+        bad = copy.deepcopy(pr)
+        bad["head"]["repo"]["full_name"] = "other/repo"
+        self.assertFalse(p.current_pr(bad, "a" * 40))
+        self.assertFalse(p.current_pr(pr, "b" * 40))
+
     def test_a_held_native_result_never_calls_the_writer(self):
         with (
             mock.patch.dict(os.environ, {"PILOT_CAN_ENQUEUE": "true"}),

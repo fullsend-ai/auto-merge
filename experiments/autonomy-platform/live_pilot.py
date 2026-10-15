@@ -323,6 +323,19 @@ def wait_queue_ci(client, sha):
     return False
 
 
+def current_pr(pr, head):
+    return bool(
+        pr
+        and pr.get("state") == "open"
+        and pr.get("draft") is False
+        and pr.get("mergeable") is True
+        and (pr.get("head") or {}).get("sha") == head
+        and ((pr.get("head") or {}).get("repo") or {}).get("full_name") == REPO
+        and (pr.get("base") or {}).get("ref") == "main"
+        and ((pr.get("base") or {}).get("repo") or {}).get("full_name") == REPO
+    )
+
+
 def evaluate(number, expected_head, phase, client=None):
     permission = grant()
     require(
@@ -412,10 +425,7 @@ def evaluate(number, expected_head, phase, client=None):
     again = client.get(BASE + f"pulls/{number}")
     branch = client.get(BASE + "branches/main")
     require(
-        again
-        and again["head"]["sha"] == expected_head
-        and again["state"] == "open"
-        and not again.get("draft")
+        current_pr(again, expected_head)
         and branch
         and branch["commit"]["sha"] == base_sha
         and grant() == permission
