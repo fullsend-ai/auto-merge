@@ -800,3 +800,14 @@ preflight must verify that the final delta from this completed runtime review co
 only the observer test and this work log, and that final-head CI passes. This is an
 owner-reviewed deployment with the expected protected-path hold, not a claim of
 fresh automatic approval for the final test-only revision.
+
+## 2026-10-16 — D1–D4 evidence and refusal implementation
+
+- Refreshed main and the hosted pilot: PR #41 merged through the dedicated lab App; main protections were active with no bypass actors. Corrected the old blocked-handoff statement; retained the immutable test identifiers.
+- Added normalized result bundles and 14-day artifact retention to existing Gemara workflows; no new workflow or credential scope.
+- Built a native Review evidence command in an isolated archive of pinned Fullsend source inside this repo. Only this repo contains changes; the upstream source checkout and installed Review route remain unchanged.
+- Added the producer contract, verifier-owned publication proof boundary, evidence ownership/removal map and synthetic end-to-end replay through the actual local Fullsend binary and native Gemara.
+- Added partial-result, provenance/freshness/context, test-sufficiency, duplicate-event and final-action revalidation coverage. General readiness remains held.
+- See [D1–D4 report](D1-D4-REPORT.md) for test results, proof limits and deployment status. No upstream issue or PR was created.
+
+Publication: owner explicitly approved committing/pushing this branch and creating an auto-merge PR after local validation. This approval does not deploy the protected implementation or change branch rules.

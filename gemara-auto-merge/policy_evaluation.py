@@ -86,6 +86,8 @@ def source_digests():
             "github_app_token_scope.py",
             "resolve_pr_from_event.py",
             "fullsend_review_evidence.py",
+            "review_evidence_contract.py",
+            "result_bundle.py",
             "verify_recorded_trial_evidence.py",
             "validate_gemara_artifacts.py",
             "install_pinned_toolchain.py",

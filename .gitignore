@@ -9,4 +9,5 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .fullsend-runtime/
+.fullsend/bin/
 .DS_Store

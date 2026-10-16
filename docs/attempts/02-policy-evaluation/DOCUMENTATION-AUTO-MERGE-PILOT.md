@@ -184,4 +184,6 @@ passed. That trial needed an operator queue retry because its Actions-token entr
 started no queue workflows. It is historical evidence, not the new App-token proof.
 
 Current implementation validation and live positive/negative results are recorded
-in [WORKLOG.md](WORKLOG.md). The App-token handoff remains blocked; no new live merge outcome is claimed. Historical disabled workflow runs are retained.
+in [WORKLOG.md](WORKLOG.md). The dedicated lab App handoff was demonstrated by [PR #41](https://github.com/fullsend-ai/auto-merge/pull/41), merged October 16, 2026 at `89f5f2f507d936456439943cb696f45efa07dea1`. The [writer run](https://github.com/fullsend-ai/auto-merge/actions/runs/38900418833) and [required Gemara queue gate](https://github.com/fullsend-ai/auto-merge/actions/runs/38900537957) passed; the lab App queued and merged the PR without a manual review command or queue retry. This proves only the bounded documentation pilot. The Fullsend-native credential handoff remains separate and unresolved. Historical disabled workflow runs are retained.
+
+See [the retained proof](history/pr41-proof.json) and [D1–D4 implementation report](D1-D4-REPORT.md) for the distinction between that deployed baseline and the new local evidence prototype.

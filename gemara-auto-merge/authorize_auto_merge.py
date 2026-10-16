@@ -13,6 +13,7 @@ import time
 import urllib.request
 
 import github_pr_evidence as g
+from result_bundle import write_bundle, write_failure
 from github_app_token_scope import verify_scope
 from policy_evaluation import (
     ROOT,
@@ -703,10 +704,99 @@ def evaluate(number, expected_head, phase, client=None):
         if report
         else "not_assessed",
         "evaluation": result,
+        "supporting_evaluations": {
+            "readiness": report["qualification"]["result"],
+            "candidate": report["shadow"]["evaluation"],
+        }
+        if report and "qualification" in report
+        else {},
         "authorized_action": "enqueue-only"
         if phase == "enroll" and result["decision"] == "eligible"
         else "none",
     }
+
+
+def pending_queue_request(client, number, head):
+    query = 'query($number:Int!){repository(owner:"fullsend-ai",name:"auto-merge"){pullRequest(number:$number){headRefOid mergeQueueEntry{id} autoMergeRequest{enabledAt}}}}'
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    headers = {"Content-Type": "application/json", "User-Agent": "gemara-live-pilot"}
+    if token:
+        headers["Authorization"] = "Bearer " + token
+    try:
+        request = urllib.request.Request(
+            "https://api.github.com/graphql",
+            data=json.dumps({"query": query, "variables": {"number": number}}).encode(),
+            headers=headers,
+            method="POST",
+        )
+        with client.opener.open(request, timeout=20) as response:
+            raw = response.read(65537)
+        require(len(raw) <= 65536, "queue_state_unavailable")
+        data = json.loads(raw)
+        require(not data.get("errors"), "queue_state_unavailable")
+        row = data["data"]["repository"]["pullRequest"]
+        require(
+            row["headRefOid"] == head
+            and "mergeQueueEntry" in row
+            and "autoMergeRequest" in row,
+            "queue_subject_changed",
+        )
+        for field, key in [
+            ("mergeQueueEntry", "id"),
+            ("autoMergeRequest", "enabledAt"),
+        ]:
+            require(
+                row[field] is None
+                or isinstance(row[field], dict)
+                and set(row[field]) == {key}
+                and isinstance(row[field][key], str)
+                and 0 < len(row[field][key]) <= 200,
+                "queue_state_unavailable",
+            )
+        return row["mergeQueueEntry"] is not None or row["autoMergeRequest"] is not None
+    except InputError:
+        raise
+    except Exception as exc:
+        raise InputError("queue_state_unavailable") from exc
+
+
+def pre_enqueue(result, client):
+    """Recheck mutable authorization after token verification and report writing."""
+    config = configuration()
+    require(
+        digest(config) == result["configuration_sha256"], "pilot_configuration_changed"
+    )
+    require(result["mode"] in {"automatic", "maintenance"}, "unsupported_pilot_mode")
+    if result["mode"] == "automatic":
+        require(
+            config["automatic_enabled"]
+            and datetime.now(timezone.utc) < utc(config["automatic_expires_at"]),
+            "pilot_authorization_expired_or_disabled",
+        )
+    pr = client.get(BASE + f"pulls/{result['pull_request']}")
+    require(current_pr(pr, result["reviewed_head"]), "pilot_candidate_changed")
+    branch = client.get(BASE + "branches/main")
+    require(
+        branch and branch["commit"]["sha"] == result["base_sha"], "pilot_base_changed"
+    )
+    if result["mode"] == "maintenance":
+        permission = maintenance_authorization(
+            client,
+            result["pull_request"],
+            result["reviewed_head"],
+            result["base_sha"],
+            "enroll",
+            config,
+        )
+        require(
+            permission is not None
+            and permission == result["maintenance_authorization"],
+            "maintenance_authorization_changed",
+        )
+    if pending_queue_request(client, result["pull_request"], result["reviewed_head"]):
+        return "native_auto_merge_already_requested"
+    require(not client.errors and configuration() == config, "pilot_state_changed")
+    return None
 
 
 def enqueue(result):
@@ -731,6 +821,9 @@ def enqueue(result):
     token = os.environ.get("PILOT_ENQUEUE_TOKEN", "")
     require(bool(token), "repository_app_token_required")
     verify_scope()
+    existing = pre_enqueue(result, g.Client())
+    if existing:
+        return existing
     child_env = {
         k: os.environ[k]
         for k in ["PATH", "HOME", "LANG", "XDG_CONFIG_HOME"]
@@ -767,7 +860,28 @@ def main():
             "invalid_pilot_request",
         )
         result = evaluate(number, head, args.phase)
-        compact = {k: v for k, v in result.items() if k != "evaluation"}
+        write_bundle(
+            {
+                "repository": REPO,
+                "pull_request": number,
+                "head_sha": head,
+                "base_sha": result["base_sha"],
+                "evaluated_sha": result["evaluated_sha"],
+            },
+            dict(result.get("supporting_evaluations", {}), pilot=result["evaluation"]),
+            {
+                "pilot": bundle(result["mode"] == "maintenance"),
+                "repository": g.load_bundle(),
+            },
+            result["decision"],
+            result["production_readiness"],
+            args.phase,
+        )
+        compact = {
+            k: v
+            for k, v in result.items()
+            if k not in {"evaluation", "supporting_evaluations"}
+        }
         compact["assessments"] = [
             {k: r[k] for k in ["id", "state", "reason"]}
             for r in result["evaluation"]["assessments"]
@@ -782,7 +896,7 @@ def main():
                     f"- {r['id']}: {r['state']} ({r['reason']})"
                     for r in compact["assessments"]
                 )
-                + "\n"
+                + "\n\nDownload this job's `gemara-evaluation` artifact for native logs, normalized evidence, effective policy and a digest manifest. The bundle itself grants no merge authority.\n"
             )
         output = os.environ.get("GITHUB_OUTPUT")
         if output:
@@ -810,9 +924,11 @@ def main():
             )
         return 0
     except InputError as exc:
+        write_failure(str(exc), args.phase)
         print(json.dumps({"decision": "hold", "error": str(exc), "action": "none"}))
         return 2
     except Exception:
+        write_failure("pilot_evaluation_failed", args.phase)
         print(
             json.dumps(
                 {

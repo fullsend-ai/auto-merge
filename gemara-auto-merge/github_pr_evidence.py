@@ -23,6 +23,7 @@ from policy_evaluation import (
     ValidationError,
     source_digests,
 )
+from result_bundle import write_bundle, write_failure
 from fullsend_review_evidence import findings, producer, risk
 
 REPOSITORY = "fullsend-ai/auto-merge"
@@ -656,7 +657,24 @@ def main():
     try:
         report = observe(args.pr)
         if args.summary:
-            Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text(summary(report))
+            Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text(
+                summary(report)
+                + "\nDownload this job's `gemara-evaluation` artifact for native logs, normalized evidence, effective policy and a digest manifest.\n"
+            )
+        write_bundle(
+            {
+                k: report[k]
+                for k in ["repository", "pull_request", "head_sha", "base_sha"]
+            },
+            {
+                "readiness": report["qualification"]["result"],
+                "candidate": report["shadow"]["evaluation"],
+            },
+            {"repository": load_bundle()},
+            report["shadow"]["decision"],
+            report["readiness_decision"],
+            "shadow",
+        )
         destination = new_output("github")
         (destination / "pr-evidence-and-policy-report.json").write_text(
             json.dumps(report, indent=2) + "\n"
@@ -680,11 +698,13 @@ def main():
         code = str(exc)
         if not re.fullmatch(r"[A-Za-z_]{1,80}", code):
             code = "observation_failed"
+        write_failure(code, "shadow")
         print(
             json.dumps({"error": code, "decision": "hold", "mutation_permitted": False})
         )
         return 2
     except (KeyError, TypeError, ValueError, OSError):
+        write_failure("observation_failed", "shadow")
         print(
             '{"error":"observation_failed","decision":"hold","mutation_permitted":false}'
         )

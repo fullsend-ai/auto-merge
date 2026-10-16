@@ -1,0 +1,32 @@
+{
+  "deployment_pr": 39,
+  "test_pr": 41,
+  "reviewed_head": "a44ea589d4ca2820cf7bf441705ffef65ff564c2",
+  "merge_sha": "89f5f2f507d936456439943cb696f45efa07dea1",
+  "required_checks_passed": [
+    "Example contract",
+    "Delayed integration (4 minutes)",
+    "Merge group proof",
+    "Gemara pilot queue gate"
+  ],
+  "protections_match_original": true,
+  "actors": [
+    {
+      "event": "added_to_merge_queue",
+      "actor": "gemara-auto-merge-pilot-lab[bot]",
+      "at": "2026-10-16T12:26:18Z",
+      "commit": null
+    },
+    {
+      "event": "merged",
+      "actor": "gemara-auto-merge-pilot-lab[bot]",
+      "at": "2026-10-16T12:31:20Z",
+      "commit": "89f5f2f507d936456439943cb696f45efa07dea1"
+    }
+  ],
+  "queue_run": 38900537957,
+  "schema_version": "historical-live-pilot-proof/v1",
+  "writer_run": 38900418833,
+  "proof_kind": "recorded-public-github-run-and-timeline-observations",
+  "new_native_evidence_publisher": false
+}

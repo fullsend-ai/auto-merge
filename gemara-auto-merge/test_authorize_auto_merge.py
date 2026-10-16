@@ -736,6 +736,8 @@ class PilotTests(unittest.TestCase):
     def test_read_only_policy_hold_is_success_but_execution_and_errors_fail(self):
         result = {
             "decision": "hold",
+            "base_sha": "b" * 40,
+            "mode": "automatic",
             "evaluated_sha": "a" * 40,
             "production_readiness": "hold",
             "evaluation": {"assessments": []},
@@ -744,6 +746,7 @@ class PilotTests(unittest.TestCase):
         with (
             mock.patch("sys.argv", args),
             mock.patch.object(p, "evaluate", return_value=result),
+            mock.patch.object(p, "write_bundle"),
             mock.patch("builtins.print"),
             mock.patch.object(p, "enqueue") as writer,
         ):
@@ -753,6 +756,7 @@ class PilotTests(unittest.TestCase):
             mock.patch("sys.argv", args),
             mock.patch.dict(os.environ, {"PILOT_EXECUTE_REQUESTED": "true"}),
             mock.patch.object(p, "evaluate", return_value=result),
+            mock.patch.object(p, "write_bundle"),
             mock.patch("builtins.print"),
             mock.patch.object(p, "enqueue") as writer,
         ):
@@ -761,6 +765,7 @@ class PilotTests(unittest.TestCase):
         with (
             mock.patch("sys.argv", args + ["--execute"]),
             mock.patch.object(p, "evaluate", return_value=result),
+            mock.patch.object(p, "write_bundle"),
             mock.patch("builtins.print"),
             mock.patch.object(p, "enqueue") as writer,
         ):
@@ -798,6 +803,7 @@ class PilotTests(unittest.TestCase):
                 },
             ),
             mock.patch.object(p.urllib.request, "build_opener") as opener,
+            mock.patch.object(p, "pre_enqueue", return_value=None),
             mock.patch.object(
                 p.subprocess, "run", return_value=mock.Mock(returncode=0)
             ) as run,

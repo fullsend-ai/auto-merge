@@ -3,8 +3,8 @@
 One engine: native Gemara. The comparison evaluator and custom JSON rule profiles
 have been removed. Start with the [walkthrough](../docs/attempts/02-policy-evaluation/SHADOW-OBSERVATION.md).
 The replay and shadow observer remain read-only. A separate, explicitly granted
-[live pilot](../docs/attempts/02-policy-evaluation/DOCUMENTATION-AUTO-MERGE-PILOT.md) completed one
-protected-queue merge; the one-shot grant has been replaced by a bounded repository pilot configuration
+[live pilot](../docs/attempts/02-policy-evaluation/DOCUMENTATION-AUTO-MERGE-PILOT.md) has demonstrated
+protected-queue merges; the one-shot grant has been replaced by a bounded repository pilot configuration
 and exact-head maintainer maintenance path.
 
 ## File guide
@@ -138,7 +138,7 @@ modifications, risk acceptances/mitigations, implementation timelines, guidance
 imports and enforcement actions produce an explicit error/hold. They are not
 silently ignored or represented as implemented. No policy URL is fetched or run.
 
-SDK and official schemas are deliberately matched at Gemara **v1.5.0**. Schema and
+The official schema pin is Gemara **v1.5.0**. The tested Go SDK is separately pinned at **v0.11.1-0.20261009030221-5e33fda460a8**, which advertises schema compatibility with that version. Schema and
 binary hashes are pinned in `toolchain-lock.json`; the tested SDK module is pinned in
 `native-evaluator/go.mod`. We do not round-trip native Policy structs or claim v1.6 compatibility.
 Input documents and every generated EvaluationLog must pass official validation.
@@ -182,3 +182,22 @@ path requires explicit execution and independent current-head human approval;
 governance paths require code-owner review. The draft writer uses a dedicated temporary repository App with a main-only
 Actions environment. Fullsend-native token minting remains unresolved.
 This draft does not depend on an unmerged upstream workflow or a personal token.
+
+## Evidence publication and current proof
+
+The dedicated lab App completed [PR #41](https://github.com/fullsend-ai/auto-merge/pull/41)
+without a manual queue retry. Production readiness still holds; see the
+[current implementation report](../docs/attempts/02-policy-evaluation/D1-D4-REPORT.md).
+
+`result_bundle.py` exports native logs, normalized observation evidence, effective
+policy, a subject-bound decision, summary and digest manifest from the existing
+shadow/enrollment/queue workflows. Artifacts are retained for 14 days. Reports
+contain no raw forge response, model prose or environment dump. A digest manifest
+is an unsigned integrity record, not an independent trust attestation.
+
+The [Review contract](../docs/attempts/02-policy-evaluation/REVIEW-EVIDENCE-CONTRACT.md)
+explains the repository-local Fullsend binary experiment. Its source overlay and
+build/replay recipes live here; generated binaries stay ignored. It uses synthetic
+host inputs and publication proof to test the contract through real Fullsend and
+Gemara execution. It does not enable a new live Review publisher or replace the
+existing verified bot/risk-receipt consumer.

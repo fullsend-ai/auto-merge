@@ -1,0 +1,17 @@
+package cli
+
+import (
+    "github.com/fullsend-ai/fullsend/internal/reviewevidence"
+    "github.com/spf13/cobra"
+)
+
+func newReviewEvidenceLabCmd() *cobra.Command {
+    return &cobra.Command{
+        Use: "review-evidence-lab",
+        Short: "Publish the auto-merge lab Review evidence contract from trusted host input",
+        Args: cobra.NoArgs,
+        RunE: func(cmd *cobra.Command, args []string) error {
+            return reviewevidence.Publish(cmd.InOrStdin(), cmd.OutOrStdout())
+        },
+    }
+}

@@ -1,6 +1,7 @@
 # Repository instructions
 
-This repository is a private Fullsend Auto-Merge integration lab.
+This repository is a public Fullsend Auto-Merge integration lab.
+Treat tracked files and uploaded workflow artifacts as public.
 
 ## Scope
 

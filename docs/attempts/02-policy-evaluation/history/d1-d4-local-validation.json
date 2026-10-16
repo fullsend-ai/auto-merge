@@ -1,0 +1,117 @@
+{
+  "schema_version": "d1-d4-local-validation/v1",
+  "date": "2026-10-16",
+  "repository": "fullsend-ai/auto-merge",
+  "deployed_main": "89f5f2f507d936456439943cb696f45efa07dea1",
+  "branch": "demo/gemara-evidence-d1-d4",
+  "deployment_status": "uncommitted-local-implementation",
+  "python_tests_passed": 101,
+  "native_producer_go_tests_passed": true,
+  "actual_fullsend_binary_replay": true,
+  "synthetic_host_inputs_and_publication_proof": true,
+  "production_native_publication_demonstrated": false,
+  "build": {
+    "schema_version": "fullsend-evidence-build/v1",
+    "source_commit": "1528aac1b8361ef7f5cad1ba55f304402761580c",
+    "overlay_sha256": "cc827c08dc380ad573e721b922f9779de2fa1f9787d3bc1a9c166760c2eefcf5",
+    "binary_sha256": "4787397c25748476c95640fa6146c30078211222841ef3baa527cf1a15533fd2",
+    "binary_path": ".fullsend/bin/fullsend",
+    "experiment_only": true,
+    "signed": false,
+    "default_review_install_changed": false
+  },
+  "cases": [
+    {
+      "case": "valid",
+      "decision": "eligible",
+      "reason": "contract_verified"
+    },
+    {
+      "case": "wrong-head",
+      "decision": "hold",
+      "reason": "contract_wrong_subject"
+    },
+    {
+      "case": "wrong-configuration",
+      "decision": "hold",
+      "reason": "contract_wrong_subject"
+    },
+    {
+      "case": "unverified",
+      "decision": "hold",
+      "reason": "contract_publication_unverified"
+    },
+    {
+      "case": "altered",
+      "decision": "hold",
+      "reason": "contract_integrity_mismatch"
+    },
+    {
+      "case": "forged-self-digest",
+      "decision": "hold",
+      "reason": "contract_publication_mismatch"
+    },
+    {
+      "case": "stale",
+      "decision": "hold",
+      "reason": "contract_stale_or_future"
+    },
+    {
+      "case": "future",
+      "decision": "hold",
+      "reason": "contract_stale_or_future"
+    },
+    {
+      "case": "superseded",
+      "decision": "hold",
+      "reason": "contract_incomplete_or_superseded"
+    },
+    {
+      "case": "cancelled-run",
+      "decision": "hold",
+      "reason": "contract_incomplete_or_superseded"
+    },
+    {
+      "case": "wrong-attempt",
+      "decision": "hold",
+      "reason": "contract_publication_mismatch"
+    },
+    {
+      "case": "open-finding",
+      "decision": "hold",
+      "reason": "contract_verified"
+    },
+    {
+      "case": "high-risk",
+      "decision": "hold",
+      "reason": "contract_verified"
+    },
+    {
+      "case": "missing-risk",
+      "decision": "hold",
+      "reason": "contract_verified"
+    },
+    {
+      "case": "review-rejected",
+      "decision": "hold",
+      "reason": "contract_verified"
+    }
+  ],
+  "quality_checks": {
+    "ruff": "passed",
+    "actionlint_v1.7.7": "passed",
+    "gitleaks_v8.24.2": "zero_findings",
+    "example_contract": "passed",
+    "whitespace": "passed"
+  },
+  "live_pr36_read_only_observation": {
+    "stable": true,
+    "candidate": "hold",
+    "readiness": "hold",
+    "combined": "hold"
+  },
+  "merge_authority": false,
+  "repository_settings_changed": false,
+  "upstream_repositories_changed": false,
+  "issues_or_prs_created": false
+}
