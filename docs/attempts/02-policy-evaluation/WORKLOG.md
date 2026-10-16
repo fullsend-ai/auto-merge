@@ -778,3 +778,15 @@ with changed-blob rejection tests for both scripts. This strengthens integrity b
 without changing policy requirements, privileges or pilot settings. The owner exception
 is still inactive; an expected protected-path review hold must not be reported as an
 unqualified automated approval.
+
+
+The next review confirmed both earlier findings resolved and raised two non-actionable
+low follow-ups. They are addressed before owner deployment: the integrity test now
+independently enumerates every required runtime Python module and lock file and
+collects native Go inputs independently of the production digest list. Protected-path
+classification checks current and previous filenames, nested AGENTS.md/CODEOWNERS,
+and treats malformed previous filenames as protected. New tests exercise renames out
+of each protected prefix and nested governance files. This closes a pre-existing
+shadow-evidence classification gap; the live pilot already rejects renamed documents.
+
+Validation after these final review follow-ups: all 80 tests, Ruff, whitespace and change secret scanning pass.

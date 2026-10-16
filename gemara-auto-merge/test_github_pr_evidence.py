@@ -281,6 +281,50 @@ class ObserverTests(unittest.TestCase):
                 self.assertFalse(values["AM-PROTECTED"])
                 self.assertIsNone(values["AM-CLASS"])
 
+    def test_renames_and_nested_governance_cannot_look_unprotected(self):
+        for previous in (
+            ".github/workflows/ci.yml",
+            ".fullsend/config.yaml",
+            "experiments/legacy.json",
+            "gemara-auto-merge/policy_evaluation.py",
+            "scripts/validate_example.py",
+            "AGENTS.md",
+            "docs/AGENTS.md",
+            "CODEOWNERS",
+            "docs/CODEOWNERS",
+        ):
+            with self.subTest(previous=previous):
+                values, _ = g.normalize(
+                    pr(),
+                    [],
+                    [],
+                    [
+                        {
+                            "filename": "docs/example-feature.md",
+                            "previous_filename": previous,
+                            "status": "renamed",
+                        }
+                    ],
+                )
+                self.assertFalse(values["AM-PROTECTED"])
+        for filename in ("docs/AGENTS.md", "docs/CODEOWNERS", "nested/AGENTS.md"):
+            with self.subTest(filename=filename):
+                values, _ = g.normalize(pr(), [], [], [{"filename": filename}])
+                self.assertFalse(values["AM-PROTECTED"])
+        for missing in (None, "", 123):
+            values, _ = g.normalize(
+                pr(),
+                [],
+                [],
+                [
+                    {
+                        "filename": "docs/example-feature.md",
+                        "previous_filename": missing,
+                    }
+                ],
+            )
+            self.assertFalse(values["AM-PROTECTED"])
+
     def test_pagination_failure_discards_partial_results(self):
         client = g.Client()
         with mock.patch.object(client, "get", side_effect=[[{}] * 100, None]):

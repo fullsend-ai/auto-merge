@@ -136,9 +136,22 @@ class PilotTests(unittest.TestCase):
                     ".github/workflows/gemara-auto-merge.yml",
                     ".github/workflows/gemara-merge-queue.yml",
                     ".github/workflows/gemara-queue-writer.yml",
+                    "gemara-auto-merge/policy_evaluation.py",
+                    "gemara-auto-merge/github_pr_evidence.py",
                     "gemara-auto-merge/authorize_auto_merge.py",
+                    "gemara-auto-merge/github_app_token_scope.py",
+                    "gemara-auto-merge/resolve_pr_from_event.py",
+                    "gemara-auto-merge/fullsend_review_evidence.py",
+                    "gemara-auto-merge/verify_recorded_trial_evidence.py",
+                    "gemara-auto-merge/validate_gemara_artifacts.py",
                     "gemara-auto-merge/install_pinned_toolchain.py",
                     "gemara-auto-merge/build_native_evaluator.py",
+                    "gemara-auto-merge/toolchain-lock.json",
+                ]
+                targets += [
+                    "gemara-auto-merge/native-evaluator/" + source.name
+                    for source in (p.ROOT / "native-evaluator").iterdir()
+                    if source.suffix == ".go" or source.name in {"go.mod", "go.sum"}
                 ]
                 for directory in ("catalogs", "policies", "config"):
                     targets += [

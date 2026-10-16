@@ -146,8 +146,13 @@ def normalize(pr, checks, reviews, files):
     protected, change_class = None, None
     if files:
         names = [f.get("filename", "") for f in files]
-        protected = not any(
-            n.startswith(
+        protected_names = names + [
+            f.get("previous_filename") for f in files if "previous_filename" in f
+        ]
+        protected = all(
+            isinstance(n, str)
+            and bool(n)
+            and not n.startswith(
                 (
                     ".github/",
                     ".fullsend/",
@@ -156,8 +161,8 @@ def normalize(pr, checks, reviews, files):
                     "scripts/",
                 )
             )
-            or n in {"AGENTS.md", "CODEOWNERS"}
-            for n in names
+            and n.rsplit("/", 1)[-1] not in {"AGENTS.md", "CODEOWNERS"}
+            for n in protected_names
         )
         if all(n == "docs/example-feature.md" for n in names):
             change_class = "documentation"
