@@ -312,18 +312,34 @@ class ObserverTests(unittest.TestCase):
                 values, _ = g.normalize(pr(), [], [], [{"filename": filename}])
                 self.assertFalse(values["AM-PROTECTED"])
         for missing in (None, "", 123):
-            values, _ = g.normalize(
-                pr(),
-                [],
-                [],
-                [
-                    {
-                        "filename": "docs/example-feature.md",
-                        "previous_filename": missing,
-                    }
-                ],
-            )
-            self.assertFalse(values["AM-PROTECTED"])
+            with self.subTest(missing=missing):
+                values, _ = g.normalize(
+                    pr(),
+                    [],
+                    [],
+                    [
+                        {
+                            "filename": "docs/example-feature.md",
+                            "previous_filename": missing,
+                        }
+                    ],
+                )
+                self.assertFalse(values["AM-PROTECTED"])
+
+    def test_ordinary_paths_remain_unprotected(self):
+        for changed in (
+            {"filename": "docs/example-feature.md"},
+            {
+                "filename": "docs/example-feature.md",
+                "previous_filename": "docs/old.md",
+                "status": "renamed",
+            },
+            {"filename": "docs/AGENTS-guide.md"},
+            {"filename": "docs/CODEOWNERS-notes.md"},
+        ):
+            with self.subTest(changed=changed):
+                values, _ = g.normalize(pr(), [], [], [changed])
+                self.assertTrue(values["AM-PROTECTED"])
 
     def test_pagination_failure_discards_partial_results(self):
         client = g.Client()

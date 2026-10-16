@@ -790,3 +790,13 @@ of each protected prefix and nested governance files. This closes a pre-existing
 shadow-evidence classification gap; the live pilot already rejects renamed documents.
 
 Validation after these final review follow-ups: all 80 tests, Ruff, whitespace and change secret scanning pass.
+
+
+Final completed runtime review at `5eb67f412fa86f93a1aca81c2d46dcfcab8795bc`
+confirmed prior integrity/classification findings resolved. Its remaining technical
+feedback is test-only: positive unprotected-file cases and labeled malformed-input
+subtests. Those are added without changing runtime code. The owner deployment
+preflight must verify that the final delta from this completed runtime review contains
+only the observer test and this work log, and that final-head CI passes. This is an
+owner-reviewed deployment with the expected protected-path hold, not a claim of
+fresh automatic approval for the final test-only revision.
