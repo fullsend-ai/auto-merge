@@ -88,6 +88,8 @@ def source_digests():
             "fullsend_review_evidence.py",
             "verify_recorded_trial_evidence.py",
             "validate_gemara_artifacts.py",
+            "install_pinned_toolchain.py",
+            "build_native_evaluator.py",
             "toolchain-lock.json",
         ]
     ]

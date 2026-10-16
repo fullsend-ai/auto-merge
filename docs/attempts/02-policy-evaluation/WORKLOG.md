@@ -767,3 +767,14 @@ workflow permissions and policy requirements remain unchanged. The separately
 approved owner deployment exception has not been activated.
 
 The maintainer-requested protected-path scope and separately approved deployment exception are recorded in [issue #40](https://github.com/fullsend-ai/auto-merge/issues/40), linked from PR #39. All 79 tests and Ruff pass after these test-only corrections.
+
+
+The next Fullsend review accepted the linked authorization and retained protected-path
+human approval as a governance condition. It requested negative run-identity tests
+for wrong workflow paths and noted a pre-existing setup/build script hashing gap.
+The prepared correction rejects legacy, opposite-phase and writer workflow identities
+in both phases; it also binds the installer and evaluator builder in source_digests,
+with changed-blob rejection tests for both scripts. This strengthens integrity binding
+without changing policy requirements, privileges or pilot settings. The owner exception
+is still inactive; an expected protected-path review hold must not be reported as an
+unqualified automated approval.

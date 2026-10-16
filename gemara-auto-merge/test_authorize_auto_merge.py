@@ -108,11 +108,37 @@ class PilotTests(unittest.TestCase):
                         client, source, phase, group if phase == "queue" else None
                     )
                 )
+                valid_run = client.get.return_value
+                wrong_paths = [
+                    ".github/workflows/autonomy-pilot.yml",
+                    ".github/workflows/autonomy-queue.yml",
+                    ".github/workflows/gemara-queue-writer.yml",
+                    ".github/workflows/"
+                    + (
+                        "gemara-merge-queue.yml"
+                        if phase == "enroll"
+                        else "gemara-auto-merge.yml"
+                    ),
+                ]
+                for wrong_path in wrong_paths:
+                    with self.subTest(wrong_workflow=wrong_path):
+                        client.get.return_value = dict(valid_run, path=wrong_path)
+                        self.assertFalse(
+                            p.trusted_source(
+                                client,
+                                source,
+                                phase,
+                                group if phase == "queue" else None,
+                            )
+                        )
+                client.get.return_value = valid_run
                 targets = [
                     ".github/workflows/gemara-auto-merge.yml",
                     ".github/workflows/gemara-merge-queue.yml",
                     ".github/workflows/gemara-queue-writer.yml",
                     "gemara-auto-merge/authorize_auto_merge.py",
+                    "gemara-auto-merge/install_pinned_toolchain.py",
+                    "gemara-auto-merge/build_native_evaluator.py",
                 ]
                 for directory in ("catalogs", "policies", "config"):
                     targets += [
