@@ -105,22 +105,37 @@ def install():
     (ROOT.parent / ".fullsend/evidence-build.json").write_text(
         json.dumps(receipt, indent=2) + "\n"
     )
-    dispatch = ROOT.parent / ".github/workflows/reusable-dispatch.yml"
-    text = dispatch.read_text()
-    upload = """      - name: Retain native Fullsend Review evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: fullsend-review-evidence-${{ github.run_attempt }}
-          path: output/fullsend-review-evidence.json
-          if-no-files-found: ignore
-          retention-days: 14
-"""
-    assert text.count("\n  fix:\n") == 1
-    dispatch.write_text(text.replace("\n  fix:\n", "\n" + upload + "\n  fix:\n"))
-    print(
-        "Official vendored assets, local shim and manifest rendered; Review artifact step added."
+    patch_review_wrapper()
+    print("Official vendored runtime rendered with pinned upstream Review wrapper.")
+
+
+def patch_review_wrapper():
+    """Preserve supported OIDC identity; keep runtime and publication local."""
+    shim = ROOT.parent / ".github/workflows/fullsend.yaml"
+    text = shim.read_text()
+    local = "uses: ./.github/workflows/reusable-dispatch.yml"
+    upstream = (
+        "uses: fullsend-ai/fullsend/.github/workflows/reusable-dispatch.yml@"
+        + SOURCE_COMMIT
     )
+    assert local in text or upstream in text
+    shim.write_text(text.replace(local, upstream))
+    action = ROOT.parent / ".defaults/action.yml"
+    text = action.read_text()
+    marker = "    - name: Upload fullsend artifacts\n"
+    upload = """    - name: Retain native Fullsend Review evidence
+      if: always() && inputs.agent == 'review'
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: fullsend-review-evidence-${{ github.run_attempt }}
+        path: ${{ github.workspace }}/output/fullsend-review-evidence.json
+        if-no-files-found: ignore
+        retention-days: 14
+
+"""
+    if "    - name: Retain native Fullsend Review evidence\n" not in text:
+        assert text.count(marker) == 1
+        action.write_text(text.replace(marker, upload + marker))
 
 
 if __name__ == "__main__":

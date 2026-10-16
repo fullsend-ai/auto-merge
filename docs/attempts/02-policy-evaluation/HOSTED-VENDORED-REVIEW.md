@@ -1,7 +1,57 @@
 # Hosted Review with actual Fullsend vendored mode
 
-Status: installation prepared; the hosted run and authenticated artifact proof
-will be recorded here after deployment. No synthetic replay is called hosted proof.
+Status: deployed and exercised on GitHub; hosted Review is blocked at token mint
+with HTTP 401. Native publication and authenticated artifact consumption are
+**not yet proven on a hosted successful Review**. No synthetic replay is called
+hosted proof.
+
+## Observed hosted result — 2026-10-16
+
+- Owner-authorized bootstrap deployed commit
+  `276ed5d011e4d84e7af4f9e0737036bd64255cd2` directly after ordinary CI and
+  Gemara integration tests passed. This was an owner deployment, not a Gemara
+  authorized automatic merge. Main's original rules were immediately restored;
+  final verification found active enforcement and no bypass actors.
+- Documentation [PR #43](https://github.com/fullsend-ai/auto-merge/pull/43), head
+  `46262744eded4e75c7a5d57ab6314d41ac5b7f57`, automatically started
+  [Fullsend run 38945541104, attempt 1](https://github.com/fullsend-ai/auto-merge/actions/runs/38945541104).
+  No `/fs-review` command or manual queue retry was used.
+- GitHub reports the local reusable dispatcher at the deployed configuration
+  commit. Dispatcher installation using vendored defaults succeeded; upstream
+  CLI installation and the Review job's upstream defaults checkout were skipped.
+- The Review job failed at **Mint review token**. The mint request returned
+  HTTP 401 on all six attempts. Agent execution never started. The retention
+  step completed without a file; GitHub lists **zero artifacts** for this run.
+- The real read-only observer returned stable observation, candidate **hold**,
+  repository readiness **hold**, and native reason
+  `native_latest_run_not_successful`. No native Review values were accepted and
+  no merge was authorized.
+
+The pinned Fullsend mint source validates the reusable workflow host against
+its allowed workflow hosts (`internal/mintcore/claims.go:145` and
+`internal/mintcore/oidc_verify.go:57`). Moving from an upstream reusable workflow
+to this repository changes that identity. A missing workflow-host enrollment is
+a plausible explanation for HTTP 401, **not a confirmed server diagnosis**:
+this experiment did not read deployed mint configuration or server logs.
+
+### Prepared repository-only correction (not deployed)
+
+Instead of changing shared mint enrollment, the shim delegates execution to the official upstream `reusable-dispatch.yml`, pinned to
+`1528aac1b8361ef7f5cad1ba55f304402761580c`. That wrapper checks out this repository's
+trusted base configuration and uses the committed `.defaults/` action and
+vendored binary. Its upstream dispatcher identity uses the previously working platform trust
+path. This is a hybrid: vendored runtime with an upstream authentication wrapper,
+not a wholly self-contained workflow installation.
+
+The dedicated bounded artifact upload moves into the local composite action, so
+it runs inside that wrapper after Review. The consumer requires exactly the upstream dispatcher at the pinned source
+revision, while host blob verification binds the local configuration revision. Extra, missing or repinned workflow references fail
+closed. No new secrets, token proxy, App permissions or cloud changes are needed.
+
+This correction passes 108 local tests and workflow lint; it still requires
+owner-authorized deployment and a new hosted run before its authentication and
+native publication path can be called verified. No upstream or shared
+infrastructure changes were made.
 
 ## Installation and scope
 

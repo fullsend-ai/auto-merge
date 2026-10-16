@@ -189,10 +189,11 @@ def verify_record(client, current_tree, pr, run, artifact, raw, verify_context, 
     require(
         isinstance(references, list)
         and len(references) == 1
-        and references[0].get("sha") == s["configuration_sha"]
-        and references[0]
-        .get("path", "")
-        .startswith("fullsend-ai/auto-merge/.github/workflows/reusable-dispatch.yml@"),
+        and references[0].get("sha") == build["source_commit"]
+        and references[0].get("path") == (
+            "fullsend-ai/fullsend/.github/workflows/reusable-dispatch.yml@"
+            + build["source_commit"]
+        ),
         "native_workflow_reference_unverified",
     )
     require(
