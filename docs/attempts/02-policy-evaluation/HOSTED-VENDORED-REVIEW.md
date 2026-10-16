@@ -1,7 +1,7 @@
 # Hosted Review with actual Fullsend vendored mode
 
-Status: deployed and exercised on GitHub; hosted Review is blocked at token mint
-with HTTP 401. Native publication and authenticated artifact consumption are
+Status: deployed and exercised on GitHub; the HTTP 401 authentication failure
+is fixed. Hosted Review currently stops on a missing runner configuration value. Native publication and authenticated artifact consumption are
 **not yet proven on a hosted successful Review**. No synthetic replay is called
 hosted proof.
 
@@ -34,7 +34,7 @@ to this repository changes that identity. A missing workflow-host enrollment is
 a plausible explanation for HTTP 401, **not a confirmed server diagnosis**:
 this experiment did not read deployed mint configuration or server logs.
 
-### Prepared repository-only correction (not deployed)
+### Repository-only authentication correction (deployed at `597c4b3`)
 
 Instead of changing shared mint enrollment, the shim delegates execution to the official upstream `reusable-dispatch.yml`, pinned to
 `1528aac1b8361ef7f5cad1ba55f304402761580c`. That wrapper checks out this repository's
@@ -48,9 +48,17 @@ it runs inside that wrapper after Review. The consumer requires exactly the upst
 revision, while host blob verification binds the local configuration revision. Extra, missing or repinned workflow references fail
 closed. No new secrets, token proxy, App permissions or cloud changes are needed.
 
-This correction passes 108 local tests and workflow lint; it still requires
-owner-authorized deployment and a new hosted run before its authentication and
-native publication path can be called verified. No upstream or shared
+[Run 38962317342](https://github.com/fullsend-ai/auto-merge/actions/runs/38962317342),
+triggered automatically by PR #43 head `dce357e`, verified successful Review token
+minting, GCP authentication and vendored binary selection. Agent startup then
+failed because the pinned agent harness requires `FULLSEND_APP_SET`, which the
+pinned runtime does not export. No native artifact was produced.
+
+The next prepared correction sets the non-secret existing official App prefix
+`fullsend-ai` explicitly in `env.runner` in the repository's Review harness. The
+post-script already recognizes that prefix, so this adds no new trusted App.
+The host lock is refreshed. Deployment of that correction is pending; native
+hosted publication and consumption remain unproven. No upstream or shared
 infrastructure changes were made.
 
 ## Installation and scope

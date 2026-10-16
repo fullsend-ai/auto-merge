@@ -844,3 +844,15 @@ No upstream repository or organization/cloud configuration was changed.
   upstream dispatcher reference in the artifact verifier; added rejection tests.
 - 108 tests and workflow lint pass. No new credential, App permission, upstream
   modification, cloud modification or branch-rule change. Deployment pending.
+
+## 2026-10-16 — Hosted authentication fixed; runtime compatibility correction
+
+- Deployed `597c4b3` after ordinary CI; restored all original rules immediately.
+- PR #43 at `dce357e` triggered run 38962317342 automatically. Mint review token
+  and GCP authentication succeeded. The logs confirm use of the vendored binary.
+- Agent startup then failed on missing `FULLSEND_APP_SET`, required by the pinned
+  agent harness but not exported by the pinned runtime. No native artifact.
+- Prepared an explicit `fullsend-ai` runner value in the repository harness. This
+  is the existing official App naming prefix, not a credential or additional
+  trusted principal: the pinned post-script already recognizes that App set.
+  Refreshed the host lock. Further deployment requires a new owner exception.
