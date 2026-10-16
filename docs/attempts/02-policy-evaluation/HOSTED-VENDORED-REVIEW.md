@@ -36,18 +36,16 @@ this experiment did not read deployed mint configuration or server logs.
 
 ### Prepared repository-only correction (not deployed)
 
-Instead of changing shared mint enrollment, the local dispatcher delegates only
-Review to the official upstream `reusable-review.yml`, pinned to
+Instead of changing shared mint enrollment, the shim delegates execution to the official upstream `reusable-dispatch.yml`, pinned to
 `1528aac1b8361ef7f5cad1ba55f304402761580c`. That wrapper checks out this repository's
 trusted base configuration and uses the committed `.defaults/` action and
-vendored binary. Its upstream workflow identity is the existing platform trust
+vendored binary. Its upstream dispatcher identity uses the previously working platform trust
 path. This is a hybrid: vendored runtime with an upstream authentication wrapper,
 not a wholly self-contained workflow installation.
 
 The dedicated bounded artifact upload moves into the local composite action, so
-it runs inside that wrapper after Review. The consumer requires exactly the local
-dispatcher at the configuration revision and the upstream Review wrapper at the
-pinned source revision. Extra, missing or repinned workflow references fail
+it runs inside that wrapper after Review. The consumer requires exactly the upstream dispatcher at the pinned source
+revision, while host blob verification binds the local configuration revision. Extra, missing or repinned workflow references fail
 closed. No new secrets, token proxy, App permissions or cloud changes are needed.
 
 This correction passes 108 local tests and workflow lint; it still requires

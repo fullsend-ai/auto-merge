@@ -33,11 +33,7 @@ class NativeArtifactTests(unittest.TestCase):
             "head_repository": {"full_name": "fullsend-ai/auto-merge"},
             "referenced_workflows": [
                 {
-                    "path": "fullsend-ai/auto-merge/.github/workflows/reusable-dispatch.yml@refs/heads/main",
-                    "sha": "b" * 40,
-                },
-                {
-                    "path": "fullsend-ai/fullsend/.github/workflows/reusable-review.yml@1528aac1b8361ef7f5cad1ba55f304402761580c",
+                    "path": "fullsend-ai/fullsend/.github/workflows/reusable-dispatch.yml@" + self.record["producer"]["fullsend_commit"],
                     "sha": self.record["producer"]["fullsend_commit"],
                 },
             ],
@@ -90,11 +86,11 @@ class NativeArtifactTests(unittest.TestCase):
     def test_unpinned_or_additional_workflow_wrapper_is_rejected(self):
         refs = self.run["referenced_workflows"]
         for changed in [
-            refs[:1],
-            refs + [dict(refs[1])],
-            [refs[0], dict(refs[1], sha="f" * 40)],
-            [refs[0], dict(refs[1], path="other/repo/.github/workflows/reusable-review.yml@main")],
-            [dict(refs[0], sha="f" * 40), refs[1]],
+            [],
+            refs + [dict(refs[0])],
+            [dict(refs[0], sha="f" * 40)],
+            [dict(refs[0], path="other/repo/.github/workflows/reusable-dispatch.yml@main")],
+            [dict(refs[0], path=refs[0]["path"].split("@", 1)[0] + "@main")],
         ]:
             with self.assertRaises(InputError):
                 self.verify(dict(self.run, referenced_workflows=changed))

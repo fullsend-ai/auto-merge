@@ -838,9 +838,9 @@ No upstream repository or organization/cloud configuration was changed.
 
 ## 2026-10-16 — Prepared vendored Review authentication correction
 
-- Reduced local Review job to a call to the pinned official reusable Review
+- Changed the shim to call the pinned official reusable dispatcher
   wrapper. Vendored binary, defaults and native publisher remain repository-owned.
-- Moved narrow evidence upload into the vendored action. Require both exact
-  workflow references in the artifact verifier; added rejection tests.
+- Moved narrow evidence upload into the vendored action. Require the exact
+  upstream dispatcher reference in the artifact verifier; added rejection tests.
 - 108 tests and workflow lint pass. No new credential, App permission, upstream
   modification, cloud modification or branch-rule change. Deployment pending.
