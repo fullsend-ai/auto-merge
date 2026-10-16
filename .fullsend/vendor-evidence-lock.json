@@ -1,0 +1,218 @@
+{
+  "schema_version": "vendored-review-host/v1",
+  "source_commit": "1528aac1b8361ef7f5cad1ba55f304402761580c",
+  "host_files": [
+    {
+      "path": ".defaults/.github/actions/install-fullsend-cli/action.yml",
+      "blob_sha1": "1ea0d689d172b3733241597ba815b7b005727422"
+    },
+    {
+      "path": ".defaults/.github/actions/mint-token/action.yml",
+      "blob_sha1": "f49c190ae6969614e0f00b0e7a3a22380458bd97"
+    },
+    {
+      "path": ".defaults/.github/actions/prepare-workspace/action.yml",
+      "blob_sha1": "b1978d569eabd8906d16a688dffe214f468d6ad4"
+    },
+    {
+      "path": ".defaults/.github/actions/setup-gcp/action.yml",
+      "blob_sha1": "85d2e9d9c5fed65d630e8f7192fde40b86444015"
+    },
+    {
+      "path": ".defaults/.github/actions/validate-enrollment/action.yml",
+      "blob_sha1": "4efc498b2b8a98bd5608e00ae15d18ea7db69da2"
+    },
+    {
+      "path": ".defaults/.github/scripts/check-fix-eligibility.sh",
+      "blob_sha1": "620ac05acb30d1b0bff3e6a36331dbf567058ce9"
+    },
+    {
+      "path": ".defaults/.github/scripts/install-openshell.sh",
+      "blob_sha1": "15e0cf380ba2a501c1a9b0c482428cb0d7ba3db3"
+    },
+    {
+      "path": ".defaults/.github/scripts/install-podman.sh",
+      "blob_sha1": "03fc49a7e77319ca91b8c2971e2426569e4a99a8"
+    },
+    {
+      "path": ".defaults/.github/scripts/openshell-version.sh",
+      "blob_sha1": "927fcaff3201b497f7cea294993f72b9a2276792"
+    },
+    {
+      "path": ".defaults/action.yml",
+      "blob_sha1": "9ed38708da910326b062d88d49f54c569c158835"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/.github/scripts/setup-agent-env.sh",
+      "blob_sha1": "d63ae450f59d4f20124cee1b3ac5bad14e67ae16"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/profiles/fullsend-atlassian-cloud.yaml",
+      "blob_sha1": "7e48ba2e3490c0dce5de2c7fc17a1dd1907460ab"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/profiles/fullsend-github-artifacts.yaml",
+      "blob_sha1": "6f4e57a38b0034cb7ff4cdb97b61a2d5847fa009"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/profiles/fullsend-github-ro.yaml",
+      "blob_sha1": "77609804b3bd772b40b7348624b5530255390b82"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/profiles/fullsend-github.yaml",
+      "blob_sha1": "3f6f91494663c248bca3d062117602e2184467d4"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/profiles/fullsend-gitleaks.yaml",
+      "blob_sha1": "4c6014ddf9106de59b5a43feb04677ffae04b10b"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/profiles/fullsend-openai.yaml",
+      "blob_sha1": "3715e4ae5f85f69c0b2e72d15ab482c7107b1826"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/profiles/fullsend-package-registries.yaml",
+      "blob_sha1": "0750af42aad12176df562a0fd29ac60fb323382b"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/profiles/fullsend-vertex-ai.yaml",
+      "blob_sha1": "2e5973000e82fda9cb913081b03412801fe9031c"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/providers/atlassian-cloud.yaml",
+      "blob_sha1": "0ca698463f9e0e74b454e334b0e9477a53c24e7b"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/providers/github-artifacts.yaml",
+      "blob_sha1": "089eba9acd45c8b518592488a75ca5421f0a1158"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/providers/github-ro.yaml",
+      "blob_sha1": "97527b561c431e3c1f1c771728e45ab64ec0ffc3"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/providers/github.yaml",
+      "blob_sha1": "99de0485518b1300c62ca0994781c7e0dde1ab60"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/providers/gitleaks.yaml",
+      "blob_sha1": "9170dec83cc93f5a62afacbbea91fa26bb716cff"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/providers/openai.yaml",
+      "blob_sha1": "74f73073b0d518faac167a92d2fce2471a0e0635"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/providers/package-registries.yaml",
+      "blob_sha1": "b69ee8032c3264da2b9fbae32f3963c9f29cf0bd"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/providers/vertex-ai.yaml",
+      "blob_sha1": "fd1f72ecb90f1dd17651ba18092e1293f3123b95"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/scripts/.pre-commit-tools.yaml",
+      "blob_sha1": "2d7ace7a3964a4704067b1ce2b1b327fd26e67a3"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/scripts/fullsend-check-output",
+      "blob_sha1": "6b10e05fe3b41f87d321aeaa31a7a420d828fdd7"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/scripts/install-precommit-tools.sh",
+      "blob_sha1": "d3534f75e66609e86977b1db7026c997ae816ce4"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/scripts/pre-fetch-prior-review.sh",
+      "blob_sha1": "e4ca47b2231190ad261245bfbd432383da102dca"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/scripts/prepare-sandbox-credentials.sh",
+      "blob_sha1": "a1c3a243f4f057d103bb240b9973dcc2326aed46"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/scripts/reconcile-repos.sh",
+      "blob_sha1": "8efbc0fd09d26fb4ead935e03a3abfb8425bef30"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/scripts/resolve-precommit-tools.py",
+      "blob_sha1": "11b72fe5bca0a3bf4ae80108bf085d44c08229ca"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/scripts/setup-prioritize.sh",
+      "blob_sha1": "f9e72b96c9e189bf15d564274d74b6b0c540002a"
+    },
+    {
+      "path": ".defaults/internal/scaffold/fullsend-repo/scripts/validate-source-repo.sh",
+      "blob_sha1": "11f97273771376ab8e3addfcd658d6d75cd1f193"
+    },
+    {
+      "path": ".github/workflows/reusable-code.yml",
+      "blob_sha1": "e65176f06c13f816e1538d885adf4fbd3e9330d3"
+    },
+    {
+      "path": ".github/workflows/reusable-dispatch.yml",
+      "blob_sha1": "45be77f80813e13711946aa28b460036277c6bc0"
+    },
+    {
+      "path": ".github/workflows/reusable-fix.yml",
+      "blob_sha1": "ab445e188ea6611be392b6207e32f8f34fa461f9"
+    },
+    {
+      "path": ".github/workflows/reusable-prioritize.yml",
+      "blob_sha1": "ceff97abd17637f2bbbe238c235a41e9eec0216e"
+    },
+    {
+      "path": ".github/workflows/reusable-retro.yml",
+      "blob_sha1": "e0657e13bd7f803464454b11a2576dd49f3a91ff"
+    },
+    {
+      "path": ".github/workflows/reusable-review.yml",
+      "blob_sha1": "6466b86edc897a3be0f8a9003eb0b4d826ab41f4"
+    },
+    {
+      "path": ".github/workflows/reusable-triage.yml",
+      "blob_sha1": "aaa6864012af3bc4765d189899c143c6a7e1e43d"
+    },
+    {
+      "path": ".github/workflows/fullsend.yaml",
+      "blob_sha1": "a706854adf6c422884443c752e4fbcc19de4776c"
+    },
+    {
+      "path": ".fullsend/config.yaml",
+      "blob_sha1": "f132a03e0609a0edc8abb2422d138a8159c482d3"
+    },
+    {
+      "path": ".fullsend/harness/review-gemara.yaml",
+      "blob_sha1": "8d4e9391ab250c46af8054716ce3a48f978dd7b2"
+    },
+    {
+      "path": ".fullsend/scripts/post-review-gemara.py",
+      "blob_sha1": "70da012b1afa4595d5f92c68be46c3b167374737"
+    },
+    {
+      "path": ".fullsend/scripts/review-risk.patch",
+      "blob_sha1": "850a73d46862974d68bb7b588d959ec19f972ba5"
+    },
+    {
+      "path": ".fullsend/scripts/publish-review-evidence.py",
+      "blob_sha1": "ab6825312c61229736e68a00d32af91d706c3ca3"
+    },
+    {
+      "path": ".fullsend/vendor-manifest.yaml",
+      "blob_sha1": "3f123ef216ce3f577d515d3a222b0e24fe6d8021"
+    },
+    {
+      "path": ".fullsend/evidence-build.json",
+      "blob_sha1": "d866b4ac40dc6349bcaf0d51e441a16ce5acfae4"
+    },
+    {
+      "path": ".fullsend/bin/fullsend",
+      "blob_sha1": "83cec8668d4f2cc4e2e7db563babf8393c100e64"
+    },
+    {
+      "path": "gemara-auto-merge/fullsend_review_evidence.py",
+      "blob_sha1": "569e6b8f384488f664d76f2b695f025540b4095f"
+    }
+  ]
+}

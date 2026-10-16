@@ -9,7 +9,9 @@ import re
 from policy_evaluation import ROOT, digest, load, new_output, require, source_digests
 
 
-def write_bundle(subject, evaluations, policies, decision, readiness, stage):
+def write_bundle(
+    subject, evaluations, policies, decision, readiness, stage, producer_evidence=None
+):
     require(stage in {"shadow", "enroll", "queue", "contract-replay"}, "invalid_stage")
     require(decision in {"eligible", "hold", "would_allow"}, "invalid_decision")
     require(readiness in {"eligible", "hold", "not_assessed"}, "invalid_readiness")
@@ -128,6 +130,21 @@ def write_bundle(subject, evaluations, policies, decision, readiness, stage):
             "normalized-evidence.json": observations,
         },
     )
+    if producer_evidence is not None:
+        reference = {
+            k: producer_evidence[k]
+            for k in [
+                "reason",
+                "payload_sha256",
+                "run_id",
+                "run_attempt",
+                "artifact_id",
+                "subject",
+            ]
+            if k in producer_evidence
+        }
+        report["producer_evidence"] = reference
+        files["review-evidence-reference.json"] = reference
     destination = new_output("bundle")
     for name, value in files.items():
         (destination / name).write_text(

@@ -811,3 +811,13 @@ fresh automatic approval for the final test-only revision.
 - See [D1–D4 report](D1-D4-REPORT.md) for test results, proof limits and deployment status. No upstream issue or PR was created.
 
 Publication: owner explicitly approved committing/pushing this branch and creating an auto-merge PR after local validation. This approval does not deploy the protected implementation or change branch rules.
+
+## 2026-10-16 — actual vendored-mode hosted Review trial
+
+Owner explicitly requested hosted Fullsend Review in vendored mode and authorized
+commits/pushes to main in auto-merge. Prepared official vendored runtime assets,
+local shim, binary and manifest. Native publication runs after successful forge
+review posting; authenticated artifact consumption replaces comment reconstruction
+for native evidence. The earlier D1–D4 record remains a local-validation snapshot.
+See HOSTED-VENDORED-REVIEW.md for deployment/run evidence as it becomes available.
+No upstream repository or organization/cloud configuration was changed.

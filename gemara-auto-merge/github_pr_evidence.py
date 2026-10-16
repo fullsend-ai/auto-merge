@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read public PR metadata; never fetch logs, download artifacts or perform writes."""
+"""Read bounded PR metadata and authenticated native Review artifacts; no writes."""
 
 from pathlib import Path
 from datetime import datetime, timezone
@@ -24,6 +24,7 @@ from policy_evaluation import (
     source_digests,
 )
 from result_bundle import write_bundle, write_failure
+import native_review_artifacts as native_review
 from fullsend_review_evidence import findings, producer, risk
 
 REPOSITORY = "fullsend-ai/auto-merge"
@@ -445,13 +446,44 @@ def observe(number, client=None):
     rules = client.get(base + "rules/branches/main")
     tree = client.get(base + f"git/trees/{target}?recursive=1")
     queue = queue_proof(client, base, rules, tree)
-    finding_evidence = findings(head, reviews, comments)
-    risk_evidence = risk(
-        head,
-        reviews,
-        comments,
-        lambda data: risk_producer(client, base, tree, data, pr, target),
-    )
+    native_evidence = None
+    if native_review.enabled(tree):
+
+        def verify_context(run, subject):
+            receipt = {
+                "head_sha": subject["head_sha"],
+                "config_sha": subject["configuration_sha"],
+            }
+            if not risk_run_subject(run, receipt, pr):
+                return False
+            if run.get("event") == "pull_request_target":
+                suite = client.get(base + f"check-suites/{run.get('check_suite_id')}")
+                return risk_suite_subject(suite, run, receipt, pr)
+            return run.get("event") == "issue_comment"
+
+        native_evidence = native_review.observe(
+            client,
+            tree,
+            pr,
+            verify_context,
+            datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+        finding_evidence = {
+            "value": native_evidence["values"]["AM-FINDINGS"],
+            "reason": native_evidence["reason"],
+        }
+        risk_evidence = {
+            "value": native_evidence["values"]["AM-RISK"],
+            "reason": native_evidence["reason"],
+        }
+    else:
+        finding_evidence = findings(head, reviews, comments)
+        risk_evidence = risk(
+            head,
+            reviews,
+            comments,
+            lambda data: risk_producer(client, base, tree, data, pr, target),
+        )
     infrastructure = None
     if tree and not tree.get("truncated"):
         infrastructure = [
@@ -497,6 +529,8 @@ def observe(number, client=None):
     candidate = dict(ready, head_sha=head, base_sha=target)
     bundle = load_bundle()
     values, seen = normalize(pr, checks, reviews, files)
+    if native_evidence is not None:
+        values["AM-REVIEW"] = native_evidence["values"]["AM-REVIEW"]
     values["AM-FINDINGS"] = finding_evidence["value"]
     values["AM-RISK"] = risk_evidence["value"]
     readiness = {
@@ -543,6 +577,7 @@ def observe(number, client=None):
         "historical_pr_observation": pr["state"] != "open",
         "stable_during_collection": stable,
         "fullsend_review_metadata_present": seen,
+        "native_review_evidence": native_evidence,
         "policy_authority": "native-gemara-prototype-not-approved-standard",
         "review_identity_assurance": "Pinned API bot ID/login/type, not a signed production attestation",
         "evidence_details": {
@@ -674,6 +709,7 @@ def main():
             report["shadow"]["decision"],
             report["readiness_decision"],
             "shadow",
+            producer_evidence=report.get("native_review_evidence"),
         )
         destination = new_output("github")
         (destination / "pr-evidence-and-policy-report.json").write_text(

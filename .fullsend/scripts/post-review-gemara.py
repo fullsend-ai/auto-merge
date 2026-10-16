@@ -11,8 +11,8 @@ import urllib.request
 
 UPSTREAM = "https://raw.githubusercontent.com/fullsend-ai/agents/a159f388364279487818325ef5d3cc1bcd31e1ea/scripts/post-review.sh"
 SOURCE_SHA256 = "f07fb6081a7164abe8c2f219aa034ea72a5c9009da1f106bd2d8f65dcc26a077"
-PATCH_SHA256 = "ccfdf981a575ae4c86018d8791f24f244545cb634424000bda214c8cdc13e909"
-RESULT_SHA256 = "74e1f153f70252a099f9537d7fdc15b2438ff2c8f8d39b69f3f188ae10798961"
+PATCH_SHA256 = "5df31d18786d5e82891f39420f0f0b8c662a7efb5c6327c0939ac3d6ec391de3"
+RESULT_SHA256 = "69d6b2421eec253dacd3a8c2db2e7bf7932102801a2f9226d2c666c683a1f254"
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -47,7 +47,7 @@ def prepare(directory, source, patch):
         "GIT_CONFIG_GLOBAL": "/dev/null",
     }
     result = subprocess.run(
-        ["/usr/bin/git", "apply", "--", str(patch_file)],
+        ["/usr/bin/git", "apply", "--unidiff-zero", "--", str(patch_file)],
         cwd=directory,
         env=clean,
         capture_output=True,
@@ -75,7 +75,13 @@ def main():
             # The original host post-script needs its existing role credentials.
             # No additional credentials or sandbox/network permissions are added.
             return subprocess.run(
-                ["/usr/bin/bash", str(script)], env=os.environ.copy()
+                ["/usr/bin/bash", str(script)],
+                env=dict(
+                    os.environ,
+                    FULLSEND_NATIVE_PUBLISHER=str(
+                        Path(__file__).with_name("publish-review-evidence.py").resolve()
+                    ),
+                ),
             ).returncode
     except Exception:
         print(

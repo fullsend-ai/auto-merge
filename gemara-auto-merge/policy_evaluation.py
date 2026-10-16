@@ -87,6 +87,7 @@ def source_digests():
             "resolve_pr_from_event.py",
             "fullsend_review_evidence.py",
             "review_evidence_contract.py",
+            "native_review_artifacts.py",
             "result_bundle.py",
             "verify_recorded_trial_evidence.py",
             "validate_gemara_artifacts.py",

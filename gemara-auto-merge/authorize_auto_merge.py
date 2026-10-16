@@ -703,6 +703,7 @@ def evaluate(number, expected_head, phase, client=None):
         "production_readiness": report["readiness_decision"]
         if report
         else "not_assessed",
+        "producer_evidence": report.get("native_review_evidence") if report else None,
         "evaluation": result,
         "supporting_evaluations": {
             "readiness": report["qualification"]["result"],
@@ -876,6 +877,7 @@ def main():
             result["decision"],
             result["production_readiness"],
             args.phase,
+            producer_evidence=result.get("producer_evidence"),
         )
         compact = {
             k: v

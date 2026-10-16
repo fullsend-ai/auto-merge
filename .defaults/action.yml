@@ -1,0 +1,584 @@
+name: Fullsend
+description: >-
+  Install fullsend-cli, create ${GITHUB_WORKSPACE}/output, invoke fullsend run with
+  --output-dir pointing at that directory, then upload it with actions/upload-artifact. Does not
+  read agent configuration from the repository; configure the job environment or CLI as needed.
+
+branding:
+  icon: zap
+  color: purple
+
+inputs:
+  agent:
+    description: Agent name passed to fullsend run (e.g. triage, code, review).
+    required: true
+  version:
+    description: >-
+      Release tag, version or long-form SHA: use latest, v0.0.1, 0.0.1 or a 40-char commit SHA.
+    default: latest
+  fullsend-dir:
+    description: Path to fullsend config directory (default GITHUB_WORKSPACE).
+    default: ""
+  target-repo:
+    description: Path to target repo checkout (default GITHUB_WORKSPACE/target-repo).
+    default: ""
+  github_token:
+    description: >-
+      GitHub token for authenticated API calls (avoids 60 req/hour unauthenticated rate limit).
+    default: ${{ github.token }}
+  run-url:
+    description: URL of the CI/CD run for status comments (optional).
+    default: ""
+  status-repo:
+    description: Repository (owner/repo) for status comments (optional).
+    default: ""
+  status-number:
+    description: Issue/PR number for status comments (optional).
+    default: ""
+  status-comment-id:
+    description: >-
+      ID of the comment that triggered this run via a slash command
+      (optional). When set, status reactions target that comment instead
+      of the issue/PR.
+    default: ""
+  mint-url:
+    description: >-
+      Mint service URL for on-demand GitHub App tokens. Used for both
+      status comment tokens and agent runtime tokens (GH_TOKEN,
+      PUSH_TOKEN, REVIEW_TOKEN) minted by mintAgentToken().
+    default: ""
+  pr-head-sha:
+    description: >-
+      PR head commit SHA, passed explicitly by per-repo (workflow_call)
+      callers where GITHUB_EVENT_PATH lacks the dispatched event_payload
+      wrapper. Takes precedence over GITHUB_EVENT_PATH extraction.
+    default: ""
+
+outputs:
+  skipped:
+    description: >-
+      "true" when the harness pre-script requested a skip via the
+      pre-script output protocol, so the agent did not run.
+      "false" when the run proceeded. Empty when the CLI predates the
+      protocol, or when the run failed before the skip decision — check
+      the step outcome before reading empty as a version signal.
+    value: ${{ steps.run.outputs.skipped }}
+  skip-reason:
+    description: Human-readable reason accompanying a skip, if the pre-script gave one.
+    value: ${{ steps.run.outputs.reason }}
+
+runs:
+  using: composite
+  steps:
+    - name: Detect install method
+      id: detect
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        GH_TOKEN: ${{ inputs.github_token }}
+      run: |
+        set -euo pipefail
+
+        # retry_curl: retry a curl command up to MAX_ATTEMPTS times with exponential backoff.
+        # Usage: retry_curl [curl args...]
+        retry_curl() {
+          local max_attempts=3
+          local attempt=1
+          local delay=5
+          while true; do
+            if curl "$@"; then
+              return 0
+            fi
+            if (( attempt >= max_attempts )); then
+              echo "::error::API request failed after ${max_attempts} attempts" >&2
+              return 1
+            fi
+            echo "::warning::API attempt ${attempt}/${max_attempts} failed, retrying in ${delay}s..." >&2
+            sleep "${delay}"
+            (( attempt++ ))
+            (( delay *= 3 ))
+          done
+        }
+
+        # Use vendored binary if present (placed by fullsend admin install --vendor).
+        # Per-org mode stores it at bin/fullsend (in .fullsend config repo);
+        # per-repo mode stores it at .fullsend/bin/fullsend (in the target repo).
+        # GitHub Contents API does not preserve the executable bit, so check -f not -x.
+        VENDORED=""
+        if [[ -f "${GITHUB_WORKSPACE}/.fullsend/bin/fullsend" ]]; then
+          VENDORED="${GITHUB_WORKSPACE}/.fullsend/bin/fullsend"
+        elif [[ -f "${GITHUB_WORKSPACE}/bin/fullsend" ]]; then
+          VENDORED="${GITHUB_WORKSPACE}/bin/fullsend"
+        fi
+        if [[ -n "${VENDORED}" ]]; then
+          echo "Using vendored binary: ${VENDORED#"${GITHUB_WORKSPACE}/"}"
+          echo "install-method=vendored" >> "${GITHUB_OUTPUT}"
+          echo "vendored-path=${VENDORED}" >> "${GITHUB_OUTPUT}"
+          exit 0
+        fi
+
+        VERSION="$(printf '%s' "${VERSION:-latest}" | tr -d '[:space:]')"
+        VERSION="${VERSION:-latest}"
+
+        # Resolve 'latest' to the actual tag before checking the release API.
+        if [[ "${VERSION}" == "latest" ]]; then
+          TAG="$(retry_curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            "https://api.github.com/repos/fullsend-ai/fullsend/releases/latest" | jq -r '.tag_name')"
+          if [[ -z "${TAG}" || "${TAG}" == "null" ]]; then
+            echo "::error::Could not resolve latest release tag"
+            exit 1
+          fi
+          VERSION="${TAG}"
+        fi
+
+        # Resolve a full commit SHA to its release tag (if any).
+        # Dereference annotated tag objects first: job.workflow_sha may be
+        # a tag object SHA; the /tags listing returns peeled commit SHAs.
+        if [[ "${VERSION}" =~ ^[0-9a-f]{40}$ ]]; then
+          commit_sha=$(retry_curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            "https://api.github.com/repos/fullsend-ai/fullsend/git/tags/${VERSION}" 2>/dev/null \
+            | jq -r '.object.sha // empty') || true
+          if [[ -n "${commit_sha}" ]]; then
+            echo "Dereferenced annotated tag object ${VERSION:0:12} to commit ${commit_sha:0:12}"
+            VERSION="${commit_sha}"
+          fi
+
+          TAG=""
+          page=1
+          max_pages=50
+          while :; do
+            if (( page > max_pages )); then
+              echo "::warning::Tag lookup reached ${max_pages} pages without a match; skipping SHA-to-tag resolution"
+              break
+            fi
+            resp=$(retry_curl -fsSL \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              "https://api.github.com/repos/fullsend-ai/fullsend/tags?per_page=100&page=${page}") \
+              || { echo "::warning::Tag lookup failed on page ${page}; skipping SHA-to-tag resolution"; break; }
+            match=$(echo "${resp}" | jq -r --arg sha "${VERSION}" \
+              '.[] | select(.commit.sha == $sha) | .name' \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1) || true
+            if [[ -n "${match}" ]]; then
+              TAG="${match}"
+              break
+            fi
+            count=$(echo "${resp}" | jq 'length')
+            if [[ "${count}" -lt 100 ]]; then
+              break
+            fi
+            (( page++ ))
+          done
+          if [[ -n "${TAG}" ]]; then
+            echo "SHA ${VERSION} maps to release tag ${TAG}"
+            VERSION="${TAG}"
+          fi
+        fi
+
+        if [[ "${VERSION}" == v* ]]; then
+          VERSION_URL="${VERSION}"
+          VERSION_ASSET="${VERSION#v}"
+        else
+          VERSION_URL="v${VERSION}"
+          VERSION_ASSET="${VERSION}"
+        fi
+
+        HTTP_STATUS="$(retry_curl -sL -o /dev/null -w "%{http_code}" \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer ${GH_TOKEN}" \
+          "https://api.github.com/repos/fullsend-ai/fullsend/releases/tags/${VERSION_URL}")"
+
+        if [[ "${HTTP_STATUS}" == "200" ]]; then
+          echo "Found release ${VERSION_URL}; downloading pre-built binary"
+          echo "install-method=release" >> "${GITHUB_OUTPUT}"
+          echo "version-url=${VERSION_URL}" >> "${GITHUB_OUTPUT}"
+          echo "version-asset=${VERSION_ASSET}" >> "${GITHUB_OUTPUT}"
+        elif [[ "${HTTP_STATUS}" == "404" ]]; then
+          echo "No release found for ${VERSION_URL}; building from source at ref: ${VERSION}"
+          echo "install-method=source" >> "${GITHUB_OUTPUT}"
+          echo "source-ref=${VERSION}" >> "${GITHUB_OUTPUT}"
+        else
+          echo "::error::Unexpected HTTP ${HTTP_STATUS} checking release ${VERSION_URL}; cannot proceed"
+          exit 1
+        fi
+
+    - name: Install vendored binary
+      if: steps.detect.outputs.install-method == 'vendored'
+      shell: bash
+      env:
+        VENDORED: ${{ steps.detect.outputs.vendored-path }}
+      run: |
+        set -euo pipefail
+        mkdir -p "${RUNNER_TEMP}/fullsend"
+        cp "${VENDORED}" "${RUNNER_TEMP}/fullsend/fullsend"
+        chmod +x "${RUNNER_TEMP}/fullsend/fullsend"
+        echo "${RUNNER_TEMP}/fullsend" >> "${GITHUB_PATH}"
+
+    - name: Download release binary
+      id: download-release
+      if: steps.detect.outputs.install-method == 'release'
+      continue-on-error: true
+      shell: bash
+      env:
+        VERSION_URL: ${{ steps.detect.outputs.version-url }}
+        VERSION_ASSET: ${{ steps.detect.outputs.version-asset }}
+        RUNNER_OS: ${{ runner.os }}
+        RUNNER_ARCH: ${{ runner.arch }}
+        GH_TOKEN: ${{ inputs.github_token }}
+      run: |
+        set -euo pipefail
+
+        # retry_curl: retry a curl command up to MAX_ATTEMPTS times with exponential backoff.
+        # Usage: retry_curl [curl args...]
+        retry_curl() {
+          local max_attempts=3
+          local attempt=1
+          local delay=5
+          while true; do
+            if curl "$@"; then
+              return 0
+            fi
+            if (( attempt >= max_attempts )); then
+              echo "::error::Download failed after ${max_attempts} attempts"
+              return 1
+            fi
+            echo "::warning::Download attempt ${attempt}/${max_attempts} failed, retrying in ${delay}s..."
+            sleep "${delay}"
+            (( attempt++ ))
+            (( delay *= 3 ))
+          done
+        }
+
+        # This action requires Linux (podman, systemd, cgroups v2 steps below).
+        if [[ "${RUNNER_OS}" != "Linux" ]]; then
+          echo "::error::Unsupported runner OS: ${RUNNER_OS} (this action requires Linux)"
+          exit 1
+        fi
+        os=linux
+
+        case "${RUNNER_ARCH}" in
+          X64)   arch=amd64 ;;
+          ARM64) arch=arm64 ;;
+          *)
+            echo "::error::Unsupported runner architecture: ${RUNNER_ARCH} (expected X64 or ARM64)"
+            exit 1
+            ;;
+        esac
+
+        ASSET_NAME="fullsend_${VERSION_ASSET}_${os}_${arch}.tar.gz"
+        URL="https://github.com/fullsend-ai/fullsend/releases/download/${VERSION_URL}/${ASSET_NAME}"
+
+        echo "Downloading from: ${URL}"
+        retry_curl -fsSL "${URL}" -o "/tmp/${ASSET_NAME}"
+        mkdir -p "${RUNNER_TEMP}/fullsend"
+        tar -xzf "/tmp/${ASSET_NAME}" -C "${RUNNER_TEMP}/fullsend"
+        echo "${RUNNER_TEMP}/fullsend" >> "${GITHUB_PATH}"
+
+    - name: Clone fullsend at ref for source build
+      if: steps.detect.outputs.install-method == 'source' || steps.download-release.outcome == 'failure'
+      shell: bash
+      env:
+        SOURCE_REF: ${{ steps.detect.outputs.source-ref || steps.detect.outputs.version-url }}
+        GH_TOKEN: ${{ inputs.github_token }}
+        DOWNLOAD_OUTCOME: ${{ steps.download-release.outcome }}
+      run: |
+        set -euo pipefail
+
+        # retry_git: retry a git command up to max_attempts times with exponential
+        # backoff for transient errors (e.g. HTTP 403/5xx). Permanent failures
+        # (bad ref, auth) return immediately without retrying.
+        # Usage: retry_git [git args...]
+        retry_git() {
+          local max_attempts=3
+          local attempt=1
+          local delay=5
+          local output
+          while true; do
+            if output=$(git "$@" 2>&1); then
+              printf '%s\n' "${output}" >&2
+              return 0
+            fi
+            # Don't retry permanent failures (bad ref, wrong credentials).
+            if printf '%s' "${output}" | grep -qE \
+                "not our ref|no such remote ref|couldn't find remote ref|does not appear to be a git repository|Authentication failed"; then
+              printf '%s\n' "${output}" >&2
+              return 1
+            fi
+            if (( attempt >= max_attempts )); then
+              echo "::error::git command failed after ${max_attempts} attempts"
+              printf '%s\n' "${output}" >&2
+              return 1
+            fi
+            echo "::warning::git attempt ${attempt}/${max_attempts} failed, retrying in ${delay}s..."
+            printf '%s\n' "${output}" >&2
+            sleep "${delay}"
+            (( attempt++ ))
+            (( delay *= 3 ))
+          done
+        }
+
+        if [[ "${DOWNLOAD_OUTCOME}" == "failure" ]]; then
+          echo "::warning::Release download failed; falling back to source build"
+        fi
+        echo "::add-mask::${GH_TOKEN}"
+        SRC="${RUNNER_TEMP}/fullsend-src"
+        REMOTE="https://x-access-token:${GH_TOKEN}@github.com/fullsend-ai/fullsend.git"
+        echo "Cloning fullsend at ref: ${SOURCE_REF}"
+        git init "${SRC}"
+        git -C "${SRC}" remote add origin "${REMOTE}"
+        # Shallow fetch works for branch/tag refs but not bare commit SHAs (GitHub disallows
+        # unadvertised SHA fetches). Fall back to a full clone when shallow fetch fails.
+        if ! retry_git -C "${SRC}" fetch --depth 1 origin "${SOURCE_REF}"; then
+          echo "Shallow fetch failed (ref may be a commit SHA); falling back to full clone"
+          rm -rf "${SRC}"
+          retry_git clone "${REMOTE}" "${SRC}"
+          git -C "${SRC}" checkout "${SOURCE_REF}"
+        else
+          git -C "${SRC}" checkout FETCH_HEAD
+        fi
+
+    - name: Set up Go for source build
+      if: steps.detect.outputs.install-method == 'source' || steps.download-release.outcome == 'failure'
+      uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+      with:
+        go-version-file: ${{ runner.temp }}/fullsend-src/go.mod
+        cache-dependency-path: ${{ runner.temp }}/fullsend-src/go.sum
+
+    - name: Build fullsend from source
+      if: steps.detect.outputs.install-method == 'source' || steps.download-release.outcome == 'failure'
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p "${RUNNER_TEMP}/fullsend"
+        cd "${RUNNER_TEMP}/fullsend-src"
+        make go-build
+        cp bin/fullsend "${RUNNER_TEMP}/fullsend/fullsend"
+        echo "${RUNNER_TEMP}/fullsend" >> "${GITHUB_PATH}"
+
+    - name: Print fullsend version
+      shell: bash
+      run: fullsend --version
+
+    - name: Install Podman
+      shell: bash
+      run: "$GITHUB_ACTION_PATH/.github/scripts/install-podman.sh"
+
+    - name: Configure rootless Podman
+      shell: bash
+      run: |
+        test -f /sys/fs/cgroup/cgroup.controllers || { echo "::error::cgroups v2 required"; exit 1; }
+        whoami_user="$(whoami)"
+        grep -q "^${whoami_user}:" /etc/subuid || sudo usermod --add-subuids 100000-165535 --add-subgids 100000-165535 "${whoami_user}"
+        podman system migrate
+        podman info
+        systemctl --user start podman.socket
+
+    - name: Configure OpenShell gateway
+      shell: bash
+      run: |
+        source "$GITHUB_ACTION_PATH/.github/scripts/openshell-version.sh"
+        mkdir -p $HOME/.config/openshell/
+        cat > $HOME/.config/openshell/gateway.env << EOF
+        OPENSHELL_BIND_ADDRESS=0.0.0.0
+        EOF
+        cat > $HOME/.config/openshell/gateway.toml << EOF
+        [openshell]
+        version = 1
+
+        [openshell.gateway]
+        supervisor_image = "ghcr.io/nvidia/openshell/supervisor:${OPENSHELL_VERSION}"
+        EOF
+
+    - name: Install OpenShell CLI
+      shell: bash
+      run: "$GITHUB_ACTION_PATH/.github/scripts/install-openshell.sh"
+
+    - name: Install validation dependencies
+      shell: bash
+      run: pip install --quiet "jsonschema>=4.18.0"
+
+    - name: Set up Go for target repo pre-commit hooks
+      if: hashFiles(format('{0}/go.mod', inputs.target-repo)) != ''
+      uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+      with:
+        go-version-file: ${{ inputs.target-repo }}/go.mod
+        cache: false
+
+    - name: Run fullsend
+      id: run
+      if: inputs.agent != '__install_only__'
+      shell: bash
+      env:
+        AGENT: ${{ inputs.agent }}
+        FULLSEND_DIR: ${{ inputs.fullsend-dir }}
+        TARGET_REPO: ${{ inputs.target-repo }}
+        GH_TOKEN: ${{ inputs.github_token }}
+        STATUS_RUN_URL: ${{ inputs.run-url }}
+        STATUS_REPO: ${{ inputs.status-repo }}
+        STATUS_NUMBER: ${{ inputs.status-number }}
+        STATUS_COMMENT_ID: ${{ inputs.status-comment-id }}
+        MINT_URL: ${{ inputs.mint-url }}
+        PR_HEAD_SHA: ${{ inputs.pr-head-sha }}
+      run: |
+        set -euo pipefail
+        FULLSEND_DIR="${FULLSEND_DIR:-${GITHUB_WORKSPACE}}"
+        TARGET_REPO="${TARGET_REPO:-${GITHUB_WORKSPACE}/target-repo}"
+        mkdir -p "${GITHUB_WORKSPACE}/output"
+        # SECURITY: Never expose --no-post-script as a workflow input.
+        # Post-scripts enforce secret scanning, protected-path blocks,
+        # and review-downgrade controls. Skipping them in CI bypasses
+        # all post-push security gates.
+        STATUS_FLAGS=()
+        if [[ -n "${STATUS_REPO}" && -n "${STATUS_NUMBER}" ]]; then
+          STATUS_FLAGS+=(--status-repo "${STATUS_REPO}" --status-number "${STATUS_NUMBER}")
+          if [[ -n "${STATUS_RUN_URL}" ]]; then
+            STATUS_FLAGS+=(--run-url "${STATUS_RUN_URL}")
+          fi
+          if [[ -n "${STATUS_COMMENT_ID}" ]]; then
+            STATUS_FLAGS+=(--status-comment-id "${STATUS_COMMENT_ID}")
+          fi
+        fi
+        MINT_FLAGS=()
+        if [[ -n "${MINT_URL}" ]]; then
+          MINT_FLAGS+=(--mint-url "${MINT_URL}")
+        fi
+        fullsend run "${AGENT}" \
+          --fullsend-dir "${FULLSEND_DIR}" \
+          --output-dir "${GITHUB_WORKSPACE}/output" \
+          --target-repo "${TARGET_REPO}" \
+          "${STATUS_FLAGS[@]+"${STATUS_FLAGS[@]}"}" \
+          "${MINT_FLAGS[@]+"${MINT_FLAGS[@]}"}"
+
+    # Eval measurements (fail-open): score run-telemetry.jsonl with the agents
+    # measurement manifest. Same job as fullsend run; never fails the agent.
+    # Writes eval-measurements.jsonl when at least one new score row is produced
+    # (tool-agnostic artifact); missing telemetry/manifest skips with no file.
+    # Manifest trust: prefer a local override from the PR base SHA (same
+    # trusted tip reusable-* workflows check out for kill-switch config).
+    # Path prefix comes from inputs.fullsend-dir (install layout: per-repo
+    # `.fullsend/` or per-org workspace root); file bytes come from the
+    # trusted ref — never from a PR-head working tree. When no trusted
+    # override exists, fetch SHA-pinned agents@v0 (no --fullsend-dir).
+    - name: Eval measurements
+      if: always() && inputs.agent != '__install_only__'
+      continue-on-error: true
+      shell: bash
+      env:
+        AGENT: ${{ inputs.agent }}
+        FULLSEND_DIR: ${{ inputs.fullsend-dir }}
+        # For GetRef of agents@v0 (SHA pin). Not sent to raw.githubusercontent.com.
+        GH_TOKEN: ${{ inputs.github_token }}
+        PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      run: |
+        set -euo pipefail
+        MEASURE_ARGS=(--agent "${AGENT}" --output-dir "${GITHUB_WORKSPACE}/output")
+        TRUSTED_REF="${PR_BASE_SHA:-}"
+        if [[ -z "${TRUSTED_REF}" ]]; then
+          TRUSTED_REF="${GITHUB_SHA:-}"
+        fi
+        FULLSEND_DIR="${FULLSEND_DIR:-.fullsend}"
+        MEASURE_REL=""
+        case "${FULLSEND_DIR}" in
+          "${GITHUB_WORKSPACE}"/*)
+            MEASURE_REL="${FULLSEND_DIR#"${GITHUB_WORKSPACE}"/}"
+            ;;
+          /*)
+            MEASURE_REL=""
+            ;;
+          *)
+            MEASURE_REL="${FULLSEND_DIR}"
+            ;;
+        esac
+        MEASURE_REL="${MEASURE_REL#./}"
+        MEASURE_REL="${MEASURE_REL%/}"
+        if [[ -n "${TRUSTED_REF}" && -n "${MEASURE_REL}" ]] \
+          && git cat-file -e "${TRUSTED_REF}:${MEASURE_REL}/eval/measurements/${AGENT}.yaml" 2>/dev/null; then
+          MEASURE_FILE="${GITHUB_WORKSPACE}/output/.fullsend-measure-${AGENT}.yaml"
+          mkdir -p "${GITHUB_WORKSPACE}/output"
+          git show "${TRUSTED_REF}:${MEASURE_REL}/eval/measurements/${AGENT}.yaml" > "${MEASURE_FILE}"
+          MEASURE_ARGS+=(--registry "${MEASURE_FILE}")
+        fi
+        # Binary resolves SHA-pinned agents@v0 when --registry is unset
+        # (allowlist/hash/audit) and scores only platform run-telemetry.jsonl
+        # at the top of each runDir.
+        fullsend eval-measure "${MEASURE_ARGS[@]}"
+
+    - name: Upload fullsend artifacts
+      if: always() && inputs.agent != '__install_only__'
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: fullsend-${{ inputs.agent }}
+        path: ${{ github.workspace }}/output
+
+    - name: Finalize orphaned status comment
+      # Runs last (after all other always() steps) so job.status reflects
+      # the job's true final outcome, not just the fullsend run outcome.
+      if: always() && inputs.agent != '__install_only__' && inputs.status-repo != '' && inputs.status-number != '' && inputs.mint-url != ''
+      shell: bash
+      env:
+        MINT_URL: ${{ inputs.mint-url }}
+        AGENT: ${{ inputs.agent }}
+        STATUS_REPO: ${{ inputs.status-repo }}
+        STATUS_NUMBER: ${{ inputs.status-number }}
+        RUN_ID: ${{ github.run_id }}
+        RUN_URL: ${{ inputs.run-url }}
+        JOB_STATUS: ${{ job.status }}
+        HARNESS_ROLE: ${{ steps.run.outputs.role }}
+        WAS_SKIPPED: ${{ steps.run.outputs.skipped }}
+        PR_HEAD_SHA_INPUT: ${{ inputs.pr-head-sha }}
+        FULLSEND_DIR: ${{ inputs.fullsend-dir }}
+      run: |
+        set -euo pipefail
+        # When the fullsend process is hard-killed (SIGKILL, OOM, segfault),
+        # the deferred PostCompletion call never runs and the status comment
+        # remains in "Started" state. This step runs unconditionally (if:
+        # always()) to detect and finalize orphaned comments. See #2149.
+
+        # Resolve the correct commit SHA. Priority order:
+        # 1. Explicit pr-head-sha input (per-repo workflow_call callers)
+        # 2. Extracted from .inputs.event_payload (per-org workflow_dispatch)
+        # 3. GITHUB_SHA fallback
+        COMMIT_SHA=""
+        if [[ -n "${PR_HEAD_SHA_INPUT}" ]]; then
+          COMMIT_SHA="${PR_HEAD_SHA_INPUT}"
+        elif [[ -f "${GITHUB_EVENT_PATH}" ]]; then
+          EVENT_PAYLOAD_RAW=$(jq -r '.inputs.event_payload // empty' "${GITHUB_EVENT_PATH}" 2>/dev/null) || true
+          if [[ -n "${EVENT_PAYLOAD_RAW}" ]]; then
+            HAS_PR=$(printf '%s' "${EVENT_PAYLOAD_RAW}" | jq -r '.pull_request // empty' 2>/dev/null) || true
+            if [[ -n "${HAS_PR}" && "${HAS_PR}" != "null" ]]; then
+              COMMIT_SHA=$(printf '%s' "${EVENT_PAYLOAD_RAW}" | jq -r '.pull_request.head.sha // empty' 2>/dev/null) || true
+              if [[ -z "${COMMIT_SHA}" ]]; then
+                echo "::warning::event_payload has pull_request but head.sha extraction failed"
+              fi
+            fi
+          fi
+        fi
+        if [[ -z "${COMMIT_SHA}" ]]; then
+          COMMIT_SHA="${GITHUB_SHA}"
+        fi
+
+        FULLSEND_DIR="${FULLSEND_DIR:-${GITHUB_WORKSPACE}}"
+        RECONCILE_FLAGS=(--repo "${STATUS_REPO}" --number "${STATUS_NUMBER}" --run-id "${RUN_ID}")
+        RESOLVED_ROLE="${HARNESS_ROLE:-${AGENT}}"
+        RECONCILE_FLAGS+=(--mint-url "${MINT_URL}" --role "${RESOLVED_ROLE}")
+        RECONCILE_FLAGS+=(--fullsend-dir "${FULLSEND_DIR}")
+        RECONCILE_FLAGS+=(--job-status "${JOB_STATUS}")
+        if [[ "${WAS_SKIPPED}" == "true" ]]; then
+          RECONCILE_FLAGS+=(--was-skipped)
+        fi
+        if [[ -n "${RUN_URL}" ]]; then
+          RECONCILE_FLAGS+=(--run-url "${RUN_URL}")
+        fi
+        if [[ -n "${COMMIT_SHA}" ]]; then
+          RECONCILE_FLAGS+=(--sha "${COMMIT_SHA}")
+        fi
+        if [[ "${JOB_STATUS}" == "cancelled" ]]; then
+          RECONCILE_FLAGS+=(--reason cancelled)
+        fi
+        fullsend reconcile-status "${RECONCILE_FLAGS[@]+"${RECONCILE_FLAGS[@]}"}" || {
+          echo "::warning::Could not reconcile orphaned status comment"
+        }

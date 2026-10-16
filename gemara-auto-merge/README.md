@@ -90,7 +90,7 @@ only, so Light holds here. None of those simulations enables a real merge.
 
 The observer is fixed to public `fullsend-ai/auto-merge` and `main`. It makes
 bounded GET-only requests, refuses redirects and holds on incomplete/changing
-state. It never executes PR code, downloads artifacts, reads workflow logs, posts
+state. It never executes PR code, reads workflow logs, posts
 comments/statuses or changes rules. An approved read credential can be supplied
 locally via GH_TOKEN/GITHUB_TOKEN when needed; it is not passed to the evaluator.
 Reports discard API bodies, patches, review text and actor identities. The collector
@@ -201,3 +201,12 @@ build/replay recipes live here; generated binaries stay ignored. It uses synthet
 host inputs and publication proof to test the contract through real Fullsend and
 Gemara execution. It does not enable a new live Review publisher or replace the
 existing verified bot/risk-receipt consumer.
+
+## Hosted vendored Review
+
+[The vendored-mode trial](../docs/attempts/02-policy-evaluation/HOSTED-VENDORED-REVIEW.md)
+installs the official local workflows/defaults and the built binary, rather than
+merely storing a binary for local replay. `native_review_artifacts.py` reads only
+a bounded, digest-checked native Review JSON artifact from authenticated Actions
+execution; it does not read arbitrary artifacts or workflow logs. Native record
+absence fails closed once the vendored host lock is present.

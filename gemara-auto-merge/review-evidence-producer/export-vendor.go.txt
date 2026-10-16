@@ -1,0 +1,18 @@
+package main
+
+import (
+ "encoding/json"
+ "os"
+ "github.com/fullsend-ai/fullsend/internal/scaffold"
+)
+
+func main() {
+ assets,err:=scaffold.CollectVendoredAssets(os.Args[1],".fullsend/");if err!=nil {panic("vendor collection failed")}
+ callers,err:=scaffold.CollectPerRepoInstallFiles(true,"","");if err!=nil {panic("shim rendering failed")}
+ for _,file:=range callers {if file.Path==".github/workflows/fullsend.yaml" {assets=append(assets,file)}}
+ paths:=[]string{};for _,file:=range assets {paths=append(paths,file.Path)}
+ manifest:=scaffold.NewVendorManifest("auto-merge-evidence-lab",os.Args[2],".fullsend/bin/fullsend",paths)
+ raw,err:=manifest.MarshalYAML();if err!=nil {panic("manifest failed")}
+ assets=append(assets,scaffold.InstallFile{Path:".fullsend/vendor-manifest.yaml",Content:raw,Mode:"100644"})
+ if json.NewEncoder(os.Stdout).Encode(assets)!=nil {panic("export failed")}
+}

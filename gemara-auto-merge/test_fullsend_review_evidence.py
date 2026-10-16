@@ -545,6 +545,17 @@ class RiskReceiptTests(unittest.TestCase):
         workflow = (
             Path(__file__).resolve().parents[1] / ".github/workflows/fullsend.yaml"
         )
+        if (workflow.parents[2] / ".fullsend/vendor-manifest.yaml").exists():
+            self.assertEqual(
+                re.findall(
+                    r"^    uses: (\./\.github/workflows/reusable-dispatch\.yml)$",
+                    workflow.read_text(),
+                    re.M,
+                ),
+                ["./.github/workflows/reusable-dispatch.yml"],
+            )
+            self.assertTrue((workflow.parents[2] / ".defaults/action.yml").is_file())
+            return
         uses = re.findall(
             r"^    uses: (fullsend-ai/fullsend/\.github/workflows/reusable-dispatch\.yml@\S+)$",
             workflow.read_text(),
