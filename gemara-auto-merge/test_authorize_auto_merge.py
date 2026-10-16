@@ -108,9 +108,19 @@ class PilotTests(unittest.TestCase):
                         client, source, phase, group if phase == "queue" else None
                     )
                 )
+                targets = [
+                    ".github/workflows/gemara-auto-merge.yml",
+                    ".github/workflows/gemara-merge-queue.yml",
+                    ".github/workflows/gemara-queue-writer.yml",
+                    "gemara-auto-merge/authorize_auto_merge.py",
+                ]
                 for directory in ("catalogs", "policies", "config"):
-                    for artifact in (p.ROOT / directory).glob("*.json"):
-                        name = "gemara-auto-merge/" + str(artifact.relative_to(p.ROOT))
+                    targets += [
+                        "gemara-auto-merge/" + str(artifact.relative_to(p.ROOT))
+                        for artifact in (p.ROOT / directory).glob("*.json")
+                    ]
+                for name in targets:
+                    with self.subTest(changed_source=name):
                         self.assertIn(name, remote)
                         changed = dict(remote, **{name: ("blob", "100644", "c" * 40)})
                         with mock.patch.object(p, "tree", return_value=changed):

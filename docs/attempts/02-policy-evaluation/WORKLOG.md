@@ -753,3 +753,17 @@ Ruff; actionlint; and local Markdown links pass. A structural comparison of all 
 JSON files confirms their requirements, IDs, configuration and pins are unchanged.
 The staged-diff secret scan reports no leaks, and whitespace checks pass.
 Publication and hosted validation remain separate steps after explicit authorization.
+
+
+### PR #39 review corrections
+
+The first Fullsend review requested explicit issue authorization for the owner-requested
+protected-path rename and additional negative coverage in the trusted-source test.
+The test now alters each renamed authorization workflow and the authorization Python
+source as well as every catalog/policy/configuration input, and checks rejection in
+both enrollment and queue validation. Remaining test filenames now match their modules.
+These corrections change tests and documentation only; the reviewed runtime code,
+workflow permissions and policy requirements remain unchanged. The separately
+approved owner deployment exception has not been activated.
+
+The maintainer-requested protected-path scope and separately approved deployment exception are recorded in [issue #40](https://github.com/fullsend-ai/auto-merge/issues/40), linked from PR #39. All 79 tests and Ruff pass after these test-only corrections.
