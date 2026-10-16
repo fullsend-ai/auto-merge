@@ -27,3 +27,4 @@ Run `python3 scripts/validate_example.py` and confirm both pull-request CI jobs
 complete successfully. Failed validation returns a nonzero status.
 This line exercises the fast review path without changing merge policy.
 A repository-scoped lab App requests queue entry only after Gemara policy passes.
+The pilot verifies the reviewed revision separately from its trusted configuration.
