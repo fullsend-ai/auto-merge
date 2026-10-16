@@ -73,10 +73,10 @@ jobs:
         env:
           GH_TOKEN: ''
           GITHUB_TOKEN: ''
-        run: python3 experiments/autonomy-platform/bootstrap_tools.py
+        run: python3 gemara-auto-merge/install_pinned_toolchain.py
       - name: Build pinned SDK and verify its native behavior
-        run: python3 experiments/autonomy-platform/build_sdk.py
+        run: python3 gemara-auto-merge/build_native_evaluator.py
       - name: Test native policies and bounded observation handling
-        run: python3 -m unittest discover -s experiments/autonomy-platform -p 'test_*.py'
+        run: python3 -m unittest discover -s gemara-auto-merge -p 'test_*.py'
       - name: Exercise native-policy scenarios using synthetic evidence
-        run: python3 experiments/autonomy-platform/demo.py
+        run: python3 gemara-auto-merge/run_policy_examples.py

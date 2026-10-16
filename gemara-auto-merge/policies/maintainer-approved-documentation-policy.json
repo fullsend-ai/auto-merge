@@ -1,0 +1,135 @@
+{
+  "title": "Maintainer-approved documentation merge policy",
+  "metadata": {
+    "id": "autonomy-maintenance",
+    "type": "Policy",
+    "gemara-version": "1.5.0",
+    "version": "0.1.0",
+    "description": "Owner-enabled bounded repository lab pilot; not production qualification",
+    "author": {
+      "id": "autonomy-lab",
+      "name": "Auto-Merge research lab",
+      "type": "Software Assisted"
+    },
+    "draft": true,
+    "mapping-references": [
+      {
+        "id": "autonomy-maintenance-controls",
+        "title": "Maintainer-approved documentation merge requirements",
+        "version": "0.1.0"
+      }
+    ]
+  },
+  "contacts": {
+    "responsible": [
+      {
+        "name": "Repository maintainers"
+      }
+    ],
+    "accountable": [
+      {
+        "name": "Policy owners"
+      }
+    ]
+  },
+  "scope": {
+    "in": {
+      "technologies": [
+        "github"
+      ],
+      "groups": [
+        "fullsend-ai/auto-merge"
+      ]
+    }
+  },
+  "imports": {
+    "catalogs": [
+      {
+        "reference-id": "autonomy-maintenance-controls"
+      }
+    ]
+  },
+  "adherence": {
+    "assessment-plans": [
+      {
+        "id": "lp-auth-plan",
+        "requirement-id": "LP-AUTH-1",
+        "frequency": "every evaluation",
+        "evaluation-methods": [
+          {
+            "id": "lab-owner-grant",
+            "type": "Intent",
+            "mode": "Automated",
+            "required": true
+          }
+        ]
+      },
+      {
+        "id": "lp-scope-plan",
+        "requirement-id": "LP-SCOPE-1",
+        "frequency": "every evaluation",
+        "evaluation-methods": [
+          {
+            "id": "lab-exact-tree",
+            "type": "Intent",
+            "mode": "Automated",
+            "required": true
+          }
+        ]
+      },
+      {
+        "id": "lp-source-plan",
+        "requirement-id": "LP-SOURCE-1",
+        "frequency": "every evaluation",
+        "evaluation-methods": [
+          {
+            "id": "lab-trusted-source",
+            "type": "Intent",
+            "mode": "Automated",
+            "required": true
+          }
+        ]
+      },
+      {
+        "id": "lp-ci-plan",
+        "requirement-id": "LP-CI-1",
+        "frequency": "every evaluation",
+        "evaluation-methods": [
+          {
+            "id": "lab-revision-ci",
+            "type": "Intent",
+            "mode": "Automated",
+            "required": true
+          }
+        ]
+      },
+      {
+        "id": "lp-rules-plan",
+        "requirement-id": "LP-RULES-1",
+        "frequency": "every evaluation",
+        "evaluation-methods": [
+          {
+            "id": "lab-protected-queue",
+            "type": "Intent",
+            "mode": "Automated",
+            "required": true
+          }
+        ]
+      },
+      {
+        "id": "lp-discussion-plan",
+        "requirement-id": "LP-DISCUSSION-1",
+        "frequency": "every evaluation",
+        "evaluation-methods": [
+          {
+            "id": "lab-no-open-discussions",
+            "type": "Intent",
+            "mode": "Automated",
+            "required": true
+          }
+        ]
+      }
+    ],
+    "non-compliance": "Do not enqueue; fail the required merge-group check. Production qualification remains separate."
+  }
+}

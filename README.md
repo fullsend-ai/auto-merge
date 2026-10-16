@@ -2,17 +2,17 @@
 
 ## Current experiment: native Gemara policy and a bounded documentation pilot
 
-[Attempt 2](experiments/autonomy-platform/README.md) evaluates native Gemara
+[Gemara auto-merge implementation](gemara-auto-merge/README.md) evaluates native Gemara
 catalogs and imported common/repository policies against readiness and real PR
 evidence. Input artifacts and generated EvaluationLogs are schema-validated.
-Start with the [shadow walkthrough](docs/attempts/02-policy-evaluation/LIVE-TRIAL.md)
-or the [live trial and its limits](docs/attempts/02-policy-evaluation/LIVE-PILOT.md).
+Start with the [shadow walkthrough](docs/attempts/02-policy-evaluation/SHADOW-OBSERVATION.md)
+or the [live trial and its limits](docs/attempts/02-policy-evaluation/DOCUMENTATION-AUTO-MERGE-PILOT.md).
 
 PR #32 installs the repeatable implementation through an owner-authorized
 bootstrap. Installation and hosted live proof are recorded separately; the earlier
 one-PR live merge is historical evidence.
 
-The [repeatable pilot](docs/attempts/02-policy-evaluation/LIVE-PILOT.md) introduces
+The [repeatable pilot](docs/attempts/02-policy-evaluation/DOCUMENTATION-AUTO-MERGE-PILOT.md) introduces
 a time-boxed owner-enabled documentation cohort. The experimental maintenance
 path remains disabled and excludes governance changes. The writer uses a dedicated temporary repository App; registration,
 installation and hosted proof are tracked separately. Fullsend-native token

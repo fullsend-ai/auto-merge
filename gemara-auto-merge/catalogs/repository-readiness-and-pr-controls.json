@@ -1,0 +1,280 @@
+{
+  "title": "Repository readiness and PR eligibility requirements",
+  "metadata": {
+    "id": "autonomy-controls",
+    "type": "ControlCatalog",
+    "gemara-version": "1.5.0",
+    "version": "0.1.0",
+    "description": "Auto-Merge research policy; not an approved organizational standard",
+    "author": {
+      "id": "autonomy-lab",
+      "name": "Auto-Merge research lab",
+      "type": "Software Assisted"
+    },
+    "draft": true,
+    "applicability-groups": [
+      {
+        "id": "readiness",
+        "title": "Repository readiness",
+        "description": "readiness assessment scope"
+      },
+      {
+        "id": "candidate",
+        "title": "PR eligibility",
+        "description": "candidate assessment scope"
+      }
+    ]
+  },
+  "groups": [
+    {
+      "id": "readiness",
+      "title": "Repository readiness",
+      "description": "readiness assessment scope"
+    },
+    {
+      "id": "candidate",
+      "title": "PR eligibility",
+      "description": "candidate assessment scope"
+    }
+  ],
+  "controls": [
+    {
+      "id": "AR-RULES",
+      "title": "Branch rules observable",
+      "objective": "Branch rules observable must be demonstrated for this bound subject.",
+      "group": "readiness",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "AR-RULES-1",
+          "text": "Branch rules observable MUST be demonstrated using current, subject-bound evidence.",
+          "applicability": [
+            "readiness"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "AR-CHECKS",
+      "title": "Check metadata accessible",
+      "objective": "Check metadata accessible must be demonstrated for this bound subject.",
+      "group": "readiness",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "AR-CHECKS-1",
+          "text": "Check metadata accessible MUST be demonstrated using current, subject-bound evidence.",
+          "applicability": [
+            "readiness"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "AR-REVIEWS",
+      "title": "Review metadata accessible",
+      "objective": "Review metadata accessible must be demonstrated for this bound subject.",
+      "group": "readiness",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "AR-REVIEWS-1",
+          "text": "Review metadata accessible MUST be demonstrated using current, subject-bound evidence.",
+          "applicability": [
+            "readiness"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "AR-STATUS",
+      "title": "Trusted status publication",
+      "objective": "Trusted status publication must be demonstrated for this bound subject.",
+      "group": "readiness",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "AR-STATUS-1",
+          "text": "Trusted status publication MUST be demonstrated using current, subject-bound evidence.",
+          "applicability": [
+            "readiness"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "AR-TESTS",
+      "title": "Meaningful testing",
+      "objective": "Meaningful testing must be demonstrated for this bound subject.",
+      "group": "readiness",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "AR-TESTS-1",
+          "text": "Meaningful testing MUST be demonstrated using current, subject-bound evidence.",
+          "applicability": [
+            "readiness"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "AR-ISOLATION",
+      "title": "Runtime isolation",
+      "objective": "Runtime isolation must be demonstrated for this bound subject.",
+      "group": "readiness",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "AR-ISOLATION-1",
+          "text": "Runtime isolation MUST be demonstrated using current, subject-bound evidence.",
+          "applicability": [
+            "readiness"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "AR-QUEUE",
+      "title": "Verified merge route",
+      "objective": "Verified merge route must be demonstrated for this bound subject.",
+      "group": "readiness",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "AR-QUEUE-1",
+          "text": "Verified merge route MUST be demonstrated using current, subject-bound evidence.",
+          "applicability": [
+            "readiness"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "AR-HISTORY",
+      "title": "Shadow track record",
+      "objective": "Shadow track record must be demonstrated for this bound subject.",
+      "group": "readiness",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "AR-HISTORY-1",
+          "text": "Shadow track record MUST be demonstrated using current, subject-bound evidence.",
+          "applicability": [
+            "readiness"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "AM-CI",
+      "title": "Selected CI checks pass",
+      "objective": "Selected CI checks pass must be demonstrated for this bound subject.",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "AM-CI-1",
+          "text": "Selected CI checks pass MUST be demonstrated using current, subject-bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "AM-REVIEW",
+      "title": "Current Fullsend approval",
+      "objective": "Current Fullsend approval must be demonstrated for this bound subject.",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "AM-REVIEW-1",
+          "text": "Current Fullsend approval MUST be demonstrated using current, subject-bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "AM-FINDINGS",
+      "title": "No blocking findings",
+      "objective": "No blocking findings must be demonstrated for this bound subject.",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "AM-FINDINGS-1",
+          "text": "No blocking findings MUST be demonstrated using current, subject-bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "AM-RISK",
+      "title": "Risk within limit",
+      "objective": "Risk within limit must be demonstrated for this bound subject.",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "AM-RISK-1",
+          "text": "Risk within limit MUST be demonstrated using current, subject-bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "AM-CLASS",
+      "title": "Allowed change class",
+      "objective": "Allowed change class must be demonstrated for this bound subject.",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "AM-CLASS-1",
+          "text": "Allowed change class MUST be demonstrated using current, subject-bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    },
+    {
+      "id": "AM-PROTECTED",
+      "title": "Governed paths untouched",
+      "objective": "Governed paths untouched must be demonstrated for this bound subject.",
+      "group": "candidate",
+      "state": "Active",
+      "assessment-requirements": [
+        {
+          "id": "AM-PROTECTED-1",
+          "text": "Governed paths untouched MUST be demonstrated using current, subject-bound evidence.",
+          "applicability": [
+            "candidate"
+          ],
+          "state": "Active"
+        }
+      ]
+    }
+  ]
+}

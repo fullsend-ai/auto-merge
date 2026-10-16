@@ -1,0 +1,64 @@
+name: Gemara shadow observation
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Public auto-merge PR number to observe (no merge authority)
+        required: true
+        type: string
+      verify_example:
+        description: Also verify both live trial PRs and strict readiness holds
+        required: false
+        default: false
+        type: boolean
+  workflow_run:
+    workflows: [CI, fullsend]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+  actions: read
+
+jobs:
+  observe:
+    if: >-
+      github.repository == 'fullsend-ai/auto-merge'
+      && github.ref == 'refs/heads/main'
+      && (github.event_name == 'workflow_dispatch'
+          || github.event.workflow_run.pull_requests[0].number)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      # workflow_run uses the default branch SHA, never the triggering PR's code.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.6'
+          cache: false
+      - name: Install pinned native schema validator and definitions
+        env:
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
+        run: python3 gemara-auto-merge/install_pinned_toolchain.py
+      - name: Build native evaluator without credentials
+        env:
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
+        run: python3 gemara-auto-merge/build_native_evaluator.py
+      - name: Observe public metadata and write a normalized summary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr || github.event.workflow_run.pull_requests[0].number }}
+        run: python3 gemara-auto-merge/github_pr_evidence.py --pr "$PR_NUMBER" --summary
+
+      - name: Verify the complete positive and negative live shadow example
+        if: github.event_name == 'workflow_dispatch' && inputs.verify_example
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 gemara-auto-merge/verify_recorded_trial_evidence.py

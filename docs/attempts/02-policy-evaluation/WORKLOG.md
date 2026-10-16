@@ -726,3 +726,30 @@ tests/documentation changed since that completed review, as well as all normal
 queue/authorization/restoration checks. No exception is active.
 
 Final test/documentation-only correction validation: all 78 tests and Ruff pass.
+
+
+## Naming cleanup: Gemara auto-merge (2026-10-15, local preparation)
+
+Moved the active implementation from `experiments/autonomy-platform/` to
+`gemara-auto-merge/`. Catalogs now name the requirements they define; policies
+name the merge scope they assess. Owner settings and the temporary App manifest
+live under `config/`, separately from native Gemara policies. The Go implementation
+lives under `native-evaluator/`; Python entry points, tests, generated report names
+and workflow filenames describe their jobs. The README provides a file guide.
+The active walkthroughs are now `SHADOW-OBSERVATION.md` and
+`DOCUMENTATION-AUTO-MERGE-PILOT.md`; the versioned historical attempts remain intact.
+
+Preserved artifact IDs, requirement IDs, assessment methods, parameters, pilot
+settings, dependency pins and the required `Gemara pilot queue gate` check name.
+Only human-readable JSON titles changed. Updated exact workflow/source verification,
+repository-root resolution, code-owner coverage and protected-path classification.
+All catalog, policy and configuration files remain covered by trusted-source hashes.
+The disabled maintenance path remains disabled. No GitHub settings, App credentials,
+branch protections or live workflow runs were changed during this preparation.
+
+Validation: offline native Go module verification/tests/build; 79 Python tests,
+including trusted-source rejection for changed inputs in every moved JSON directory;
+Ruff; actionlint; and local Markdown links pass. A structural comparison of all ten
+JSON files confirms their requirements, IDs, configuration and pins are unchanged.
+The staged-diff secret scan reports no leaks, and whitespace checks pass.
+Publication and hosted validation remain separate steps after explicit authorization.

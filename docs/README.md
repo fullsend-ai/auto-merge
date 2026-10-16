@@ -12,7 +12,7 @@ implementation. It is not a production-ready cross-SCM merge service.
 
 - [Attempt 1: agent-led authorization](attempts/01-agent-led/README.md) preserves
   the earlier implementation and original documentation paths.
-- [Attempt 2: read-only policy evaluation](../experiments/autonomy-platform/README.md)
+- [Attempt 2: Gemara auto-merge policies and documentation pilot](../gemara-auto-merge/README.md)
   uses native Gemara catalogs/policies for readiness and exact-revision assessment.
   Its [scope and limits](attempts/02-policy-evaluation/README.md) distinguish this
   experiment from a supported Fullsend integration.

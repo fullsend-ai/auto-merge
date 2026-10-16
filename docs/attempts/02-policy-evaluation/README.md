@@ -2,8 +2,8 @@
 
 The current work replaces the comparison trial with one Gemara-native path:
 ControlCatalog → common Policy → repository Policy → bound evidence → native
-EvaluationLog → shadow decision. See the [runbook](../../../experiments/autonomy-platform/README.md)
-and [walkthrough](LIVE-TRIAL.md).
+EvaluationLog → shadow decision. See the [runbook](../../../gemara-auto-merge/README.md)
+and [walkthrough](SHADOW-OBSERVATION.md).
 
 Policies are now actual schema-validated Gemara documents. Repository assessments
 are additive to imported common assessments; the host no longer composes a custom
