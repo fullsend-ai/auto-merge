@@ -856,3 +856,17 @@ No upstream repository or organization/cloud configuration was changed.
   is the existing official App naming prefix, not a credential or additional
   trusted principal: the pinned post-script already recognizes that App set.
   Refreshed the host lock. Further deployment requires a new owner exception.
+
+## 2026-10-16 — Prepared explicit sandbox provider profiles
+
+- Deployed `6de2c90` with approved temporary exception, then restored original
+  rules with no bypass actors. PR #43 head `cff3fce` automatically triggered
+  run 38963493603; token mint, GCP auth and environment validation passed.
+- Sandbox setup failed because the older pinned agent harness names github-ro
+  and vertex-ai providers without declaring their OpenShell profiles. This
+  pinned runtime intentionally imports only declared profiles; copying an
+  entire profile directory is not the supported correction.
+- Prepared declarations for just the official GitHub read-only and Vertex AI
+  profiles at the binary's immutable Fullsend source commit, each with an
+  explicit SHA-256 integrity pin. No general GitHub write provider is added.
+  Updated host lock; owner deployment approval still required.
