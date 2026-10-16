@@ -1,7 +1,8 @@
 # Hosted Review with actual Fullsend vendored mode
 
 Status: deployed and exercised on GitHub; the HTTP 401 authentication failure
-is fixed. Hosted Review currently stops on a missing runner configuration value. Native publication and authenticated artifact consumption are
+is fixed, as is the runner App-set setting. Hosted Review currently stops while
+creating undeclared sandbox provider profiles. Native publication and authenticated artifact consumption are
 **not yet proven on a hosted successful Review**. No synthetic replay is called
 hosted proof.
 
@@ -132,3 +133,21 @@ Returning to the previous layered installation requires restoring the shim,
 removing manifest-listed vendored assets/binary, and restoring a post-script that
 does not require native publication. Never leave a missing native publisher with
 an apparently passing native-evidence check.
+
+## Provider-profile compatibility correction (prepared, not deployed)
+
+The App-set correction deployed at `6de2c90`. Automatic run
+[38963493603](https://github.com/fullsend-ai/auto-merge/actions/runs/38963493603)
+passed authentication and environment validation, then failed creating
+`github-ro` and `vertex-ai`: their profile types were not imported. The older
+pinned agent harness names those providers without declaring profiles; this
+pinned runtime imports only explicitly declared profiles. The official
+workspace-preparation action intentionally excludes bulk profile copying.
+
+The prepared child harness explicitly declares just `fullsend-github-ro` and
+`fullsend-vertex-ai`, using official profile URLs at the binary's immutable
+Fullsend source revision and SHA-256 integrity hashes. The GitHub profile enforces
+read-only API access. No GitHub write provider, credential or App scope is added.
+The actual pinned Fullsend composer, environment validator and profile resolver
+have successfully checked this child harness and fetched/verified both profiles
+without credentials. A fresh hosted run is still required after deployment.

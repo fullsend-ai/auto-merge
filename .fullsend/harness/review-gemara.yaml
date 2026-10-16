@@ -1,4 +1,4 @@
-# Official Review; only host publication gains the lab risk receipt.
+# Official Review with pinned runtime compatibility and lab host publication.
 base: https://raw.githubusercontent.com/fullsend-ai/agents/a159f388364279487818325ef5d3cc1bcd31e1ea/harness/review.yaml#sha256=018ea874f6b0faa478fdd3e1eff005938dc59b8445b05a8b8e24d0196f0b9188
 post_script: scripts/post-review-gemara.py
 # The pinned agent harness expects this non-secret App naming prefix. The
@@ -6,3 +6,9 @@ post_script: scripts/post-review-gemara.py
 env:
   runner:
     FULLSEND_APP_SET: fullsend-ai
+# These named providers require explicit profile declarations in this runtime.
+# Use the official profiles at the same immutable source revision as the binary.
+openshell:
+  profiles:
+    - https://raw.githubusercontent.com/fullsend-ai/fullsend/1528aac1b8361ef7f5cad1ba55f304402761580c/internal/scaffold/fullsend-repo/profiles/fullsend-github-ro.yaml#sha256=074eea4ea6fbde14066f006791ecdb5d92bd1f36fa23b83c35b83b12c797b2c7
+    - https://raw.githubusercontent.com/fullsend-ai/fullsend/1528aac1b8361ef7f5cad1ba55f304402761580c/internal/scaffold/fullsend-repo/profiles/fullsend-vertex-ai.yaml#sha256=984d0c6dc5f69094f89fa723f21682eb3a90ba3590e0f72f2c21f5b0e270cf76

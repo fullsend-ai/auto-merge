@@ -184,7 +184,7 @@
     },
     {
       "path": ".fullsend/harness/review-gemara.yaml",
-      "blob_sha1": "96058566415bb367ba70df11a192c1f2580a642b"
+      "blob_sha1": "d0b8546bcbdb65e635fad2c51ee08336e1b443dc"
     },
     {
       "path": ".fullsend/scripts/post-review-gemara.py",
