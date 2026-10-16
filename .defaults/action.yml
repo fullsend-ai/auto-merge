@@ -507,6 +507,15 @@ runs:
         # at the top of each runDir.
         fullsend eval-measure "${MEASURE_ARGS[@]}"
 
+    - name: Retain native Fullsend Review evidence
+      if: always() && inputs.agent == 'review'
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: fullsend-review-evidence-${{ github.run_attempt }}
+        path: ${{ github.workspace }}/output/fullsend-review-evidence.json
+        if-no-files-found: ignore
+        retention-days: 14
+
     - name: Upload fullsend artifacts
       if: always() && inputs.agent != '__install_only__'
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

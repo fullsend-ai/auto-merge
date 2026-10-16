@@ -35,7 +35,11 @@ class NativeArtifactTests(unittest.TestCase):
                 {
                     "path": "fullsend-ai/auto-merge/.github/workflows/reusable-dispatch.yml@refs/heads/main",
                     "sha": "b" * 40,
-                }
+                },
+                {
+                    "path": "fullsend-ai/fullsend/.github/workflows/reusable-review.yml@1528aac1b8361ef7f5cad1ba55f304402761580c",
+                    "sha": self.record["producer"]["fullsend_commit"],
+                },
             ],
         }
         self.raw = archive(self.record)
@@ -82,6 +86,18 @@ class NativeArtifactTests(unittest.TestCase):
                 self.verify(dict(self.run, **change))
         with self.assertRaises(InputError):
             self.verify(context=False)
+
+    def test_unpinned_or_additional_workflow_wrapper_is_rejected(self):
+        refs = self.run["referenced_workflows"]
+        for changed in [
+            refs[:1],
+            refs + [dict(refs[1])],
+            [refs[0], dict(refs[1], sha="f" * 40)],
+            [refs[0], dict(refs[1], path="other/repo/.github/workflows/reusable-review.yml@main")],
+            [dict(refs[0], sha="f" * 40), refs[1]],
+        ]:
+            with self.assertRaises(InputError):
+                self.verify(dict(self.run, referenced_workflows=changed))
 
     def test_zip_digest_exact_member_and_json_contract_fail_closed(self):
         for raw, metadata in [

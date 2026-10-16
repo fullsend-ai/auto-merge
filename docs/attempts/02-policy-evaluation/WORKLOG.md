@@ -821,3 +821,26 @@ review posting; authenticated artifact consumption replaces comment reconstructi
 for native evidence. The earlier D1–D4 record remains a local-validation snapshot.
 See HOSTED-VENDORED-REVIEW.md for deployment/run evidence as it becomes available.
 No upstream repository or organization/cloud configuration was changed.
+
+## 2026-10-16 — Actual vendored hosted Review trial
+
+- Deployed `276ed5d` after ordinary CI passed using the explicitly approved
+  one-time repository-admin bypass. Fast-forward push only; immediately restored
+  the original rules. Verified active enforcement and no bypass actors.
+- Opened documentation PR #43 (`4626274`) after restoration. Automatic Fullsend
+  run 38945541104 used the local dispatcher/vendored defaults but failed minting
+  the Review role token with HTTP 401. The agent did not run; zero artifacts.
+- Read-only observer correctly held with `native_latest_run_not_successful`.
+  Native hosted publication/consumption remains unproven. No changes outside
+  auto-merge were made. See HOSTED-VENDORED-REVIEW.md for evidence and next step.
+- This result update is retained locally pending resolution; it was not pushed
+  just to trigger another identical blocked run.
+
+## 2026-10-16 — Prepared vendored Review authentication correction
+
+- Reduced local Review job to a call to the pinned official reusable Review
+  wrapper. Vendored binary, defaults and native publisher remain repository-owned.
+- Moved narrow evidence upload into the vendored action. Require both exact
+  workflow references in the artifact verifier; added rejection tests.
+- 108 tests and workflow lint pass. No new credential, App permission, upstream
+  modification, cloud modification or branch-rule change. Deployment pending.

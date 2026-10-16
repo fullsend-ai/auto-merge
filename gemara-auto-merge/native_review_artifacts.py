@@ -186,13 +186,22 @@ def verify_record(client, current_tree, pr, run, artifact, raw, verify_context, 
         "native_binary_identity_mismatch",
     )
     references = run.get("referenced_workflows")
+    expected = {
+        (
+            "fullsend-ai/auto-merge/.github/workflows/reusable-dispatch.yml",
+            s["configuration_sha"],
+        ),
+        (
+            "fullsend-ai/fullsend/.github/workflows/reusable-review.yml",
+            build["source_commit"],
+        ),
+    }
     require(
         isinstance(references, list)
-        and len(references) == 1
-        and references[0].get("sha") == s["configuration_sha"]
-        and references[0]
-        .get("path", "")
-        .startswith("fullsend-ai/auto-merge/.github/workflows/reusable-dispatch.yml@"),
+        and len(references) == 2
+        and all(isinstance(ref, dict) and isinstance(ref.get("path"), str) for ref in references)
+        and {(ref["path"].split("@", 1)[0], ref.get("sha")) for ref in references} == expected
+        and all("@" in ref["path"] for ref in references),
         "native_workflow_reference_unverified",
     )
     require(

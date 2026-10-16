@@ -40,7 +40,7 @@
     },
     {
       "path": ".defaults/action.yml",
-      "blob_sha1": "9ed38708da910326b062d88d49f54c569c158835"
+      "blob_sha1": "c20ae10069b8ee17d3e6e3831190e2251acd59c2"
     },
     {
       "path": ".defaults/internal/scaffold/fullsend-repo/.github/scripts/setup-agent-env.sh",
@@ -152,7 +152,7 @@
     },
     {
       "path": ".github/workflows/reusable-dispatch.yml",
-      "blob_sha1": "45be77f80813e13711946aa28b460036277c6bc0"
+      "blob_sha1": "9689f4540052985ee49e82c453db73a69bbf1396"
     },
     {
       "path": ".github/workflows/reusable-fix.yml",

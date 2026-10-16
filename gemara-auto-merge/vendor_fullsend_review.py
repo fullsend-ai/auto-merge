@@ -105,22 +105,59 @@ def install():
     (ROOT.parent / ".fullsend/evidence-build.json").write_text(
         json.dumps(receipt, indent=2) + "\n"
     )
+    patch_review_wrapper()
+    print("Official vendored runtime rendered with pinned upstream Review wrapper.")
+
+
+def patch_review_wrapper():
+    """Preserve supported OIDC identity; keep runtime and publication local."""
     dispatch = ROOT.parent / ".github/workflows/reusable-dispatch.yml"
     text = dispatch.read_text()
-    upload = """      - name: Retain native Fullsend Review evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: fullsend-review-evidence-${{ github.run_attempt }}
-          path: output/fullsend-review-evidence.json
-          if-no-files-found: ignore
-          retention-days: 14
+    start, end = text.index("\n  review:\n"), text.index("\n  fix:\n")
+    review = """
+  review:
+    name: Review
+    needs: route
+    if: needs.route.outputs.stage == 'review'
+    permissions:
+      actions: write
+      contents: read
+      id-token: write
+      issues: write
+      pull-requests: write
+    uses: fullsend-ai/fullsend/.github/workflows/reusable-review.yml@1528aac1b8361ef7f5cad1ba55f304402761580c
+    with:
+      event_type: ${{ github.event_name }}
+      source_repo: ${{ github.repository }}
+      event_payload: ${{ needs.route.outputs.event_payload }}
+      mint_url: ${{ inputs.mint_url }}
+      gcp_region: ${{ inputs.gcp_region }}
+      fullsend_version: ${{ inputs.fullsend_version }}
+      install_mode: ${{ inputs.install_mode }}
+      runner_image: ${{ inputs.runner_image }}
+    secrets:
+      FULLSEND_GCP_WIF_PROVIDER: ${{ secrets.FULLSEND_GCP_WIF_PROVIDER }}
+      FULLSEND_GCP_PROJECT_ID: ${{ secrets.FULLSEND_GCP_PROJECT_ID }}
+      OTEL_EXPORTER_OTLP_TRACES_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_TRACES_HEADERS }}
+      OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
 """
-    assert text.count("\n  fix:\n") == 1
-    dispatch.write_text(text.replace("\n  fix:\n", "\n" + upload + "\n  fix:\n"))
-    print(
-        "Official vendored assets, local shim and manifest rendered; Review artifact step added."
-    )
+    dispatch.write_text(text[:start].rstrip() + "\n" + review + text[end:])
+    action = ROOT.parent / ".defaults/action.yml"
+    text = action.read_text()
+    marker = "    - name: Upload fullsend artifacts\n"
+    upload = """    - name: Retain native Fullsend Review evidence
+      if: always() && inputs.agent == 'review'
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: fullsend-review-evidence-${{ github.run_attempt }}
+        path: ${{ github.workspace }}/output/fullsend-review-evidence.json
+        if-no-files-found: ignore
+        retention-days: 14
+
+"""
+    if "    - name: Retain native Fullsend Review evidence\n" not in text:
+        assert text.count(marker) == 1
+        action.write_text(text.replace(marker, upload + marker))
 
 
 if __name__ == "__main__":
