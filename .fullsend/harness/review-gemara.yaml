@@ -12,3 +12,6 @@ openshell:
   profiles:
     - https://raw.githubusercontent.com/fullsend-ai/fullsend/1528aac1b8361ef7f5cad1ba55f304402761580c/internal/scaffold/fullsend-repo/profiles/fullsend-github-ro.yaml#sha256=074eea4ea6fbde14066f006791ecdb5d92bd1f36fa23b83c35b83b12c797b2c7
     - https://raw.githubusercontent.com/fullsend-ai/fullsend/1528aac1b8361ef7f5cad1ba55f304402761580c/internal/scaffold/fullsend-repo/profiles/fullsend-vertex-ai.yaml#sha256=984d0c6dc5f69094f89fa723f21682eb3a90ba3590e0f72f2c21f5b0e270cf76
+# Supported skill override: preserve official Review with parser-compatible examples.
+skills:
+  - skills/github

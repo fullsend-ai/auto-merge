@@ -1,8 +1,8 @@
 # Hosted Review with actual Fullsend vendored mode
 
 Status: deployed and exercised on GitHub; the HTTP 401 authentication failure
-is fixed, as is the runner App-set setting. Hosted Review currently stops while
-creating undeclared sandbox provider profiles. Native publication and authenticated artifact consumption are
+is fixed, as are the App-set and provider-profile startup settings. Hosted
+Review currently returns tool-failure on the pinned skill's shell examples. Native publication and authenticated artifact consumption are
 **not yet proven on a hosted successful Review**. No synthetic replay is called
 hosted proof.
 
@@ -151,3 +151,26 @@ read-only API access. No GitHub write provider, credential or App scope is added
 The actual pinned Fullsend composer, environment validator and profile resolver
 have successfully checked this child harness and fetched/verified both profiles
 without credentials. A fresh hosted run is still required after deployment.
+
+## Shell skill compatibility correction (prepared, not deployed)
+
+The profile correction deployed at `418d762`. Automatic
+[run 38964676701](https://github.com/fullsend-ai/auto-merge/actions/runs/38964676701),
+PR head `a51d79d`, started the real agent. Attempts 1 and 2 both returned
+`failure / tool-failure`. Failed tool messages show Tirith rejecting the pinned
+GitHub Review skill's command-substitution script; a subsequent diagnostic curl
+was blocked by DNS/SSRF protection. The native publisher refused the failure
+ledger, emitted no record, and the job failed. This is not a completed Review or
+an authenticated native evidence proof. Ordinary `fullsend-review` artifacts
+exist; those must not be confused with native evidence.
+
+The prepared local skill override retains the pinned official Review guidance
+and changes only three Bash examples to file-mediated forms. All nine Bash
+blocks pass the checksum-verified sandbox Tirith 0.4.1 binary without guard or
+policy changes. Fixture tests verify paginated file collection, malformed commit
+counts, the 250-commit cap, unavailable commit data, the 300-file comparison cap
+and full-diff fallback. The actual pinned Fullsend composer verifies that this
+local GitHub skill replaces the inherited GitHub Review skill; environment and
+SHA-pinned profile validation still pass. Provenance and the original skill's
+content hash are retained in the override; its blob is included in the host lock.
+Deployment and another hosted proof remain pending owner approval.
