@@ -870,3 +870,16 @@ No upstream repository or organization/cloud configuration was changed.
   profiles at the binary's immutable Fullsend source commit, each with an
   explicit SHA-256 integrity pin. No general GitHub write provider is added.
   Updated host lock; owner deployment approval still required.
+
+## 2026-10-16 — Prepared Tirith-compatible official Review skill override
+
+- Profiles deployed at `418d762`; original protections immediately restored.
+  PR #43 automatically ran 38964676701. Agent ran, but returned tool-failure.
+  One retry at unchanged configuration reproduced the same guard rejection.
+- Bounded artifact diagnostics confirmed the rejected command is copied from
+  pinned official skill examples. Tirith 0.4.1 static analysis reproduces three
+  failing blocks; file-mediated replacements make all nine blocks pass.
+- Prepared a supported repo-local skill override; no scanner, egress rule,
+  model permission, credential or review criterion is relaxed. Actual Fullsend
+  composition selects it. Added fixture tests for pagination/count/cap/fallback
+  semantics and included its blob in the host lock. Deployment approval pending.

@@ -21,6 +21,7 @@ def lock():
             ".github/workflows/fullsend.yaml",
             ".fullsend/config.yaml",
             ".fullsend/harness/review-gemara.yaml",
+            ".fullsend/skills/github/SKILL.md",
             ".fullsend/scripts/post-review-gemara.py",
             ".fullsend/scripts/review-risk.patch",
             ".fullsend/scripts/publish-review-evidence.py",
