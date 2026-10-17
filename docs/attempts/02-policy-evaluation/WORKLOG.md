@@ -883,3 +883,18 @@ No upstream repository or organization/cloud configuration was changed.
   model permission, credential or review criterion is relaxed. Actual Fullsend
   composition selects it. Added fixture tests for pagination/count/cap/fallback
   semantics and included its blob in the host lock. Deployment approval pending.
+
+## 2026-10-16 — Prepared readonly gateway GitHub credential mapping
+
+- Skill deployed at `de797b2` after ordinary CI; original protections restored
+  with no bypass actors. PR #43 head `47e01bb` triggered run 38969764900.
+- Agent reached API access but GH_TOKEN was absent. The empty provider placeholder
+  was not a valid credential. Bounded diagnostics showed no native publication.
+- Prepared a gateway GH_TOKEN reference and explicit runtime read / host-script
+  write mint stages. Actual Fullsend parser verifies both; readonly GitHub policy
+  unchanged. No real token is committed or intentionally placed in the sandbox.
+- Updated renderer and host lock. Deployment requires a new owner exception.
+- Owner approved this correction and one-time deployment/retest. Read-only
+  comparison with Fullsend main `07bb0ea` and Agents main `65c52d7` confirms the
+  same gateway GH_TOKEN mapping and supported stage privileges. Kept existing
+  immutable runtime/agent pins to avoid an unrelated platform upgrade.

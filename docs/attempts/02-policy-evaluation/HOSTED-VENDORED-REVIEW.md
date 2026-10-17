@@ -1,8 +1,8 @@
 # Hosted Review with actual Fullsend vendored mode
 
 Status: deployed and exercised on GitHub; the HTTP 401 authentication failure
-is fixed, as are the App-set and provider-profile startup settings. Hosted
-Review currently returns tool-failure on the pinned skill's shell examples. Native publication and authenticated artifact consumption are
+is fixed, as are the App-set, profile and shell-example startup issues. Hosted
+Review currently lacks a usable readonly GitHub credential in the sandbox. Native publication and authenticated artifact consumption are
 **not yet proven on a hosted successful Review**. No synthetic replay is called
 hosted proof.
 
@@ -174,3 +174,42 @@ local GitHub skill replaces the inherited GitHub Review skill; environment and
 SHA-pinned profile validation still pass. Provenance and the original skill's
 content hash are retained in the override; its blob is included in the host lock.
 Deployment and another hosted proof remain pending owner approval.
+
+## Readonly gateway credential correction (prepared, not deployed)
+
+The skill correction deployed at `de797b2`. Automatic
+[run 38969764900](https://github.com/fullsend-ai/auto-merge/actions/runs/38969764900),
+PR head `47e01bb`, passed the previous startup and initial shell-example checks.
+The first GitHub API call failed because no GH_TOKEN was exported. An agent
+attempt to use the empty `_NOOP_GITHUB_RO` provider placeholder returned HTTP 401;
+that placeholder is not a real credential. The final action was again
+`failure / tool-failure`, and no native evidence record was accepted.
+
+The prepared provider mapping replaces the empty placeholder with the reference
+`GH_TOKEN: "${GH_TOKEN}"`. The real runtime-minted installation token is delivered
+to the gateway through the host process environment; OpenShell exposes a
+placeholder in the sandbox. The harness explicitly sets `runtime: read` and
+host-side `pre_script`/`post_script: write` under `privilege_levels`. The pinned
+runtime mints the runtime token before provider expansion and remints the
+post-script token after sandbox teardown. No personal token, stored token value,
+new App scope or GitHub write provider is added. The existing enforced readonly
+GitHub profile remains unchanged.
+
+Actual Fullsend composition/provider parsing verifies those privilege levels,
+the single GH_TOKEN reference, the selected skill override and both pinned
+profiles. The vendor renderer reproduces the mapping and the host lock binds it.
+Hosted authentication/publication remains unproven until deployment and retest.
+
+### Comparison with current upstream
+
+Read-only inspection on 2026-10-16 confirms that current Fullsend
+[`07bb0ea`](https://github.com/fullsend-ai/fullsend/blob/07bb0ea2898cf1a65ac483a43269e60bdf9d6143/internal/scaffold/fullsend-repo/providers/github-ro.yaml)
+uses the same `GH_TOKEN: "${GH_TOKEN}"` provider mapping. Its
+[stage privilege implementation](https://github.com/fullsend-ai/fullsend/blob/07bb0ea2898cf1a65ac483a43269e60bdf9d6143/internal/harness/privilege.go)
+still supports the explicit runtime/read and host-script/write configuration.
+The current Agents
+[Review harness](https://github.com/fullsend-ai/agents/blob/65c52d7ed90b6f6471d4b5a3e60b818361a32ad4/harness/review.yaml)
+still selects the `github-ro` provider. This fix adopts that existing credential
+mechanism without updating our binary, agent, image, wrapper or profile pins.
+The native evidence publisher remains a repository-local experimental extension;
+this comparison does not establish it as a shipped upstream feature.
