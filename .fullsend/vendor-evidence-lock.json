@@ -88,7 +88,7 @@
     },
     {
       "path": ".defaults/internal/scaffold/fullsend-repo/providers/github-ro.yaml",
-      "blob_sha1": "97527b561c431e3c1f1c771728e45ab64ec0ffc3"
+      "blob_sha1": "24b5caa2565b1fe927c4ebeb8618af6edf41bf30"
     },
     {
       "path": ".defaults/internal/scaffold/fullsend-repo/providers/github.yaml",
@@ -184,7 +184,7 @@
     },
     {
       "path": ".fullsend/harness/review-gemara.yaml",
-      "blob_sha1": "211afa71cbbc66bee596532a3b54a5fab0ff199a"
+      "blob_sha1": "354f75c10d26bac6db7b43e7510e72d2c99abfa0"
     },
     {
       "path": ".fullsend/skills/github/SKILL.md",

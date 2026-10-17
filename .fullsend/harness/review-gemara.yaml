@@ -15,3 +15,9 @@ openshell:
 # Supported skill override: preserve official Review with parser-compatible examples.
 skills:
   - skills/github
+# Mint a read-only installation token before provider credential expansion.
+# Only host-side scripts obtain the write level needed to publish the review.
+privilege_levels:
+  pre_script: write
+  runtime: read
+  post_script: write

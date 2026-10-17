@@ -121,6 +121,16 @@ def patch_review_wrapper():
     )
     assert local in text or upstream in text
     shim.write_text(text.replace(local, upstream))
+    provider = (
+        ROOT.parent
+        / ".defaults/internal/scaffold/fullsend-repo/providers/github-ro.yaml"
+    )
+    provider.write_text(
+        "---\nname: github-ro\ntype: fullsend-github-ro\n"
+        "# The gateway holds the runtime-minted read-only token and exposes a placeholder.\n"
+        "# The real token is passed through the host environment, never committed here.\n"
+        'credentials:\n  GH_TOKEN: "${GH_TOKEN}"\n'
+    )
     action = ROOT.parent / ".defaults/action.yml"
     text = action.read_text()
     marker = "    - name: Upload fullsend artifacts\n"
