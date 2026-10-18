@@ -1,5 +1,7 @@
 # Gemara auto-merge
 
+**Current overview: [state and hosted proof](../docs/attempts/02-policy-evaluation/CURRENT-STATE.md).**
+
 One engine: native Gemara. The comparison evaluator and custom JSON rule profiles
 have been removed. Start with the [walkthrough](../docs/attempts/02-policy-evaluation/SHADOW-OBSERVATION.md).
 The replay and shadow observer remain read-only. A separate, explicitly granted
@@ -73,7 +75,7 @@ python3 gemara-auto-merge/install_pinned_toolchain.py
 python3 gemara-auto-merge/build_native_evaluator.py
 python3 -m unittest discover -s gemara-auto-merge -p 'test_*.py'
 python3 gemara-auto-merge/run_policy_examples.py
-python3 gemara-auto-merge/github_pr_evidence.py --pr 28
+python3 gemara-auto-merge/github_pr_evidence.py --pr 43
 ```
 
 Setup downloads hash-pinned CUE/schema data and checksum-pinned Go modules. Use
@@ -93,29 +95,26 @@ bounded GET-only requests, refuses redirects and holds on incomplete/changing
 state. It never executes PR code, reads workflow logs, posts
 comments/statuses or changes rules. An approved read credential can be supplied
 locally via GH_TOKEN/GITHUB_TOKEN when needed; it is not passed to the evaluator.
-Reports discard API bodies, patches, review text and actor identities. The collector
-uses the official v2 findings projection with a pinned bot ID, explicit head and
-matching approval; any open finding holds. It verifies a historical queue route
-against current rules and CI/validator source hashes. Reviews, comments and CI
-are rechecked for collection stability. Only normalized control results and source
-identifiers enter reports. The legacy risk comment lacks revision binding and cannot satisfy the risk
-control. The lab now composes the pinned official Review harness with a small
-host publication extension: it emits a sanitized head/config/run/attempt-bound
-risk receipt. The collector verifies a completed Fullsend run using event-specific
-bindings: `issue_comment` identifies the main configuration commit, while a
-same-repository `pull_request_target` run identifies the PR head separately from
-its base configuration using GitHub's unambiguous check-suite PR/base association
-and pinned dispatcher reference. Current/configuration host source blobs must match the
-pins; automatic reviews also require matching host sources at the PR head before
-supplying ordinal risk to Gemara. This is
-a lab receipt contract, not an upstream feature or a new model agent. See the
-[evidence update](../docs/attempts/02-policy-evaluation/SHADOW-OBSERVATION.md#evidence-and-trust-boundaries)
-for verified sources and the remaining evidence owners.
+Reports discard API bodies, patches, review text and actor identities. With the
+vendored host lock installed, `native_review_artifacts.py` supplies the Review,
+findings and risk observations from the bounded native artifact. It verifies
+GitHub-owned run/check-suite context, exact repository/head/base/configuration,
+run attempt, expected upstream wrapper and pinned host/source blobs. Missing or
+invalid native evidence holds; there is no silent fallback to older comment
+markers. The current native collector selects automatic `pull_request_target`
+runs; command-triggered support in the older receipt path is not a demonstrated
+native-route feature.
+
+The trusted publisher sanitizes the official findings projection into the native
+record. This is an authenticated repository-local lab contract, not a centrally
+shipped Fullsend publisher or a new model agent. Its model risk estimate remains
+fallible. The older sticky finding/risk-receipt parser remains historical and is
+not the active evidence route when the native host lock is present.
 
 The `Gemara shadow observation` workflow runs trusted main code after
-CI, and after Fullsend runs when GitHub associates a PR. Manual dispatch on main
-with a PR number handles Review commands that have no associated PR in the
-workflow event. The Summary lists each native policy/plan and its result. A green
+CI, and after Fullsend runs when GitHub associates a PR. Manual observation on
+main can name a PR explicitly, but cannot waive missing native publication or
+make old evidence fresh. The Summary lists each native policy/plan and its result. A green
 workflow means evaluation completed; read the decision, which can still hold.
 The Gemara integration-test job in CI uses synthetic data only. Neither path installs
 merge rules or publishes an authoritative eligibility check.
@@ -151,26 +150,22 @@ readiness assurance, findings or risk still holds even with green CI and approva
 This remains a prototype, not an approved company standard or a production merger.
 
 
-## Verify the complete live shadow example
+## Inspect the current hosted shadow example
 
-After the configured official Review finishes for PR #28:
+Follow [PR #43's native evidence walkthrough](../docs/attempts/02-policy-evaluation/SHADOW-OBSERVATION.md).
+The retained hosted shadow bundle records `contract_verified` and a policy hold;
+it is historical proof, not a reusable current authorization. After local setup:
 
 ```sh
-python3 gemara-auto-merge/verify_recorded_trial_evidence.py
+python3 gemara-auto-merge/run_review_evidence_examples.py
+python3 gemara-auto-merge/github_pr_evidence.py --pr 43
 ```
 
-Or dispatch `Gemara shadow observation` on main with `pr=28` and
-`verify_example=true`. It verifies PR #28 passes every native candidate assessment,
-PR #29's intentional CI failure holds, and neither candidate overrides missing
-repository readiness. The workflow needs actions:read only to verify producer run
-metadata; it neither reads workflow logs nor downloads result artifacts.
-
-A successful example is not an autonomous-merge qualification. Candidate policy,
-repository readiness and the combined gate are reported separately. Readiness
-requirements still need accepted test-sufficiency, runtime-isolation and shadow
-outcome evidence, plus an authoritative publisher. Unknown evidence stays Unknown;
-the fully supplied readiness case remains explicitly synthetic in run_policy_examples.py. No
-production threshold or approval is invented from the two test PRs.
+The replay is synthetic. The observer reads current state and correctly holds on
+expired or changed evidence. The older `verify_recorded_trial_evidence.py` and
+`verify_example=true` option refer to the historical #28/#29 receipt-based trial;
+they are not the smoke test for the current native collector. A new eligible and
+ineligible native-path hosted pair remains to be demonstrated.
 
 ## Repeatable pilot and maintenance
 
@@ -179,9 +174,9 @@ See [documentation-auto-merge-settings.json](config/documentation-auto-merge-set
 The common and repository policies still govern automatic candidates; the separate
 maintenance policy remains disabled for the demo. Its retained documentation-only
 path requires explicit execution and independent current-head human approval;
-governance paths require code-owner review. The draft writer uses a dedicated temporary repository App with a main-only
-Actions environment. Fullsend-native token minting remains unresolved.
-This draft does not depend on an unmerged upstream workflow or a personal token.
+governance paths require code-owner review. The writer uses a dedicated temporary repository App with a main-only
+Actions environment. Fullsend-native queue-writer credential handoff remains unresolved; Review authentication works.
+This lab does not depend on an unmerged upstream workflow or a personal token.
 
 ## Evidence publication and current proof
 
@@ -196,17 +191,18 @@ contain no raw forge response, model prose or environment dump. A digest manifes
 is an unsigned integrity record, not an independent trust attestation.
 
 The [Review contract](../docs/attempts/02-policy-evaluation/REVIEW-EVIDENCE-CONTRACT.md)
-explains the repository-local Fullsend binary experiment. Its source overlay and
-build/replay recipes live here; generated binaries stay ignored. It uses synthetic
-host inputs and publication proof to test the contract through real Fullsend and
-Gemara execution. It does not enable a new live Review publisher or replace the
-existing verified bot/risk-receipt consumer.
+explains the native producer/consumer boundary. Its source overlay and build/replay
+recipes live here. The vendored binary, build receipt and host lock are committed;
+caches and the isolated source copy remain ignored. Replays use synthetic proof,
+while the separate hosted #43 trial used real publication and automatic verified
+consumption. That trial held and did not merge.
 
 ## Hosted vendored Review
 
 [The vendored-mode trial](../docs/attempts/02-policy-evaluation/HOSTED-VENDORED-REVIEW.md)
-installs the official local workflows/defaults and the built binary, rather than
-merely storing a binary for local replay. `native_review_artifacts.py` reads only
+uses local defaults and the committed built binary under the pinned upstream
+authentication wrapper. Local reusable workflow copies are retained, but the
+active shim delegates to that upstream wrapper. `native_review_artifacts.py` reads only
 a bounded, digest-checked native Review JSON artifact from authenticated Actions
 execution; it does not read arbitrary artifacts or workflow logs. Native record
 absence fails closed once the vendored host lock is present.

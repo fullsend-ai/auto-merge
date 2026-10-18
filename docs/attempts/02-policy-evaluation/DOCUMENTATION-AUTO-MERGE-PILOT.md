@@ -1,5 +1,10 @@
 # Repeatable Gemara auto-merge pilot
 
+Start with [current state and separate hosted proofs](CURRENT-STATE.md). The
+#41 merge used the earlier receipt route; the newest #43 native-artifact trial
+verified publication/consumption and held. A successful merge through the newest
+route has not yet been demonstrated.
+
 This is a bounded public-repository experiment with an explicit owner-enabled lab
 policy. It is not an approved organizational auto-merge standard or production
 qualification. The custom auto-merge model agent remains disabled.
@@ -44,41 +49,24 @@ Fullsend slash-command runs without linked PR metadata, it can use a matching
 pinned-producer risk receipt as a routing hint. The evaluator independently verifies
 that evidence; the hint grants no authority. Merge-group CI cannot retrigger entry.
 
-The evidence verifier supports both automatic `pull_request_target` reviews and
-`/fs-review` runs triggered by `issue_comment`. Automatic runs must match the
-current PR's exact head commit and branch in this repository; the receipt's
-configuration commit must match the PR's base snapshot on `main`. Comment runs
-must instead identify `main` and the receipt's configuration commit in their run
-metadata. Both routes still require the pinned workflow, successful completed
-run and attempt, official review identity, revision-bound findings/risk receipt,
-and host source blobs identical to the current trusted evaluator's pins.
-For automatic reviews, GitHub's Actions check-suite association must match
-exactly this PR number, the pinned repository ID on both
-sides, the reviewed head/ref and the main base/configuration commit. An empty,
-ambiguous, mismatched or changing suite holds. The workflow-run API's PR list can
-be empty; it is not substituted for this check. The actual referenced dispatcher
-must also match the pinned reusable-workflow path and commit. A receipt's own
-configuration claim is insufficient without these GitHub-owned bindings.
-The suite matches the associated PR/base snapshot; it is not a historical
-attestation of the run's checkout. The configuration must also be an ancestor of
-the observed main tip. If it is older than main, every intervening commit is
-checked for host-source changes, including changes later reverted. More than
-20 commits, an incomplete comparison or a commit with 100 or more returned files
-holds instead of assuming the history is complete. A fresh review using current
-main avoids that history window. A regression test ties the dispatcher pin to
-the managed workflow, so a scaffold pin change requires explicit revalidation.
-An oversized API response can conservatively stop the whole observation with a
-hold rather than return only an AM-RISK-specific result; it cannot authorize entry.
-Automatic runs also require those host source blobs at the PR head to match,
-so the receipt cannot authorize a PR that changes its own Review host sources.
-This assumes the pinned Fullsend dispatcher loads base-branch configuration;
-the additional PR-head source check holds even if that assumption regresses.
-An unknown event, fork, changed base binding, stale head or changed host source
-holds. A slash command is therefore optional when the automatic evidence passes;
-this adds no approval, risk or policy exemption.
-The strict base binding can hold after main or the PR's base snapshot advances;
-a fresh automatic Review run with a matching base/configuration binding is then
-required. Host-source equality alone does not waive this lab restriction.
+With the vendored host lock installed, the active verifier requires a native
+Review artifact from an automatic `pull_request_target` run. It checks exact
+repository, PR, head/base/configuration, producer run/attempt, successful completion,
+expected wrapper, host/source pins, archive integrity and freshness. GitHub-owned
+check-suite context must unambiguously bind the PR/head/base; a record's own
+configuration claim is not proof. Missing or invalid publication holds, with no
+silent fallback to the older risk marker.
+
+The native evidence age cap is 600 seconds. Changed revision/configuration,
+ambiguous provenance, a newer failed/in-progress run or stale evidence holds.
+The hosted trial proves publication and independent shadow consumption, not a
+completed native-path queue/merge. The existing writer and queue evaluator consume
+the same observer; a fresh eligible end-to-end native trial remains required.
+
+The earlier receipt verifier supports automatic and `/fs-review` paths; it remains
+historical code when the native lock is installed. Do not infer native command-run
+support from that older verifier. A command cannot waive the current contract.
+See [the Review contract](REVIEW-EVIDENCE-CONTRACT.md) for the active trust boundary.
 
 A read-only job evaluates native Gemara policy. Only if eligible does a separate
 writer repeat the evaluation and request GitHub's protected queue with
@@ -186,4 +174,6 @@ started no queue workflows. It is historical evidence, not the new App-token pro
 Current implementation validation and live positive/negative results are recorded
 in [WORKLOG.md](WORKLOG.md). The dedicated lab App handoff was demonstrated by [PR #41](https://github.com/fullsend-ai/auto-merge/pull/41), merged October 16, 2026 at `89f5f2f507d936456439943cb696f45efa07dea1`. The [writer run](https://github.com/fullsend-ai/auto-merge/actions/runs/38900418833) and [required Gemara queue gate](https://github.com/fullsend-ai/auto-merge/actions/runs/38900537957) passed; the lab App queued and merged the PR without a manual review command or queue retry. This proves only the bounded documentation pilot. The Fullsend-native credential handoff remains separate and unresolved. Historical disabled workflow runs are retained.
 
-See [the retained proof](history/pr41-proof.json) and [D1–D4 implementation report](D1-D4-REPORT.md) for the distinction between that deployed baseline and the new local evidence prototype.
+See [the retained proof](history/pr41-proof.json), [current state](CURRENT-STATE.md)
+and [hosted native record](HOSTED-VENDORED-REVIEW.md) for the two distinct proofs.
+[D1–D4](D1-D4-REPORT.md) is the earlier local-validation snapshot, not current deployment status.

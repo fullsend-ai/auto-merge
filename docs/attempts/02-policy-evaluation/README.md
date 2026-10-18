@@ -1,34 +1,36 @@
-# Attempt 2: native Gemara policy evaluation
+# Attempt 2: Fullsend + native Gemara evaluation
 
-The current work replaces the comparison trial with one Gemara-native path:
-ControlCatalog → common Policy → repository Policy → bound evidence → native
-EvaluationLog → shadow decision. See the [runbook](../../../gemara-auto-merge/README.md)
-and [walkthrough](SHADOW-OBSERVATION.md).
+**Active experiment. Start with [current state and hosted proof](CURRENT-STATE.md).**
+The previous custom auto-merge model agent is disabled. This public lab uses
+native Gemara catalogs/policies, trusted Fullsend evidence and a separately
+authorized GitHub queue writer. Production readiness remains **hold**.
 
-Policies are now actual schema-validated Gemara documents. Repository assessments
-are additive to imported common assessments; the host no longer composes a custom
-JSON rules profile. GitHub/Fullsend data collection and method implementations
-remain evaluator glue. The SDK provides native types and assessment execution,
-not a ready-made GitHub merge checker.
+## What was demonstrated
 
-The configured scope/import/plan/parameter path is implemented. Unsupported
-native features hold explicitly; the runbook names them. This is not a claim to
-implement all Gemara semantics or every governance layer. Risk acceptance is not
-inferred from a review comment or an unimplemented policy field.
+- [PR #41](https://github.com/fullsend-ai/auto-merge/pull/41): automatic App-backed
+  protected merge using the earlier verified receipt route.
+- [PR #43](https://github.com/fullsend-ai/auto-merge/pull/43): real hosted vendored
+  Fullsend native publication and independent automatic Gemara consumption.
+  Its approval still held on an open finding and unestablished change class.
 
-The trial uses official schemas matching the SDK's declared v1.5.0 version.
-It validates native inputs and outputs without depending on the earlier SDK
-Policy serialization round trip. That historical v1.6 compatibility finding has
-not been dismissed or declared universally fixed.
+These are separate proofs. A successful merge through the newest native-artifact
+route has not yet been demonstrated. The owner-enabled documentation pilot does
+not qualify the repository for general production autonomy.
 
-Only Fullsend Review is enabled in the lab. The legacy custom auto-merge agent
-and supplementary context workflow remain disabled. The observer has read-only
-permissions and no merge/status writer. It consumes the official v2 finding
-ledger and a lab host risk-receipt extension, verifying the exact revision,
-completed producer run/attempt and pinned configuration. The complete live verifier
-requires the positive candidate to pass and negative CI to hold, while both remain
-unqualified for autonomous merging. Production attestations, actual merge execution
-and human promotion remain separate work; no readiness requirement is bypassed.
+## Reading order
 
-The previous comparison implementation and larger research are retained locally
-and in version history. They are no longer part of the active evaluation path.
+1. [Current state](CURRENT-STATE.md): exact evidence, scope, expiry and limits.
+2. [Shadow walkthrough](SHADOW-OBSERVATION.md): a real native evaluation.
+3. [Pilot runbook](DOCUMENTATION-AUTO-MERGE-PILOT.md): authorization, writer and queue.
+4. [Implementation](../../../gemara-auto-merge/README.md): policies, supported semantics and local commands.
+5. [Review contract](REVIEW-EVIDENCE-CONTRACT.md) and [hosted record](HOSTED-VENDORED-REVIEW.md): trust and publication details.
+
+## Historical records
+
+[D1–D4](D1-D4-REPORT.md) preserves the October 16 pre-publication local validation.
+[The work log](WORKLOG.md) records subsequent changes chronologically. Earlier
+claims about synthetic-only publication, uncommitted binaries or pending hosted
+proof describe those earlier stages; they are superseded by the current-state page.
+Schema v1.5.0 and the separately pinned Go SDK are described in the implementation
+runbook. Unsupported policy semantics hold explicitly. This is a bounded Gemara
+integration, not all governance layers or an approved organizational standard.

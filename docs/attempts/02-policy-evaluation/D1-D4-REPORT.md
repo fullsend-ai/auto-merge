@@ -1,8 +1,14 @@
 # D1–D4 implementation report
 
+**Historical snapshot:** October 16, 2026, before branch publication and hosted
+native proof. Later deployments supersede the pending/uncommitted statements
+below. See [current state](CURRENT-STATE.md) and the
+[successful hosted native trial](HOSTED-VENDORED-REVIEW.md). The original results
+are preserved rather than rewritten as hosted evidence.
+
 Date: October 16, 2026. Scope: `fullsend-ai/auto-merge` only.
 
-## Current status
+## Historical local-validation status
 
 D1–D4 are implemented and locally validated on `demo/gemara-evidence-d1-d4`.
 This report records local validation before branch publication. Publication as a

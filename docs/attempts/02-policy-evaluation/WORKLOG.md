@@ -898,3 +898,39 @@ No upstream repository or organization/cloud configuration was changed.
   comparison with Fullsend main `07bb0ea` and Agents main `65c52d7` confirms the
   same gateway GH_TOKEN mapping and supported stage privileges. Kept existing
   immutable runtime/agent pins to avoid an unrelated platform upgrade.
+
+## 2026-10-16 — Readonly credential fix deployed and automatic retest started
+
+- PR #48 / `98368f7`: all four ordinary/integration checks passed. Used the
+  explicitly approved one-time admin exception with restoration watchdog;
+  verified original active protections and empty bypass actors immediately.
+- Updated existing PR #43 to `d7383ca` without force. Its only changed file is
+  the harmless documentation example. Automatic run 38993688485 reached Review;
+  awaiting completion and authenticated native artifact verification.
+- Read-only current-upstream comparison is documented; no upstream actions,
+  platform-wide upgrades, new credentials or App scope changes were made.
+
+## 2026-10-16 — Hosted vendored producer/consumer proof completed
+
+- Run 38993688485 succeeded; exact-head GitHub approval 5555585081 and native
+  artifact 12086559170 published. Payload digest `e058b8f40e3e55556e446f19e3502b272189a953c914bcb22c9de564f969232a`.
+- Local observer and automatic shadow run 38995415634 both verified the contract.
+  AM-REVIEW and AM-RISK passed. Open low-severity missing-doc finding failed
+  AM-FINDINGS; AM-CLASS remained unknown. Candidate/readiness both hold.
+- Native and ordinary public artifacts scanned in memory: zero Gitleaks findings
+  across 893 and 2,011,903 decompressed bytes respectively. No raw logs retained.
+- Final main rules active, no bypass actors. Public result references recorded
+  on PR #48; these audit notes retained locally to avoid another hosted run.
+
+## 2026-10-18 — Documentation current-state cleanup
+
+- Added one current-state guide with exact #41 and #43 proofs, assessment outcomes,
+  native publication boundaries, supported modes, artifact lifetime and pilot expiry.
+- Replaced root/hub introductions that mixed the disabled agent-led attempt with
+  active Gemara behavior. Labeled historical contracts, visuals and D1–D4 snapshot.
+- Corrected binary tracking, hybrid vendored execution, active artifact collection
+  and the distinction between Review authentication and queue-writer handoff.
+- Published the previously local final hosted outcome notes. Earlier prepared/
+  pending entries remain dated history, not current instructions.
+- No policy, evaluator, workflow, fixture, credential or rule configuration changed.
+  Publication and merge are recorded by the documentation PR, not inferred here.

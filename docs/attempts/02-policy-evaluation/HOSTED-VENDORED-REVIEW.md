@@ -1,12 +1,18 @@
 # Hosted Review with actual Fullsend vendored mode
 
-Status: deployed and exercised on GitHub; the HTTP 401 authentication failure
-is fixed, as are the App-set, profile and shell-example startup issues. Hosted
-Review currently lacks a usable readonly GitHub credential in the sandbox. Native publication and authenticated artifact consumption are
-**not yet proven on a hosted successful Review**. No synthetic replay is called
-hosted proof.
+For the concise guide, see [current state](CURRENT-STATE.md). The chronology below
+preserves each attempt's status at that time; later outcomes supersede earlier
+prepared/pending statements.
 
-## Observed hosted result — 2026-10-16
+Status: **hosted vendored Review and authenticated native evidence consumption
+are proven for PR #43 head `d7383ca`**. Run 38993688485 completed successfully,
+posted an approval, and published the native record. Both the local consumer and
+automatic GitHub shadow workflow returned `contract_verified`. Gemara held the
+candidate because of an open low-severity finding and unestablished eligible
+change class; production readiness also remains hold. No automatic merge is
+claimed for this test. Earlier failed attempts below are retained as history.
+
+## Historical first hosted attempt — 2026-10-16
 
 - Owner-authorized bootstrap deployed commit
   `276ed5d011e4d84e7af4f9e0737036bd64255cd2` directly after ordinary CI and
@@ -134,7 +140,7 @@ removing manifest-listed vendored assets/binary, and restoring a post-script tha
 does not require native publication. Never leave a missing native publisher with
 an apparently passing native-evidence check.
 
-## Provider-profile compatibility correction (prepared, not deployed)
+## Historical preparation: provider-profile compatibility correction
 
 The App-set correction deployed at `6de2c90`. Automatic run
 [38963493603](https://github.com/fullsend-ai/auto-merge/actions/runs/38963493603)
@@ -152,7 +158,7 @@ The actual pinned Fullsend composer, environment validator and profile resolver
 have successfully checked this child harness and fetched/verified both profiles
 without credentials. A fresh hosted run is still required after deployment.
 
-## Shell skill compatibility correction (prepared, not deployed)
+## Historical preparation: shell skill compatibility correction
 
 The profile correction deployed at `418d762`. Automatic
 [run 38964676701](https://github.com/fullsend-ai/auto-merge/actions/runs/38964676701),
@@ -175,7 +181,7 @@ SHA-pinned profile validation still pass. Provenance and the original skill's
 content hash are retained in the override; its blob is included in the host lock.
 Deployment and another hosted proof remain pending owner approval.
 
-## Readonly gateway credential correction (prepared, not deployed)
+## Readonly gateway credential correction (deployed; subsequently verified)
 
 The skill correction deployed at `de797b2`. Automatic
 [run 38969764900](https://github.com/fullsend-ai/auto-merge/actions/runs/38969764900),
@@ -213,3 +219,53 @@ still selects the `github-ro` provider. This fix adopts that existing credential
 mechanism without updating our binary, agent, image, wrapper or profile pins.
 The native evidence publisher remains a repository-local experimental extension;
 this comparison does not establish it as a shipped upstream feature.
+
+### Historical deployment and hosted retest start
+
+[PR #48](https://github.com/fullsend-ai/auto-merge/pull/48) deployed commit
+`98368f73467b8ea3353e5fc7ba363788499d6a09` after Example contract, Delayed
+integration, Merge group proof and Gemara integration tests passed. The owner
+approved a one-time admin bypass for this exact bootstrap deployment. A
+restoration watchdog was armed; the original ruleset was immediately restored
+and verified active with no bypass actors. No App bypass was granted.
+
+Existing documentation PR #43 was updated without force to
+`d7383caff19e3b8e69eb76e72f7b99e99faf30c0`. Its diff remains only
+`docs/hosted-vendored-review-example.md`. Automatic
+[run 38993688485](https://github.com/fullsend-ai/auto-merge/actions/runs/38993688485)
+passed checkout, authentication and environment preparation and started Review.
+Completion and native publication are still pending; no success is inferred from
+startup or ordinary CI. No manual review command or queue retry was used.
+
+### Verified hosted outcome — 2026-10-16 EDT / 2026-10-17 UTC
+
+- Fullsend [run 38993688485](https://github.com/fullsend-ai/auto-merge/actions/runs/38993688485),
+  attempt 1, completed successfully in approximately 26 minutes. The official
+  pinned authentication wrapper executed the repository's vendored binary.
+- GitHub [review 5555585081](https://github.com/fullsend-ai/auto-merge/pull/43#pullrequestreview-5555585081)
+  is APPROVED for exact head `d7383caff19e3b8e69eb76e72f7b99e99faf30c0`.
+- Native artifact `fullsend-review-evidence-1`, ID `12086559170`, contains the
+  completed record, approval action, risk score 1 (low), and one open low-severity
+  `missing-doc` finding. Payload SHA-256:
+  `e058b8f40e3e55556e446f19e3502b272189a953c914bcb22c9de564f969232a`.
+- The real consumer verified subject, run, attempt, host lock and source/overlay
+  identities: `contract_verified`. This was reproduced inside automatic
+  [Gemara shadow run 38995415634](https://github.com/fullsend-ai/auto-merge/actions/runs/38995415634),
+  artifact `12086967236`; its `review-evidence-reference.json` binds the same
+  native record and subject. Its native Gemara evaluation logs show AM-REVIEW
+  and AM-RISK passed, AM-FINDINGS failed, and AM-CLASS unknown.
+- Result: candidate **hold**, production readiness **hold**, no merge authority.
+  A model approval does not override an open finding or establish an eligible
+  change class. No manual review command or queue retry was used.
+- Bounded, in-memory Gitleaks scans: native record 893 bytes, zero findings;
+  ordinary Review artifact `12086668769`, 2,011,903 decompressed bytes, zero
+  findings. No raw agent log was persisted for diagnosis. This is a scan result,
+  not a claim that every possible disclosure is ruled out.
+- Final ruleset verification: active, original requirements restored, empty
+  bypass actors. All mutations remained confined to auto-merge.
+
+This proves the repository-local publisher/consumer integration through a real
+hosted Review. It remains a lab extension with pinned upstream components, not a
+centrally deployed Fullsend evidence publishing service or production readiness
+certification. These result notes are published here; immutable run/artifact references are
+also recorded on PR #48. See [current state](CURRENT-STATE.md) for the concise guide.

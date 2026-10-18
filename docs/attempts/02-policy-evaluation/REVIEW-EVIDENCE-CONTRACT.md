@@ -1,8 +1,10 @@
 # Review evidence contract — repository-local Fullsend experiment
 
-Status: implemented producer/consumer prototype, not a deployed Fullsend feature.
-The live pilot still consumes its existing bot projection and verified lab risk
-receipt. This experiment neither replaces that route nor grants merge authority.
+Status: **hosted repository-local producer and authenticated consumer demonstrated**,
+not a centrally shipped Fullsend feature. [PR #43's hosted trial](HOSTED-VENDORED-REVIEW.md)
+published native evidence and the automatic Gemara shadow workflow verified it.
+Its result held; no native-path merge is claimed. The earlier full merge used the
+older receipt route. See [current state](CURRENT-STATE.md).
 
 ## What D3 changes
 
@@ -14,15 +16,17 @@ independent. Rego and Privateer are not dependencies of this implementation.
 
 The source additions live in
 [`review-evidence-producer/`](../../../gemara-auto-merge/review-evidence-producer/).
-The builder reads an immutable source archive from a local Fullsend checkout,
-adds a native package and CLI command in an **isolated copy inside this repo**,
-and builds `.fullsend/bin/fullsend`. The original checkout is never changed.
-The binary, build caches and source copy are ignored. No binary or dependency
-cache is committed. Source commit and overlay/binary digests are recorded in
-an unsigned local build receipt. The normal installed Review workflow remains
-pinned to its existing dispatcher; no vendored marker or global CLI is changed.
-This is a repository-local binary experiment, not a completed `--vendor`
-installation or hosted native publication rollout.
+The builder reads immutable Fullsend source, applies the repository-owned overlay
+in an isolated copy inside this repo and builds `.fullsend/bin/fullsend`. The
+original upstream checkout is not changed. The deployed binary, build receipt and
+host lock are committed; dependency caches and the isolated source copy are ignored.
+
+The active installation runs local defaults and that binary under an immutable
+upstream authentication wrapper. The trusted post-script publishes the bounded
+native artifact after validated review state is finalized. This is a hosted lab
+extension with pinned source/overlay identity, not an unmodified upstream feature
+or a wholly self-contained workflow host. Read the [hosted chronology](HOSTED-VENDORED-REVIEW.md)
+for the deployment and compatibility corrections.
 
 ```sh
 python3 gemara-auto-merge/build_fullsend_evidence_lab.py --source /path/to/fullsend
@@ -83,12 +87,14 @@ receipt, not in a reusable Review producer's decision about future consumers.
 as well as an expected subject. It does not accept `trusted=true` or a proof
 copied from the input JSON. The proof must bind the payload digest, producer,
 subject, completed successful run and current active/supersession state.
-Production integration must obtain those facts from authenticated publication
-and authoritative run state, or an approved attestation verification mechanism.
+The hosted lab obtains these facts from authenticated GitHub artifact/run metadata,
+exact subject bindings and expected host/source checks in `native_review_artifacts.py`.
+Production integration still needs an approved publisher and lifecycle/trust model;
+a producer claim or unsigned self-digest alone is insufficient.
 
-The replay deliberately supplies **synthetic publication proof**. It verifies
-actual native producer and Gemara execution, not a deployed authenticated
-publisher. Recomputing a forged record's self-digest cannot match the separately
+The local replay deliberately supplies **synthetic publication proof** and tests
+the actual binary/evaluator. It is distinct from the successful hosted trial,
+which verified real publication metadata. Neither is production certification. Recomputing a forged record's self-digest cannot match the separately
 verified digest. Signatures, if adopted, still need subject, freshness, approved
 signer, revocation and supersession checks. Authentic origin does not make a
 model's risk estimate or review conclusion correct.
@@ -109,10 +115,15 @@ The lab consumer demonstrates that path without parsing any comment.
 Publisher authentication, subject/context comparison, findings/risk semantics,
 current CI, policy selection, readiness, scope, expiry and forge-state checks
 remain necessary. The exact replacement for GitHub run/source reconstruction
-depends on the eventual authenticated publication mechanism; D3 does not claim
-that all provenance checking disappears.
+depends on the eventual supported publication interface. The lab already removes
+comment parsing from the active native path, but retains GitHub provenance and
+host-source checks; those checks do not disappear merely because evidence is JSON.
 
-## Fullsend implementation handoff (F1; not filed)
+## Supported Fullsend implementation handoff (F1; not filed)
+
+The lab demonstrates automatic Review publication/retrieval; upstream productization
+and native command-triggered parity remain separate. The following are requirements
+for that supported interface, not claims of changes made upstream:
 
 1. Publish from the trusted host after validated Review state is finalized,
    without taking run identity or metadata from the agent. Bind failed/cancelled
@@ -124,4 +135,5 @@ that all provenance checking disappears.
    replacing the legacy observer path. Never make readiness green merely because
    this publisher exists.
 
-No upstream changes, issues or PRs are required to run the local experiment.
+No upstream changes, issues or PRs were made for the hosted producer/consumer trial.
+Rego, complyctl and Privateer equivalence remain outside this implementation.

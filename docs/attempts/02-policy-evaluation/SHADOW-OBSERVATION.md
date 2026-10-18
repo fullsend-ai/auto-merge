@@ -1,183 +1,84 @@
-# Follow the live Fullsend + Gemara example
+# Follow native Fullsend Review evidence into Gemara
 
-For the subsequent owner-authorized merge experiment, see [the live pilot](DOCUMENTATION-AUTO-MERGE-PILOT.md).
+See [current state](CURRENT-STATE.md) for the complete proof map. Shadow evaluation
+is read-only. It keeps candidate eligibility, repository readiness and action
+authorization separate; a successful observation job can still report **hold**.
 
-This is a **shadow experiment**, not an autonomous merger. It separates three
-questions: does the PR satisfy the candidate policy, is the repository qualified
-for autonomy, and does the combined gate allow proceeding? Every result forbids
-mutation. A passing candidate cannot override missing readiness evidence.
+## The current hosted example
 
-## Verified hosted example
+[PR #43](https://github.com/fullsend-ai/auto-merge/pull/43), head
+`d7383caff19e3b8e69eb76e72f7b99e99faf30c0`, automatically ran
+[Fullsend Review 38993688485](https://github.com/fullsend-ai/auto-merge/actions/runs/38993688485)
+using the committed vendored binary under the pinned upstream authentication
+wrapper. The trusted host published `fullsend-review-evidence-1` (artifact
+`12086559170`). No manual review command or queue retry was used.
 
-Both final runs passed on source `0b0258cd1aa513cd41fdbc2bf15b70066f8722c0`:
+The [automatic Gemara shadow run 38995415634](https://github.com/fullsend-ai/auto-merge/actions/runs/38995415634)
+retained bundle `12086967236`. Open its files in this order:
 
-- [Native fixture suite](https://github.com/fullsend-ai/auto-merge/actions/runs/38739049643):
-  **46 Python tests**, the native SDK build/Go tests and synthetic replay passed.
-- [Complete live verification](https://github.com/fullsend-ai/auto-merge/actions/runs/38739054288):
-  **#28 candidate eligible; #29 candidate held**. Repository readiness and the
-  combined gate held for both; all outputs forbade mutation.
-- [Official Fullsend Review](https://github.com/fullsend-ai/auto-merge/actions/runs/38737376370)
-  supplied the real approval, finding ledger and revision-bound lab risk receipt.
+1. `review-evidence-reference.json`: `contract_verified`, producer run/attempt,
+   artifact ID, payload digest and exact subject.
+2. `candidate-evaluation-log.json`: native control/requirement/policy-plan results.
+3. `decision.json`: hold, separate production readiness, subject and reasons.
+4. `effective-policy.json`: the actual loaded policy/catalog documents.
+5. `normalized-evidence.json`, `manifest.json` and `summary.md`: bounded inputs,
+   integrity digests and readable explanation. The manifest is not a signature.
 
-This completes the live shadow example. It does not qualify the repository for
-production autonomous merging. The readiness holds below are deliberate controls,
-not missing risk data or a failed evaluator.
+Fullsend's native record says approve, risk 1 (low), with one open low-severity
+missing-doc finding. AM-REVIEW and AM-RISK passed. AM-FINDINGS failed and AM-CLASS
+was unknown. The overall decision and repository readiness remained hold.
+Our policy conservatively holds on any open finding; model approval cannot erase it.
 
-## The real trial PRs
+## Which code does what
 
-- [PR #28](https://github.com/fullsend-ai/auto-merge/pull/28) is the positive
-  documentation-only case. Its head is
-  `ecf653b90ded754640eabe9dc9b8a845066e7e11`.
-- [PR #29](https://github.com/fullsend-ai/auto-merge/pull/29) intentionally violates
-  the document contract. Its head is
-  `3620abed828a904b52f0cb79a946f8b67500c13e`. The failed CI must hold this PR.
+- The host publisher finalizes a bounded findings/risk record from validated
+  host-owned state. Model prose and self-claimed trust are not accepted as proof.
+- `native_review_artifacts.py` verifies authenticated GitHub run/artifact metadata,
+  exact repository/head/base/configuration, run attempt, expected wrapper and host
+  sources, archive integrity and freshness. It selects automatic Review runs;
+  missing native evidence holds when the vendored lock is installed.
+- The observer supplies normalized observations to the native Gemara evaluator.
+  Gemara policies reference named methods; the integration implements collection
+  and method execution. It does not interpret arbitrary prose as executable checks.
+- Readiness is assessed separately. Missing assurance remains unknown; the
+  observer grants no merge authority. The [pilot](DOCUMENTATION-AUTO-MERGE-PILOT.md)
+  has a distinct owner-enabled authorization and scoped writer.
 
-The live verifier expects #28 to pass every candidate assessment and #29 to fail.
-It also expects repository readiness and the combined gate to remain held. Neither
-trial PR is enrolled for auto-merge or intended to be merged.
+## Read the policy before the implementation
 
-## Verified producer and native result
+- [Control catalog](../../../gemara-auto-merge/catalogs/repository-readiness-and-pr-controls.json): requirements for readiness and PR candidates.
+- [Common policy](../../../gemara-auto-merge/policies/common-auto-merge-policy.json): assessment plans, including risk limit.
+- [Repository policy](../../../gemara-auto-merge/policies/repository-auto-merge-policy.json): additional restrictions, not permission to remove common requirements.
 
-[Official Fullsend Review run 38737376370](https://github.com/fullsend-ai/auto-merge/actions/runs/38737376370)
-succeeded using configuration `ac36da8175ca4b3ad67b5aa82ed2a73a6b2380e6` and
-published the head/config/run/attempt-bound risk receipt in
-[the Review summary](https://github.com/fullsend-ai/auto-merge/pull/28#issuecomment-6182507614).
-Local native verification then passed both real cases: #28 candidate `eligible`,
-#29 candidate `hold`, repository readiness and combined gate `hold` for both.
+The [implementation runbook](../../../gemara-auto-merge/README.md#supported-policy-semantics)
+names the supported subset and unknown/unsupported behavior. Policies are draft lab
+artifacts, not an approved Red Hat standard.
 
-The live run exposed an important collector correction: GitHub's PR `base.sha`
-can be an older snapshot. The observer now reads the actual `main` branch head,
-uses its configuration and rechecks it for movement. The older snapshot is
-reported separately. Regression tests cover both a stale snapshot and an advancing
-target branch; the evidence checks are not relaxed to accept an old configuration.
+## Reproduce safely
 
-## What runs, and why
-
-1. **Official Fullsend Review** performs the review and risk assessment. This lab
-   uses the documented [harness composition mechanism](https://github.com/fullsend-ai/fullsend/blob/02438e1c117d31bf50f9fb9fafabe40856dbfdda/docs/guides/user/customizing-agents.md#configuration-with-base-composition),
-   with a pinned official Review base and one host post-script override. There is
-   no custom merge model or alternative policy engine.
-2. **The host receipt extension** retains the official bundled post-script and
-   adds one small, pinned patch. It publishes a versioned risk receipt beside the
-   official findings ledger. The model cannot supply this receipt: the host strips
-   model copies before adding its own. Missing, degraded or inconsistent risk has
-   no receipt. This is a lab extension, not an upstream Fullsend feature.
-3. **The read-only observer** verifies GitHub/Fullsend evidence and normalizes it
-   into bounded values. It never executes PR code or retains review prose. It
-   verifies the exact head, producer identity, completed run/attempt and host
-   source blobs before accepting a risk receipt. Comment runs identify the main
-   configuration commit. Automatic runs additionally bind GitHub's check-suite
-   PR number, head and main-base snapshot, the pinned dispatcher and the PR-head
-   host sources; missing or ambiguous provenance holds. See
-   [the live pilot](DOCUMENTATION-AUTO-MERGE-PILOT.md#workflow-path) for the event-specific checks.
-4. **Native Gemara evaluation** resolves the control catalog and imported policies,
-   runs the declared assessment plans and emits native EvaluationLogs. The glue
-   collects facts; Gemara expresses and evaluates the policy requirements.
-5. **The combined gate** keeps qualification separate from candidate eligibility.
-   Unknown readiness still holds. There is no merge writer or authoritative
-   eligibility-status publisher in this experiment.
-
-The executable boundary lives in `native-evaluator/main.go` because policy documents cannot
-fetch and authenticate forge evidence themselves. It uses the native Go SDK and
-its assessment/evidence records; it is not a replacement for Gemara. The supported
-policy subset is [explicitly documented](../../../gemara-auto-merge/README.md#supported-policy-semantics).
-Unsupported semantics hold rather than being silently ignored.
-
-## Read these three policy files
-
-- [Control catalog](../../../gemara-auto-merge/catalogs/repository-readiness-and-pr-controls.json):
-  repository-readiness and candidate requirements.
-- [Common policy](../../../gemara-auto-merge/policies/common-auto-merge-policy.json):
-  imports the catalog and declares native assessment plans, including risk <= 2.
-- [Repository policy](../../../gemara-auto-merge/policies/repository-auto-merge-policy.json):
-  imports the common policy and adds a documentation-only assessment plan.
-
-All three use official Gemara v1.5.0 schemas. Child plans add restrictions; they
-cannot erase a failed common assessment. These are draft lab policies, not an
-approved Red Hat standard.
-
-## Run the complete verification
-
-Follow [setup](../../../gemara-auto-merge/README.md#run), then:
+After [pinned local setup](../../../gemara-auto-merge/README.md#run):
 
 ```sh
-python3 gemara-auto-merge/verify_recorded_trial_evidence.py
+python3 -m unittest discover -s gemara-auto-merge -p 'test_*.py'
+python3 gemara-auto-merge/run_review_evidence_examples.py
+python3 gemara-auto-merge/github_pr_evidence.py --pr 43
 ```
 
-Or dispatch **Gemara shadow observation** on main with `pr=28` and
-`verify_example=true`. Read its Summary, not just the workflow's green check.
-The verifier requires a stable, complete collection, all positive candidate
-assessments passed, the negative CI failure detected, readiness held, and no merge
-authority. Unexpected results fail the verification instead of weakening policy.
+The 15 producer replays use synthetic inputs and publication proof, with no merge
+authority. The real observer reads current state: old evidence is not made fresh
+by downloading it. Its 600-second limit means a later observation may correctly
+hold on freshness or changed context rather than reproduce the historical result.
+Use the retained hosted bundle to teach the original evaluation. Workflow artifacts
+have finite retention; exact expiry is recorded in [current state](CURRENT-STATE.md).
 
-For an individual report:
+## Historical examples
 
-```sh
-python3 gemara-auto-merge/github_pr_evidence.py --pr 28
-python3 gemara-auto-merge/github_pr_evidence.py --pr 29
-```
-
-The separate fixture workflow runs native tests and six explicitly synthetic
-scenarios: satisfied, failed CI, missing review, stale review, wrong revision and
-repository-policy restriction. Fully supplied synthetic readiness can produce
-`would_allow`; it is not represented as real qualification evidence.
-
-## Evidence and trust boundaries
-
-- **Findings:** the official
-  [v2 projection implementation](https://github.com/fullsend-ai/agents/blob/a159f388364279487818325ef5d3cc1bcd31e1ea/scripts/post-review.sh#L1974)
-  retains the finding ledger and dispositions, and suppresses unsafe projections.
-  The observer requires the pinned bot ID/login/type, explicit current head,
-  matching approval and current summary. Any open finding, including info, holds
-  conservatively. Sticky history, malformed markers and duplicate JSON cannot pass.
-- **Risk:** the official legacy risk comment lacks a head binding. The lab's
-  [small host extension](../../../.fullsend/scripts/review-risk.patch) adds a receipt
-  containing only head, score/level, configuration and run/attempt IDs. The
-  [pinned loader](../../../.fullsend/scripts/post-review-gemara.py) verifies the
-  original script, patch and resulting script hashes. The receipt is not a signed
-  production attestation; the observer independently checks its GitHub provenance.
-- **Merge route:** [PR #27](https://github.com/fullsend-ai/auto-merge/pull/27) and
-  [its successful merge-group run](https://github.com/fullsend-ai/auto-merge/actions/runs/38665663244)
-  demonstrate the route. The merged SHA, workflow, producer and current required
-  checks must match. Current CI/validator blob hashes must match the proof's
-  sources; changes invalidate it. This historical proof grants no PR authority.
-- **Collection stability:** PR revision/base, rules, reviews, comments and CI are
-  checked again. A changing or incomplete collection holds. Native evaluator and
-  validator children receive clean environments without forge credentials.
-
-The observer reads public API metadata, including producer run metadata. It does
-not read workflow logs, download output artifacts, post statuses/comments, change
-rules or merge. Reports discard raw bodies, patches, finding anchors and actor
-identities. Only the ordinary official Review host retains its existing write
-permissions to publish review results.
-
-## Why readiness still holds
-
-These are real assurance requirements, not booleans to fill to obtain a green run:
-
-- **Test sufficiency:** an owner-accepted assessment for the allowed change class.
-  The toy validator proves its document contract, not general test quality; the
-  delayed CI job intentionally repeats the same validator.
-- **Runtime isolation:** evidence about the deployed Review runtime and its actual
-  credential/network boundaries. A pinned image or a passed evaluator-environment
-  test alone is not that assurance.
-- **Trusted publication:** an approved authoritative publisher with protected
-  producer binding. A successful read-only observation job is not an eligibility
-  authorization check.
-- **Shadow history:** accepted outcomes and explicit human promotion criteria.
-  Two diagnostic PRs do not establish a sufficient safety record.
-
-Gemara records and evaluates these requirements; Fullsend and repository owners
-must supply the evidence and approve promotion. The complete example demonstrates
-that both positive candidate evaluation and conservative readiness holds work.
-It does not claim production qualification or implement automatic promotion.
-
-## Historical proof
-
-Earlier native-policy runs used source `6d1fe8e025b8ba245921f444d3bc089f92e1ee59`:
-[fixtures](https://github.com/fullsend-ai/auto-merge/actions/runs/38720142221),
-[#28 observation](https://github.com/fullsend-ai/auto-merge/actions/runs/38720146279),
-[#29 observation](https://github.com/fullsend-ai/auto-merge/actions/runs/38720149623).
-Those earlier runs held on missing findings/risk and readiness. They do not prove
-this later risk extension. The append-only [worklog](WORKLOG.md) records the steps,
-source revisions, validation and publication protections.
+The earlier [positive #28](https://github.com/fullsend-ai/auto-merge/pull/28) and
+[negative #29](https://github.com/fullsend-ai/auto-merge/pull/29) demonstrated the
+receipt-based shadow path in [run 38739054288](https://github.com/fullsend-ai/auto-merge/actions/runs/38739054288).
+The old recorded-trial verifier checks that earlier scenario and is not the current
+native-artifact smoke test. Do not present its old revisions as freshly eligible.
+[PR #41](https://github.com/fullsend-ai/auto-merge/pull/41) separately demonstrated
+a protected merge through the earlier route. Native publication does not yet have
+a successful full-path merge proof. See the [hosted chronology](HOSTED-VENDORED-REVIEW.md)
+for intermediate failures and the final native producer/consumer success.

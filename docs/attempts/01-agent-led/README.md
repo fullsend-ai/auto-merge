@@ -1,5 +1,8 @@
 # Attempt 1: agent-led semantic authorization
 
+**Historical, inactive attempt.** For the active experiment, see
+[Fullsend + Gemara current state](../02-policy-evaluation/CURRENT-STATE.md).
+
 Frozen reference: [`c06d5b8ba0f1be703ed83415986c179d97f3329c`](https://github.com/fullsend-ai/auto-merge/tree/c06d5b8ba0f1be703ed83415986c179d97f3329c).
 This is an experiment baseline, not a production v1 release.
 

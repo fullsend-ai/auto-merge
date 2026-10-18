@@ -1,5 +1,10 @@
 # Auto-Merge requirements and constraints log
 
+> **Earlier agent-led design/reference (Attempt 1).** The custom auto-merge
+> agent is disabled. This retained document does not describe the active Gemara
+> execution path. See [current state](attempts/02-policy-evaluation/CURRENT-STATE.md)
+> for deployed behavior and current evidence; the requirements below are preserved.
+
 Status: living input to the Auto-Merge ADR and implementation review.
 
 This document records the concrete use cases, boundaries, and limitations

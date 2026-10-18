@@ -1,5 +1,10 @@
 # Auto-Merge security contract
 
+> **Earlier agent-led design/reference (Attempt 1).** The custom auto-merge
+> agent is disabled. This retained document does not describe the active Gemara
+> execution path. See [current state](attempts/02-policy-evaluation/CURRENT-STATE.md)
+> for deployed behavior and current evidence; the requirements below are preserved.
+
 Status: normative for this public lab; production Fullsend requires a separate
 implementation review.
 
