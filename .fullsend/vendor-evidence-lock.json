@@ -176,7 +176,7 @@
     },
     {
       "path": ".github/workflows/fullsend.yaml",
-      "blob_sha1": "84de399301dca38657ae73466deae1507f8e9c45"
+      "blob_sha1": "81fd7917d244819461a75d960af2eb97e8cc05a5"
     },
     {
       "path": ".fullsend/config.yaml",

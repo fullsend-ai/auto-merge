@@ -50,6 +50,10 @@ jobs:
     with:
       event_action: ${{ github.event.action }}
       install_mode: per-repo
+      # This lab uses routed Review, not independently triggered custom harnesses.
+      # An explicit empty matrix skips unused custom-agent discovery. The upstream
+      # vendored-install guard remains intact; Review installs its normal runtime.
+      matrix: '{"include":[]}'
       mint_url: ${{ vars.FULLSEND_MINT_URL }}
       gcp_region: ${{ vars.FULLSEND_GCP_REGION }}
       project_number: ${{ vars.FULLSEND_PROJECT_NUMBER }}
