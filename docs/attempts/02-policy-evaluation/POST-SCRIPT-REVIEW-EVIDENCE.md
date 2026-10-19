@@ -9,7 +9,8 @@ its own hosted validation after deployment. General production readiness remains
 
 1. The existing pinned upstream Fullsend wrapper runs the official runtime through
    its normal installation path. No `.fullsend/bin/fullsend` or root `bin/fullsend`
-   is committed. The existing local composite action still retains the bounded artifact.
+   is committed. Upstream downloads its defaults and installs the pinned runtime.
+   The repository no longer carries a `.defaults` vendored-install marker.
 2. The Review harness inherits the official agent harness with `base:` and overrides
    `post_script: scripts/post-review-gemara.py`. This is a derived Review using
    supported composition, not a new reviewing model.
@@ -18,7 +19,11 @@ its own hosted validation after deployment. General production readiness remains
 4. The publisher checks the current PR head/base/configuration and its pinned source
    digest, then calls the existing Python contract validator/encoder directly.
    There is no `review-evidence-lab` child command or custom Fullsend build.
-5. Actions publishes `fullsend-review-evidence-<attempt>` with one bounded JSON file.
+5. The official action includes the record in its ordinary `fullsend-review` output.
+   A read-only caller job verifies that same-run archive digest, reads only the
+   bounded record, validates subject/run/producer identity, and publishes
+   `fullsend-review-evidence-<attempt>` with exactly those original JSON bytes.
+   It never extracts or republishes the other runtime output.
    The independent collector verifies run/context, artifact digest, locked host
    source, producer identity and freshness before Gemara assessment.
 
@@ -44,6 +49,11 @@ Policy rules, owner cohort/expiry, model permissions, App scope, queue enforceme
 and the workflow authentication wrapper are unchanged. The dedicated lab App,
 not Gemara or the Review model, requests protected queue entry. No new credentials,
 permissions, dependencies or model calls are introduced for evidence encoding.
+
+The read-only GitHub gateway credential mapping lives in the distinctly named
+`.fullsend/providers/gemara-github-ro.yaml`; the derived harness selects it. It
+survives upstream default preparation and retains the same read-only profile and
+token isolation. It does not add a credential or widen permissions.
 
 The publisher keeps an allowlisted result projection: no model prose, raw
 credentials or environment dumps are added to this artifact. Its SHA-256 is an

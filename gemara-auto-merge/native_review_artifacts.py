@@ -47,7 +47,11 @@ def decode_artifact(raw, metadata):
         raise InputError("native_artifact_invalid") from exc
 
 
-def download(artifact_id):
+def download(artifact_id, maximum_bytes=256 * 1024):
+    require(
+        type(maximum_bytes) is int and 0 < maximum_bytes <= 2 * 1024 * 1024,
+        "native_download_limit_invalid",
+    )
     require(
         type(artifact_id) is int and 0 < artifact_id < 10**15,
         "native_artifact_id_invalid",
@@ -94,8 +98,8 @@ def download(artifact_id):
                 timeout=20,
             )
         with response:
-            raw = response.read(256 * 1024 + 1)
-        require(len(raw) <= 256 * 1024, "native_artifact_oversized")
+            raw = response.read(maximum_bytes + 1)
+        require(len(raw) <= maximum_bytes, "native_artifact_oversized")
         return raw
     except InputError:
         raise

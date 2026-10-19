@@ -1,6 +1,9 @@
 # Official Review with pinned runtime compatibility and lab host publication.
 base: https://raw.githubusercontent.com/fullsend-ai/agents/a159f388364279487818325ef5d3cc1bcd31e1ea/harness/review.yaml#sha256=018ea874f6b0faa478fdd3e1eff005938dc59b8445b05a8b8e24d0196f0b9188
 post_script: scripts/post-review-gemara.py
+# A distinct provider filename survives the upstream default-file preparation.
+providers:
+  - gemara-github-ro
 # The pinned agent harness expects this non-secret App naming prefix. The
 # pinned runtime/workflow does not export it; use the installed official App set.
 env:

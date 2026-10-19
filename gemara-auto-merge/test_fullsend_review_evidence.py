@@ -554,7 +554,9 @@ class RiskReceiptTests(unittest.TestCase):
                 ),
                 ["fullsend-ai/fullsend/.github/workflows/reusable-dispatch.yml@1528aac1b8361ef7f5cad1ba55f304402761580c"],
             )
-            self.assertTrue((workflow.parents[2] / ".defaults/action.yml").is_file())
+            self.assertFalse((workflow.parents[2] / ".defaults/action.yml").exists())
+            self.assertNotIn("matrix:", workflow.read_text())
+            self.assertIn("retain-review-evidence:", workflow.read_text())
             return
         uses = re.findall(
             r"^    uses: (fullsend-ai/fullsend/\.github/workflows/reusable-dispatch\.yml@\S+)$",

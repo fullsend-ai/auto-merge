@@ -1,5 +1,5 @@
 ---
-name: github-ro
+name: gemara-github-ro
 type: fullsend-github-ro
 # The gateway holds the runtime-minted read-only token and exposes a placeholder.
 # The real token is passed through the host environment, never committed here.

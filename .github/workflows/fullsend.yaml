@@ -50,10 +50,6 @@ jobs:
     with:
       event_action: ${{ github.event.action }}
       install_mode: per-repo
-      # This lab uses routed Review, not independently triggered custom harnesses.
-      # An explicit empty matrix skips unused custom-agent discovery. The upstream
-      # vendored-install guard remains intact; Review installs its normal runtime.
-      matrix: '{"include":[]}'
       mint_url: ${{ vars.FULLSEND_MINT_URL }}
       gcp_region: ${{ vars.FULLSEND_GCP_REGION }}
       project_number: ${{ vars.FULLSEND_PROJECT_NUMBER }}
@@ -63,6 +59,35 @@ jobs:
       FULLSEND_GCP_PROJECT_ID: ${{ secrets.FULLSEND_GCP_PROJECT_ID }}
       OTEL_EXPORTER_OTLP_TRACES_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_TRACES_HEADERS }}
       OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
+  retain-review-evidence:
+    name: Retain bounded Review evidence
+    needs: dispatch
+    if: ${{ !cancelled() && needs.dispatch.result == 'success' && github.event_name == 'pull_request_target' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.sha || github.sha }}
+          persist-credentials: false
+      - name: Retain only the validated bounded record from this run
+        id: evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .fullsend/scripts/retain-review-evidence.py
+      - name: Publish the bounded Review artifact
+        if: steps.evidence.outputs.present == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: fullsend-review-evidence-${{ github.run_attempt }}
+          path: output/fullsend-review-evidence.json
+          if-no-files-found: error
+          retention-days: 14
+          include-hidden-files: false
 
   stop-fix:
     # Job-level if: is intentionally coarse — it only screens for the
