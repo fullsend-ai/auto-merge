@@ -33,7 +33,8 @@ class NativeArtifactTests(unittest.TestCase):
             "head_repository": {"full_name": "fullsend-ai/auto-merge"},
             "referenced_workflows": [
                 {
-                    "path": "fullsend-ai/fullsend/.github/workflows/reusable-dispatch.yml@" + self.record["producer"]["fullsend_commit"],
+                    "path": "fullsend-ai/fullsend/.github/workflows/reusable-dispatch.yml@"
+                    + self.record["producer"]["fullsend_commit"],
                     "sha": self.record["producer"]["fullsend_commit"],
                 },
             ],
@@ -89,7 +90,12 @@ class NativeArtifactTests(unittest.TestCase):
             [],
             refs + [dict(refs[0])],
             [dict(refs[0], sha="f" * 40)],
-            [dict(refs[0], path="other/repo/.github/workflows/reusable-dispatch.yml@main")],
+            [
+                dict(
+                    refs[0],
+                    path="other/repo/.github/workflows/reusable-dispatch.yml@main",
+                )
+            ],
             [dict(refs[0], path=refs[0]["path"].split("@", 1)[0] + "@main")],
         ]:
             with self.assertRaises(InputError):
@@ -161,3 +167,105 @@ class NativeArtifactTests(unittest.TestCase):
         ):
             n.download(123)
         self.assertEqual(opener.open.call_count, 1)
+
+
+class PostScriptArtifactTests(unittest.TestCase):
+    def setUp(self):
+        base = NativeArtifactTests()
+        base.setUp()
+        self.base = base
+        self.record = json.loads(json.dumps(base.record))
+        self.record["schema_version"] = "fullsend-review-evidence/v2"
+        self.record["producer"]["kind"] = "fullsend-post-script-lab"
+        self.record["producer"]["publisher_sha256"] = self.record["producer"].pop(
+            "overlay_sha256"
+        )
+        from policy_evaluation import digest
+
+        self.record["payload_sha256"] = digest(
+            {k: v for k, v in self.record.items() if k != "payload_sha256"}
+        )
+        self.build = {
+            "schema_version": "review-post-script-producer/v1",
+            "source_commit": self.record["producer"]["fullsend_commit"],
+            "publisher_sha256": self.record["producer"]["publisher_sha256"],
+        }
+
+    def verify(self, build):
+        raw = archive(self.record)
+        metadata = dict(
+            self.base.metadata, digest="sha256:" + hashlib.sha256(raw).hexdigest()
+        )
+        with mock.patch.object(n, "host_sources", return_value=build):
+            return n.verify_record(
+                self.base.client,
+                {},
+                self.base.pr,
+                self.base.run,
+                metadata,
+                raw,
+                lambda *_: True,
+                NOW,
+            )
+
+    def test_v2_record_requires_matching_postscript_source_identity(self):
+        self.assertEqual(self.verify(self.build)["reason"], "contract_verified")
+        for change in [
+            {"publisher_sha256": "f" * 64},
+            {"source_commit": "f" * 40},
+            {"schema_version": "vendored-review-host/v1"},
+        ]:
+            with self.subTest(change=change), self.assertRaises(InputError):
+                self.verify(dict(self.build, **change))
+
+    def test_active_host_lock_matches_all_sources_and_rejects_reintroduced_binary(self):
+        from pathlib import Path
+
+        lockpath = Path(n.ROOT).parent / n.LOCK
+        lock = json.loads(lockpath.read_text())
+        self.assertEqual(lock["schema_version"], "review-post-script-host/v1")
+        rows = list(lock["host_files"])
+        raw = lockpath.read_bytes()
+        rows.append(
+            {
+                "path": n.LOCK,
+                "blob_sha1": hashlib.sha1(
+                    b"blob " + str(len(raw)).encode() + b"\0" + raw
+                ).hexdigest(),
+            }
+        )
+        for row in rows:
+            data = (Path(n.ROOT).parent / row["path"]).read_bytes()
+            self.assertEqual(
+                row["blob_sha1"],
+                hashlib.sha1(
+                    b"blob " + str(len(data)).encode() + b"\0" + data
+                ).hexdigest(),
+            )
+        tree = {
+            "tree": [
+                {"path": r["path"], "sha": r["blob_sha1"], "type": "blob"} for r in rows
+            ]
+        }
+        client = mock.Mock()
+        client.get.return_value = tree
+        self.assertEqual(
+            n.host_sources(client, tree, "b" * 40)["schema_version"],
+            "review-post-script-producer/v1",
+        )
+        altered = {
+            "tree": list(tree["tree"])
+            + [{"path": ".fullsend/bin/fullsend", "sha": "f" * 40, "type": "blob"}]
+        }
+        with self.assertRaisesRegex(InputError, "unexpected_vendored_binary"):
+            n.host_sources(client, altered, "b" * 40)
+        altered = {
+            "tree": [
+                dict(r, sha="f" * 40)
+                if r["path"].endswith("publish-review-evidence.py")
+                else r
+                for r in tree["tree"]
+            ]
+        }
+        with self.assertRaisesRegex(InputError, "native_host_source_changed"):
+            n.host_sources(client, altered, "b" * 40)

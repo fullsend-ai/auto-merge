@@ -22,6 +22,8 @@ def main():
         raise ValueError("wrong_repository")
     sys.path.insert(0, str(workspace / "gemara-auto-merge"))
     from fullsend_review_evidence import ledger_clear, unique_object
+    from policy_evaluation import load
+    from review_evidence_contract import encode_post_script
 
     projection = sys.stdin.read(128 * 1024 + 1)
     if len(projection) > 128 * 1024:
@@ -78,13 +80,14 @@ def main():
         or pr["base"]["repo"]["full_name"] != "fullsend-ai/auto-merge"
     ):
         raise ValueError("review_context_changed")
-    binary = workspace / ".fullsend/bin/fullsend"
-    build = json.loads((workspace / ".fullsend/evidence-build.json").read_text())
+    producer = load(workspace / ".fullsend/review-evidence-producer.json")
+    publisher = Path(__file__).resolve()
+    publisher_sha256 = hashlib.sha256(publisher.read_bytes()).hexdigest()
     if (
-        binary.is_symlink()
-        or hashlib.sha256(binary.read_bytes()).hexdigest() != build["binary_sha256"]
+        producer.get("schema_version") != "review-post-script-producer/v1"
+        or producer.get("publisher_sha256") != publisher_sha256
     ):
-        raise ValueError("binary_mismatch")
+        raise ValueError("publisher_source_mismatch")
     dispositions = {x["id"]: x["status"] for x in ledger.get("dispositions", [])}
     risk = result.get("risk_assessment")
     risk = (
@@ -102,9 +105,9 @@ def main():
             "configuration_sha": configuration,
         },
         "producer": {
-            "kind": "fullsend-host-lab",
-            "fullsend_commit": build["source_commit"],
-            "overlay_sha256": build["overlay_sha256"],
+            "kind": "fullsend-post-script-lab",
+            "fullsend_commit": producer["source_commit"],
+            "publisher_sha256": publisher_sha256,
             "workflow_path": ".github/workflows/fullsend.yaml",
             "run_id": int(os.environ["GITHUB_RUN_ID"]),
             "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
@@ -125,25 +128,16 @@ def main():
             "risk": risk,
         },
     }
-    child = subprocess.run(
-        [str(binary), "review-evidence-lab"],
-        input=json.dumps(value),
-        text=True,
-        capture_output=True,
-        env=clean,
-        timeout=30,
-    )
-    if child.returncode or len(child.stdout) > 128 * 1024:
-        raise ValueError("native_publication_failed")
+    encoded = encode_post_script(value)
     destination = workspace / "output/fullsend-review-evidence.json"
     if destination.parent.is_symlink():
         raise ValueError("symlink_publication_directory")
     destination.parent.mkdir(exist_ok=True)
     if destination.is_symlink():
         raise ValueError("symlink_publication")
-    destination.write_text(child.stdout)
+    destination.write_text(encoded)
     print(
-        "Native Fullsend Review evidence published; authentication requires the completed Actions run."
+        "Post-script Review evidence v2 published; authentication requires the completed Actions run."
     )
 
 

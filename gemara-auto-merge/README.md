@@ -1,5 +1,9 @@
 # Gemara auto-merge
 
+**Active evidence producer:** [supported Review post-script override](../docs/attempts/02-policy-evaluation/POST-SCRIPT-REVIEW-EVIDENCE.md),
+without a custom Fullsend binary. The old build/export recipes below are retained
+for historical v1 reproduction, not the active deployment path.
+
 **Current overview: [state and hosted proof](../docs/attempts/02-policy-evaluation/CURRENT-STATE.md).**
 
 One engine: native Gemara. The comparison evaluator and custom JSON rule profiles
@@ -192,7 +196,7 @@ is an unsigned integrity record, not an independent trust attestation.
 
 The [Review contract](../docs/attempts/02-policy-evaluation/REVIEW-EVIDENCE-CONTRACT.md)
 explains the native producer/consumer boundary. Its source overlay and build/replay
-recipes live here. The vendored binary, build receipt and host lock are committed;
+recipes live here. The old vendored binary and build receipt have been removed; a post-script host lock is committed;
 caches and the isolated source copy remain ignored. Replays use synthetic proof,
 while the separate hosted #43 trial used real publication and automatic verified
 consumption. That trial held and did not merge.

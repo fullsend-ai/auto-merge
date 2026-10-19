@@ -1,8 +1,8 @@
 # Current state: Fullsend + Gemara auto-merge lab
 
-Reviewed **October 18, 2026** against deployed main
-`98368f73467b8ea3353e5fc7ba363788499d6a09`. This is a dated implementation/evidence
-snapshot, not a claim that later revisions or expired evidence remain authorized.
+Updated **October 19, 2026** for the prepared post-script-only producer. Local
+validation is recorded in WORKLOG.md. Deployment and a fresh hosted v2 Review
+must be verified separately; the hosted proof below remains the historical v1 run.
 
 ## What this repository is
 
@@ -29,11 +29,12 @@ is **hold**; the draft lab policies are not an approved Red Hat standard.
 The newest native-artifact proof reaches step 4 and holds. The earlier receipt
 path demonstrated all six steps. These are separate proofs.
 
-Vendored execution is a hybrid: committed `.defaults/` and `.fullsend/bin/fullsend`
-run under the immutable upstream authentication wrapper at Fullsend source
-`1528aac1b8361ef7f5cad1ba55f304402761580c`. The build receipt and host lock are tracked;
-build caches and isolated source copies remain ignored. This is a repository-local
-extension, not a centrally shipped Fullsend evidence publisher.
+The active configuration now uses the existing Review `base:`/`post_script`
+override with a Python publisher and normal upstream runtime installation.
+The custom binary and its build/vendor manifests are removed. The pinned wrapper,
+artifact upload and independent source/context checks remain. See
+[post-script publication](POST-SCRIPT-REVIEW-EVIDENCE.md). This is a repository-local
+integration, not a centrally shipped Fullsend evidence feature.
 
 ## Verified hosted proof
 

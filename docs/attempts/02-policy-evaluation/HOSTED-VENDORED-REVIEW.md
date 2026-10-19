@@ -1,3 +1,7 @@
+> **October 19 update:** this document retains the historical binary-backed v1
+> experiment. The active configuration now uses [post-script-only v2 publication](POST-SCRIPT-REVIEW-EVIDENCE.md).
+> That replacement has local validation; a fresh hosted proof is still required.
+
 # Hosted Review with actual Fullsend vendored mode
 
 For the concise guide, see [current state](CURRENT-STATE.md). The chronology below

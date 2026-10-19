@@ -127,7 +127,8 @@ def host_sources(client, current_tree, configuration):
     expected = {x["path"]: x["blob_sha1"] for x in entries}
     require(len(expected) == len(entries), "native_host_lock_invalid")
     require(
-        lock["schema_version"] == "vendored-review-host/v1"
+        lock["schema_version"]
+        in {"vendored-review-host/v1", "review-post-script-host/v1"}
         and isinstance(expected, dict)
         and len(expected) >= 10,
         "native_host_lock_invalid",
@@ -150,6 +151,15 @@ def host_sources(client, current_tree, configuration):
         ),
         "native_host_source_changed",
     )
+    if lock["schema_version"] == "review-post-script-host/v1":
+        require(
+            all(
+                path not in current and path not in original
+                for path in [".fullsend/bin/fullsend", "bin/fullsend"]
+            ),
+            "unexpected_vendored_binary",
+        )
+        return load(ROOT.parent / ".fullsend/review-evidence-producer.json")
     return load(ROOT.parent / ".fullsend/evidence-build.json")
 
 
@@ -180,17 +190,24 @@ def verify_record(client, current_tree, pr, run, artifact, raw, verify_context, 
         "native_review_subject_changed",
     )
     build = host_sources(client, current_tree, s["configuration_sha"])
+    post_script = record["schema_version"] == "fullsend-review-evidence/v2"
+    identity_field = "publisher_sha256" if post_script else "overlay_sha256"
     require(
         p["fullsend_commit"] == build["source_commit"]
-        and p["overlay_sha256"] == build["overlay_sha256"],
-        "native_binary_identity_mismatch",
+        and p[identity_field] == build.get(identity_field)
+        and (
+            not post_script
+            or build.get("schema_version") == "review-post-script-producer/v1"
+        ),
+        "native_producer_identity_mismatch",
     )
     references = run.get("referenced_workflows")
     require(
         isinstance(references, list)
         and len(references) == 1
         and references[0].get("sha") == build["source_commit"]
-        and references[0].get("path") == (
+        and references[0].get("path")
+        == (
             "fullsend-ai/fullsend/.github/workflows/reusable-dispatch.yml@"
             + build["source_commit"]
         ),

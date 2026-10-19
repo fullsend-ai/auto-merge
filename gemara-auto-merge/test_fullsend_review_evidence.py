@@ -545,7 +545,7 @@ class RiskReceiptTests(unittest.TestCase):
         workflow = (
             Path(__file__).resolve().parents[1] / ".github/workflows/fullsend.yaml"
         )
-        if (workflow.parents[2] / ".fullsend/vendor-manifest.yaml").exists():
+        if (workflow.parents[2] / ".fullsend/vendor-evidence-lock.json").exists():
             self.assertEqual(
                 re.findall(
                     r"^    uses: (fullsend-ai/fullsend/\.github/workflows/reusable-dispatch\.yml@\S+)$",

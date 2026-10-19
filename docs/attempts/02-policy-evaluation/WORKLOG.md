@@ -934,3 +934,40 @@ No upstream repository or organization/cloud configuration was changed.
   pending entries remain dated history, not current instructions.
 - No policy, evaluator, workflow, fixture, credential or rule configuration changed.
   Publication and merge are recorded by the documentation PR, not inferred here.
+
+## 2026-10-19 — replace custom binary with supported Review post-script publication
+
+Authorized scope: auto-merge only; local review and direct push to main without a
+PR. A temporary protection exception is authorized only if actually necessary;
+none has been applied during preparation.
+
+- Kept the official Review `base:` composition and existing host post-script.
+- Moved bounded evidence encoding into the existing Python contract module.
+- Added explicit v2 producer identity (`fullsend-post-script-lab`, publisher digest)
+  and independent consumer verification. V1 remains historical/fixture support;
+  a new host lock does not authorize the old binary producer.
+- Removed the tracked custom Fullsend binary and its build/vendor manifests. The
+  normal upstream runtime install path remains under the same immutable wrapper.
+  Existing local defaults retain artifact upload; no shared workflow was changed.
+- Refreshed the pinned host source list, including the Python encoder dependencies.
+  The consumer refuses reintroduction of a vendored binary in either bound tree.
+- Retained the bounded sidecar artifact for consumer compatibility. Extending the
+  canonical agent-result.json remains a separate upstream proposal, not a claim
+  about this repository-only deployment.
+- Local review: checked producer/consumer identity matching, absence of command
+  execution for encoding, fail-closed subject/source checks, preserved adverse
+  findings, unchanged privilege/queue boundaries and unchanged required checks.
+- Validation: 115 unit/integration tests passed; Ruff passed; example document
+  validator passed; native synthetic policy scenarios passed (including failing,
+  missing, stale and wrong-revision evidence); diff whitespace check passed.
+- Deployment boundary: a fresh hosted v2 Review is still needed after deployment.
+  PR #43's v1 artifacts remain historical and are not relabeled as v2 evidence.
+- Network preflight: credentialed GitHub API main refresh failed to connect from
+  this environment. No branch protection or remote state has been changed.
+- Direct deployment attempt: `git push origin HEAD:main` failed before contacting
+  GitHub (`Could not resolve host: github.com`). Automatic approval review rejected
+  the network-enabled retry because sandbox escalation is prohibited even for the
+  authorized push. The tested change is committed locally; remote main, rulesets
+  and branch protections were not modified. No PR was created.
+- Changed-file Gitleaks scan completed with no findings; no sensitive credentials
+  or raw event payloads were added.

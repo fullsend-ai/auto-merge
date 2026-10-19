@@ -1,5 +1,5 @@
 {
-  "schema_version": "vendored-review-host/v1",
+  "schema_version": "review-post-script-host/v1",
   "source_commit": "1528aac1b8361ef7f5cad1ba55f304402761580c",
   "host_files": [
     {
@@ -200,23 +200,27 @@
     },
     {
       "path": ".fullsend/scripts/publish-review-evidence.py",
-      "blob_sha1": "ab6825312c61229736e68a00d32af91d706c3ca3"
+      "blob_sha1": "b06ac5d2cdc5e24d24436bb6254d9ff0398d8319"
     },
     {
-      "path": ".fullsend/vendor-manifest.yaml",
-      "blob_sha1": "3f123ef216ce3f577d515d3a222b0e24fe6d8021"
-    },
-    {
-      "path": ".fullsend/evidence-build.json",
-      "blob_sha1": "d866b4ac40dc6349bcaf0d51e441a16ce5acfae4"
-    },
-    {
-      "path": ".fullsend/bin/fullsend",
-      "blob_sha1": "83cec8668d4f2cc4e2e7db563babf8393c100e64"
+      "path": ".fullsend/review-evidence-producer.json",
+      "blob_sha1": "4155b588235619292fcd30b526f9fe5ec69d10f6"
     },
     {
       "path": "gemara-auto-merge/fullsend_review_evidence.py",
       "blob_sha1": "569e6b8f384488f664d76f2b695f025540b4095f"
+    },
+    {
+      "path": "gemara-auto-merge/review_evidence_contract.py",
+      "blob_sha1": "5e9a64fa2447b967bea64fe07c86c64865506ce5"
+    },
+    {
+      "path": "gemara-auto-merge/policy_evaluation.py",
+      "blob_sha1": "9503fe26067ca2cab4b5b4eea44b0f8111326ce7"
+    },
+    {
+      "path": "gemara-auto-merge/validate_gemara_artifacts.py",
+      "blob_sha1": "a9ba9cc20edf78e420dc08ebc7ea784a8dc6b95b"
     }
   ]
 }

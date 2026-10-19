@@ -1,17 +1,14 @@
-"""Consume a lab Review record with independently supplied publication proof.
-
-This module does not establish that proof, fetch artifacts or grant merge rights.
-The live observer continues using its existing verified host receipt until a
-native publisher and authenticated retrieval path are separately demonstrated.
-"""
+"""Validate bounded Review evidence; publication proof is independently verified."""
 
 from dataclasses import dataclass
+import json
 import re
 
 from fullsend_review_evidence import CATEGORIES, ID, SEVERITIES, STATUSES
 from policy_evaluation import InputError, digest, require, utc
 
 VERSION = "fullsend-review-evidence/v1"
+POST_SCRIPT_VERSION = "fullsend-review-evidence/v2"
 
 
 @dataclass(frozen=True)
@@ -51,7 +48,10 @@ def validate(record):
             "payload_sha256",
         ],
     )
-    require(record["schema_version"] == VERSION, "unsupported_contract_version")
+    require(
+        record["schema_version"] in {VERSION, POST_SCRIPT_VERSION},
+        "unsupported_contract_version",
+    )
     s, p, r = record["subject"], record["producer"], record["review"]
     exact(
         s,
@@ -76,22 +76,25 @@ def validate(record):
         all(sha(s[k], 40) for k in ["head_sha", "base_sha", "configuration_sha"]),
         "invalid_contract_subject",
     )
+    post_script = record["schema_version"] == POST_SCRIPT_VERSION
+    identity_field = "publisher_sha256" if post_script else "overlay_sha256"
     exact(
         p,
         [
             "kind",
             "fullsend_commit",
-            "overlay_sha256",
+            identity_field,
             "workflow_path",
             "run_id",
             "run_attempt",
         ],
     )
     require(
-        p["kind"] == "fullsend-host-lab"
+        p["kind"]
+        == ("fullsend-post-script-lab" if post_script else "fullsend-host-lab")
         and p["workflow_path"] == ".github/workflows/fullsend.yaml"
         and sha(p["fullsend_commit"], 40)
-        and sha(p["overlay_sha256"], 64)
+        and sha(p[identity_field], 64)
         and type(p["run_id"]) is int
         and 0 < p["run_id"] < 10**15
         and type(p["run_attempt"]) is int
@@ -146,6 +149,23 @@ def validate(record):
         == digest({k: v for k, v in record.items() if k != "payload_sha256"}),
         "contract_integrity_mismatch",
     )
+
+
+def encode_post_script(value):
+    """Host-owned v2 metadata; reuse the consumer's strict contract validation."""
+    record = dict(value, schema_version=POST_SCRIPT_VERSION)
+    require(
+        "payload_sha256" not in value and "schema_version" not in value,
+        "reserved_contract_metadata",
+    )
+    record["payload_sha256"] = digest(record)
+    validate(record)
+    raw = (
+        json.dumps(record, sort_keys=True, separators=(",", ":"), allow_nan=False)
+        + "\n"
+    )
+    require(len(raw.encode()) <= 128 * 1024, "contract_output_oversized")
+    return raw
 
 
 def consume(record, expected_subject, proof, as_of, maximum_age=600):

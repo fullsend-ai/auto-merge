@@ -43,8 +43,10 @@ Scope and expiry live in
 these settings are separate from the Gemara policies. Editing policy, workflow or
 implementation files is not an eligible documentation-pilot change.
 
-The runtime is vendored in this repo under a pinned upstream authentication
-wrapper. Queue entry uses a dedicated repository-scoped lab App; Fullsend-native
+The active Review uses a supported post-script override under the pinned upstream
+authentication wrapper, with the normal Fullsend runtime installation path.
+See [the post-script evidence path](docs/attempts/02-policy-evaluation/POST-SCRIPT-REVIEW-EVIDENCE.md)
+for local validation and the hosted proof still required. Queue entry uses a dedicated repository-scoped lab App; Fullsend-native
 queue-writer credential handoff remains separate work. No personal token is used
 by this pilot's Actions writer.
 

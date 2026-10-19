@@ -1,3 +1,7 @@
+> **October 19 update:** this document retains the historical binary-backed v1
+> experiment. The active configuration now uses [post-script-only v2 publication](POST-SCRIPT-REVIEW-EVIDENCE.md).
+> That replacement has local validation; a fresh hosted proof is still required.
+
 # Review evidence contract — repository-local Fullsend experiment
 
 Status: **hosted repository-local producer and authenticated consumer demonstrated**,
