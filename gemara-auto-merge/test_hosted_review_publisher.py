@@ -130,6 +130,8 @@ class PublisherTests(unittest.TestCase):
                 kwargs = command.call_args.kwargs
                 self.assertNotIn("REVIEW_TOKEN", kwargs["env"])
                 self.assertNotIn("GITHUB_TOKEN", kwargs["env"])
+                self.assertEqual(kwargs["env"]["GOTOOLCHAIN"], "go1.26.9")
+                self.assertEqual(kwargs["env"]["GOSUMDB"], "sum.golang.org")
                 self.assertNotIn("SYNTHETIC_TOKEN", json.dumps(kwargs))
                 self.assertIn("@a73a3d88471f1fe5e947b11936430d7b298091f2", command.call_args.args[0][2])
                 self.assertFalse(kwargs.get("shell", False))

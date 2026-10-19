@@ -216,7 +216,10 @@ absence fails closed once the vendored host lock is present.
 The hosted publisher calls the public `fullsend-gemara-integration` helper at
 immutable commit `a73a3d88471f1fe5e947b11936430d7b298091f2` to convert the official
 Review result and findings ledger. Its isolated Go build receives no forge
-credentials. The host needs Go 1.25 or newer and access to the public Go proxy.
+credentials. A host bootstrap Go 1.21 or newer selects the checksum-verified
+Go 1.26.9 toolchain through the standard `GOTOOLCHAIN` mechanism. The normal
+GitHub Ubuntu runner provides the bootstrap; other hosts must install Go first.
+The host also needs access to the public Go proxy and checksum service.
 Missing Go, download/build failure, a changed head, or a conflicting projection
 stops evidence publication. Missing risk stays unknown.
 

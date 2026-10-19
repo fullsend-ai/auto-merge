@@ -56,7 +56,7 @@
     },
     {
       "path": ".fullsend/scripts/publish-review-evidence.py",
-      "blob_sha1": "b2753e9b999d2c9c60265914e62bbe9f5c714940"
+      "blob_sha1": "27860182eead8577a04f87df9b893d9792baf3bd"
     },
     {
       "path": ".fullsend/scripts/retain-review-evidence.py",
@@ -76,7 +76,7 @@
     },
     {
       "path": ".fullsend/review-evidence-producer.json",
-      "blob_sha1": "d8d95dfe85aeecccb5cfac48d619b61afadfcc46"
+      "blob_sha1": "fc638ff2c1ecd5eccc148e5bb4e0ac60e076547c"
     },
     {
       "path": "gemara-auto-merge/fullsend_review_evidence.py",

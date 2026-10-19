@@ -30,7 +30,7 @@ def project_review(result_path, projection, head):
             "HOME": directory,
             "GOPATH": directory + "/gopath",
             "GOCACHE": directory + "/cache",
-            "GOTOOLCHAIN": "local",
+            "GOTOOLCHAIN": "go1.26.9",
             "GOTELEMETRY": "off",
             "GOPROXY": "https://proxy.golang.org",
             "GOSUMDB": "sum.golang.org",
@@ -44,6 +44,11 @@ def project_review(result_path, projection, head):
             cwd=directory, env=env, capture_output=True, text=True, timeout=180,
         )
         if result.returncode or len(result.stdout) > 128 * 1024:
+            print(
+                "Shared Review helper failed: exit=" + str(result.returncode)
+                + "; check bootstrap Go, public Go proxy and checksum service availability.",
+                file=sys.stderr,
+            )
             raise ValueError("shared_review_projection_failed")
         value = json.loads(result.stdout)
         if (value.get("schema_version") != "review-projection/v1"
@@ -194,7 +199,12 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except Exception:
+    except Exception as error:
+        if str(error) in {
+            "shared_helper_go_unavailable", "shared_review_projection_failed",
+            "invalid_shared_projection", "shared_projection_conflict",
+        }:
+            print("Review evidence stopped: " + str(error), file=sys.stderr)
         raise SystemExit(
             "Native Review evidence publication failed; no partial record is accepted."
         )
