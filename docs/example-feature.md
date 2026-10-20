@@ -23,7 +23,6 @@ merge-group commit before GitHub merges it.
 
 Run `python3 scripts/validate_example.py` and confirm both pull-request CI jobs
 complete successfully. Failed validation returns a nonzero status.
-This line exercises the fast review path without changing merge policy.
-A repository-scoped lab App requests queue entry only after Gemara policy passes.
-The pilot verifies the reviewed revision separately from its trusted configuration.
-The renamed Gemara workflows preserve the documentation-only merge boundary.
+A baseline run must review the current head and retain its findings and risk.
+Successful CI is not a substitute for a completed Fullsend Review.
+Shared integration wiring is tested only after the installed Review path works.
