@@ -1,0 +1,62 @@
+name: Shared Gemara Review check
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  collect:
+    name: Collect retained Review data
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Authenticate the owner-selected retained Review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/collect_review_replay.py --binding .fullsend/shared-review-replay.json --output replay-input
+          cp .fullsend/shared-review-tool.json replay-input/tool.json
+          cp scripts/run_shared_review.py replay-input/run.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: shared-review-input-${{ github.run_attempt }}
+          path: replay-input/
+          if-no-files-found: error
+          retention-days: 7
+
+  assess:
+    name: Assess Review with shared Gemara
+    needs: collect
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: shared-review-input-${{ github.run_attempt }}
+          path: replay-input
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.9'
+          cache: false
+      - name: Assess bounded data without Fullsend write credentials
+        env:
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
+        run: python3 replay-input/run.py --input replay-input --pin replay-input/tool.json --output replay-report
+      - name: Retain native assessment, including holds
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: shared-review-assessment-${{ github.run_attempt }}
+          path: replay-report/
+          if-no-files-found: ignore
+          retention-days: 7

@@ -8,55 +8,9 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import subprocess
 import sys
-import tempfile
 import urllib.request
-
-SHARED_MODULE = "github.com/ascerra/fullsend-gemara-integration/cmd/gemara-owner@a73a3d88471f1fe5e947b11936430d7b298091f2"
-
-
-def project_review(result_path, projection, head):
-    """Run the immutable public helper without forge or inherited credentials."""
-    go = shutil.which("go")
-    if not go:
-        raise ValueError("shared_helper_go_unavailable")
-    with tempfile.TemporaryDirectory(prefix="gemara-review-projection-") as directory:
-        ledger = Path(directory) / "ledger.json"
-        ledger.write_text(projection)
-        env = {
-            "PATH": "/usr/bin:/bin",
-            "HOME": directory,
-            "GOPATH": directory + "/gopath",
-            "GOCACHE": directory + "/cache",
-            "GOTOOLCHAIN": "go1.26.9",
-            "GOTELEMETRY": "off",
-            "GOPROXY": "https://proxy.golang.org",
-            "GOSUMDB": "sum.golang.org",
-            "GIT_CONFIG_NOSYSTEM": "1",
-            "GIT_CONFIG_GLOBAL": "/dev/null",
-            "GIT_TERMINAL_PROMPT": "0",
-        }
-        result = subprocess.run(
-            [go, "run", SHARED_MODULE, "project-review", "--result",
-             str(result_path.resolve()), "--ledger", str(ledger), "--head", head],
-            cwd=directory, env=env, capture_output=True, text=True, timeout=180,
-        )
-        if result.returncode or len(result.stdout) > 128 * 1024:
-            print(
-                "Shared Review helper failed: exit=" + str(result.returncode)
-                + "; check bootstrap Go, public Go proxy and checksum service availability.",
-                file=sys.stderr,
-            )
-            raise ValueError("shared_review_projection_failed")
-        value = json.loads(result.stdout)
-        if (value.get("schema_version") != "review-projection/v1"
-            or value.get("head_sha") != head
-            or value.get("authorization") != "none"
-            or value.get("mutation_permitted") is not False):
-            raise ValueError("invalid_shared_projection")
-        return value["review"]
 
 
 def main():
@@ -135,19 +89,10 @@ def main():
     ):
         raise ValueError("publisher_source_mismatch")
     dispositions = {x["id"]: x["status"] for x in ledger.get("dispositions", [])}
-    shared = project_review(result_path, projection, result["head_sha"])
-    expected_findings = [
-        {"id": x["id"], "status": dispositions.get(x["id"], "open")}
-        for x in ledger["findings"]
-    ]
-    if (shared.get("completed") is not True
-        or shared.get("action") != ledger["action"]
-        or shared.get("findings") != expected_findings):
-        raise ValueError("shared_projection_conflict")
     risk = result.get("risk_assessment")
     risk = (
-        {"score": shared["risk_score"], "level": risk.get("level")}
-        if shared.get("risk_score") is not None and isinstance(risk, dict)
+        {"score": risk.get("score"), "level": risk.get("level")}
+        if isinstance(risk, dict) and "degraded" not in risk
         else None
     )
     value = {
@@ -199,12 +144,7 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except Exception as error:
-        if str(error) in {
-            "shared_helper_go_unavailable", "shared_review_projection_failed",
-            "invalid_shared_projection", "shared_projection_conflict",
-        }:
-            print("Review evidence stopped: " + str(error), file=sys.stderr)
+    except Exception:
         raise SystemExit(
             "Native Review evidence publication failed; no partial record is accepted."
         )

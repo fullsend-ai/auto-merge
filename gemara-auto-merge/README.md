@@ -210,21 +210,3 @@ active shim delegates to that upstream wrapper. `native_review_artifacts.py` rea
 a bounded, digest-checked native Review JSON artifact from authenticated Actions
 execution; it does not read arbitrary artifacts or workflow logs. Native record
 absence fails closed once the vendored host lock is present.
-
-## Shared Review projection (prepared migration)
-
-The hosted publisher calls the public `fullsend-gemara-integration` helper at
-immutable commit `a73a3d88471f1fe5e947b11936430d7b298091f2` to convert the official
-Review result and findings ledger. Its isolated Go build receives no forge
-credentials. A host bootstrap Go 1.21 or newer selects the checksum-verified
-Go 1.26.9 toolchain through the standard `GOTOOLCHAIN` mechanism. The normal
-GitHub Ubuntu runner provides the bootstrap; other hosts must install Go first.
-The host also needs access to the public Go proxy and checksum service.
-Missing Go, download/build failure, a changed head, or a conflicting projection
-stops evidence publication. Missing risk stays unknown.
-
-This is the first shared consumer seam. The existing authenticated v2 artifact
-contract, embedded Gemara policy and protected queue writer still enforce the
-live pilot. The shared fixture evaluator is not a live merge gate. Deploy this
-change through the repository's normal owner-reviewed governance route before
-claiming hosted adoption; do not bypass the required queue check to install it.

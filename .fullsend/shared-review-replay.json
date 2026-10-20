@@ -1,0 +1,18 @@
+{
+  "schema_version": "review-replay/v1",
+  "mode": "retained-review-replay",
+  "forge": "github",
+  "host": "github.com",
+  "repository": "fullsend-ai/auto-merge",
+  "project_id": 1383516376,
+  "change": 51,
+  "head_sha": "72f758adf1049ef8859412a3bb841b19a66954d3",
+  "maximum_risk": 2,
+  "source": {
+    "run_id": 39339368004,
+    "artifact_id": 12228224228,
+    "configuration_sha": "3b529bb9128438c71218a602fc7a746b0be092a2",
+    "fullsend_commit": "1528aac1b8361ef7f5cad1ba55f304402761580c",
+    "publisher_sha256": "57512e9b5ea0506aaaaa489d33929858beeedd836460c10e0a1dbf9e21f35f2e"
+  }
+}

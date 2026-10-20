@@ -95,10 +95,6 @@ class PublisherTests(unittest.TestCase):
                     host.subprocess, "check_output", return_value="b" * 40
                 ),
                 mock.patch.object(host.subprocess, "run") as command,
-                mock.patch.object(host, "project_review", return_value={
-                    "completed": True, "action": "approve", "findings": [],
-                    "risk_score": 6 if invalid_risk else 1,
-                }),
                 mock.patch("builtins.print"),
             ):
                 try:
@@ -113,36 +109,6 @@ class PublisherTests(unittest.TestCase):
             self.assertNotIn("SYNTHETIC_TOKEN", destination.read_text())
             self.assertFalse((workspace / ".fullsend/bin/fullsend").exists())
             return record
-
-    def test_shared_helper_has_no_forge_credentials_and_rejects_failure(self):
-        path = Path(__file__).resolve().parents[1] / ".fullsend/scripts/publish-review-evidence.py"
-        spec = importlib.util.spec_from_file_location("shared_publisher", path)
-        host = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(host)
-        value = {"schema_version": "review-projection/v1", "head_sha": "a" * 40,
-                 "authorization": "none", "mutation_permitted": False,
-                 "review": {"completed": True, "action": "approve", "risk_score": 1, "findings": []}}
-        result = mock.Mock(returncode=0, stdout=json.dumps(value))
-        with tempfile.TemporaryDirectory() as directory:
-            result_path = Path(directory) / "result.json"
-            with mock.patch.dict(os.environ, {"REVIEW_TOKEN": "SYNTHETIC_TOKEN", "GITHUB_TOKEN": "SYNTHETIC_TOKEN"}), mock.patch.object(host.shutil, "which", return_value="/trusted/go"), mock.patch.object(host.subprocess, "run", return_value=result) as command:
-                self.assertEqual(host.project_review(result_path, "{}", "a" * 40), value["review"])
-                kwargs = command.call_args.kwargs
-                self.assertNotIn("REVIEW_TOKEN", kwargs["env"])
-                self.assertNotIn("GITHUB_TOKEN", kwargs["env"])
-                self.assertEqual(kwargs["env"]["GOTOOLCHAIN"], "go1.26.9")
-                self.assertEqual(kwargs["env"]["GOSUMDB"], "sum.golang.org")
-                self.assertNotIn("SYNTHETIC_TOKEN", json.dumps(kwargs))
-                self.assertIn("@a73a3d88471f1fe5e947b11936430d7b298091f2", command.call_args.args[0][2])
-                self.assertFalse(kwargs.get("shell", False))
-                result.returncode = 1
-                with self.assertRaisesRegex(ValueError, "shared_review_projection_failed"):
-                    host.project_review(result_path, "{}", "a" * 40)
-                result.returncode = 0
-                value["head_sha"] = "b" * 40
-                result.stdout = json.dumps(value)
-                with self.assertRaisesRegex(ValueError, "invalid_shared_projection"):
-                    host.project_review(result_path, "{}", "a" * 40)
 
     def test_postscript_publishes_consumable_evidence_without_a_binary(self):
         record = self.publish()

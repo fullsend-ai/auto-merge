@@ -1,0 +1,9 @@
+{
+  "schema_version": "shared-review-tool/v1",
+  "module": "github.com/ascerra/fullsend-gemara-integration",
+  "package": "github.com/ascerra/fullsend-gemara-integration/cmd/gemara-owner",
+  "commit": "a2a8481ff08d5baa8b57f0c4ae41185818f770f8",
+  "version": "v0.0.0-20261020002301-a2a8481ff08d",
+  "source_sum": "h1:SHCxieeRpEyLTKYWyj3THjtCnP0UpMDL5LtT0YXOH5M=",
+  "go_version": "1.26.9"
+}
