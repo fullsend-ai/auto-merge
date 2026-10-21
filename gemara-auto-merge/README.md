@@ -1,5 +1,9 @@
 # Gemara auto-merge
 
+**New consumer gate:** [shared requirements and enforcement](../docs/SHARED-MERGE-GATE.md).
+The shared configuration and revision-pinned evaluator add REVIEW-QUALITY to the
+existing App/queue path. Earlier proof records below describe their recorded stage.
+
 **Active evidence producer:** [supported Review post-script override](../docs/attempts/02-policy-evaluation/POST-SCRIPT-REVIEW-EVIDENCE.md),
 without a custom Fullsend binary. The old build/export recipes below are retained
 for historical v1 reproduction, not the active deployment path.

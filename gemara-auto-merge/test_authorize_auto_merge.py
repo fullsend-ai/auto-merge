@@ -64,6 +64,15 @@ def rules():
 
 
 class PilotTests(unittest.TestCase):
+    def setUp(self):
+        # These tests exercise the pre-existing pilot checks; shared receipt
+        # provenance and composition have separate adversarial tests.
+        patcher = mock.patch.object(
+            p.shared_gate, "verify_assessment", return_value={"decision": "eligible"}
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_trusted_sources_bind_renamed_workflows_and_all_policy_inputs(self):
         source, group = "a" * 40, "b" * 40
         paths = ["gemara-auto-merge/" + name for name in p.source_digests()]
@@ -71,6 +80,10 @@ class PilotTests(unittest.TestCase):
             ".github/workflows/gemara-auto-merge.yml",
             ".github/workflows/gemara-merge-queue.yml",
             ".github/workflows/gemara-queue-writer.yml",
+            ".github/workflows/gemara-shared-gate.yml",
+            "scripts/shared_gate_runtime.py",
+            "gemara-auto-merge/shared_gate.py",
+            "scripts/run_shared_review.py",
         ]
         remote = {}
         for name in paths:
@@ -203,13 +216,12 @@ class PilotTests(unittest.TestCase):
 
     def test_configuration_is_bounded_closed_and_has_an_independent_kill_switch(self):
         data = {
-            "schema_version": "repository-merge-pilot/v1",
+            "schema_version": "repository-merge-pilot/v2",
             "repository": p.REPO,
             "automatic_enabled": True,
             "automatic_expires_at": "2026-10-22T18:00:00Z",
             "maintenance_enabled": True,
             "allowed_document_paths": [p.DOCUMENT],
-            "maximum_changed_lines": 20,
             "maintenance_maximum_age_seconds": 3600,
         }
         with mock.patch.object(p, "load", return_value=data):
@@ -217,8 +229,6 @@ class PilotTests(unittest.TestCase):
         for field, value in [
             ("automatic_enabled", "true"),
             ("repository", "other/repo"),
-            ("maximum_changed_lines", 21),
-            ("maximum_changed_lines", True),
             ("maintenance_maximum_age_seconds", 3601),
             ("allowed_document_paths", [".github/workflows/run.yml"]),
         ]:
@@ -313,12 +323,14 @@ class PilotTests(unittest.TestCase):
             ("maintain", True),
         ]:
             client = maintenance_client(
-                lambda path: run
-                if "/actions/" in path
-                else {
-                    "permission": "write" if role == "maintain" else role,
-                    "role_name": role,
-                }
+                lambda path: (
+                    run
+                    if "/actions/" in path
+                    else {
+                        "permission": "write" if role == "maintain" else role,
+                        "role_name": role,
+                    }
+                )
             )
             with mock.patch.dict(
                 os.environ, {"PILOT_MAINTENANCE": "true", "GITHUB_RUN_ID": "1"}
@@ -563,6 +575,17 @@ class PilotTests(unittest.TestCase):
                 assess(bundle, "candidate", subject, bad, now)["decision"], "hold"
             )
 
+    def test_scope_does_not_use_change_size_as_a_safety_signal(self):
+        for changes in [1, 21, 100000]:
+            self.assertTrue(
+                p.scoped(
+                    [{"filename": p.DOCUMENT, "status": "modified", "changes": changes}]
+                )
+            )
+        self.assertFalse(
+            p.scoped([{"filename": "code.py", "status": "modified", "changes": 1}])
+        )
+
     def test_only_one_regular_reviewed_document_can_enter_queue_tree(self):
         base = {
             p.DOCUMENT: ("blob", "100644", "a" * 40),
@@ -657,7 +680,6 @@ class PilotTests(unittest.TestCase):
             "automatic_enabled": True,
             "automatic_expires_at": "2026-10-22T18:00:00Z",
             "maintenance_enabled": True,
-            "maximum_changed_lines": 20,
         }
         rows = [
             {
@@ -671,8 +693,8 @@ class PilotTests(unittest.TestCase):
         ]
         client = mock.Mock()
         client.errors = set()
-        client.get.side_effect = (
-            lambda path: pr
+        client.get.side_effect = lambda path: (
+            pr
             if path.endswith("pulls/32")
             else (
                 {"commit": {"sha": base}}
@@ -680,10 +702,8 @@ class PilotTests(unittest.TestCase):
                 else rules()
             )
         )
-        client.pages.side_effect = (
-            lambda path, key=None: [
-                {"filename": "docs/not-in-pilot.md", "status": "added", "changes": 1}
-            ]
+        client.pages.side_effect = lambda path, key=None: (
+            [{"filename": "docs/not-in-pilot.md", "status": "added", "changes": 1}]
             if path.endswith("/files")
             else rows
         )

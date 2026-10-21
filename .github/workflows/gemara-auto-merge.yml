@@ -49,10 +49,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 gemara-auto-merge/resolve_pr_from_event.py
+  shared:
+    needs: resolve
+    if: needs.resolve.outputs.ready == 'true'
+    uses: ./.github/workflows/gemara-shared-gate.yml
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      actions: read
+    with:
+      pr: ${{ needs.resolve.outputs.pr }}
+      head: ${{ needs.resolve.outputs.head }}
+      source: ${{ github.sha }}
+      phase: enroll
   evaluate:
     outputs:
       eligible: ${{ steps.policy.outputs.eligible }}
-    needs: resolve
+    needs: [resolve, shared]
     if: needs.resolve.outputs.ready == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -100,11 +114,11 @@ jobs:
           include-hidden-files: false
 
   enqueue:
-    needs: [resolve, evaluate]
+    needs: [resolve, shared, evaluate]
     concurrency:
       group: gemara-writer-${{ needs.resolve.outputs.pr }}
       cancel-in-progress: false
-    if: needs.evaluate.outputs.eligible == 'true' && (inputs.execute || github.event_name == 'workflow_run') && github.ref == 'refs/heads/main'
+    if: needs.shared.outputs.eligible == 'true' && needs.evaluate.outputs.eligible == 'true' && (inputs.execute || github.event_name == 'workflow_run') && github.ref == 'refs/heads/main'
     permissions:
       contents: read
       pull-requests: read

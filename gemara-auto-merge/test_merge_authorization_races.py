@@ -10,6 +10,12 @@ from policy_evaluation import InputError, digest
 
 class AuthorizationRaceTests(unittest.TestCase):
     def setUp(self):
+        patcher = mock.patch.object(
+            p.shared_gate, "verify_assessment", return_value={"decision": "eligible"}
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
         self.config = p.configuration()
         self.result = {
             "decision": "eligible",
@@ -29,8 +35,8 @@ class AuthorizationRaceTests(unittest.TestCase):
         }
         self.client = mock.MagicMock()
         self.client.errors = set()
-        self.client.get.side_effect = (
-            lambda path: self.pr if "/pulls/" in path else {"commit": {"sha": "b" * 40}}
+        self.client.get.side_effect = lambda path: (
+            self.pr if "/pulls/" in path else {"commit": {"sha": "b" * 40}}
         )
 
     def test_duplicate_events_request_queue_only_once(self):
@@ -72,7 +78,7 @@ class AuthorizationRaceTests(unittest.TestCase):
             mock.patch.object(
                 p,
                 "configuration",
-                return_value=dict(self.config, maximum_changed_lines=1),
+                return_value=dict(self.config, automatic_enabled=False),
             ),
             self.assertRaises(InputError),
         ):
@@ -84,8 +90,8 @@ class AuthorizationRaceTests(unittest.TestCase):
             p.pre_enqueue(self.result, self.client)
 
         self.pr["head"]["sha"] = "a" * 40
-        self.client.get.side_effect = (
-            lambda path: self.pr if "/pulls/" in path else {"commit": {"sha": "f" * 40}}
+        self.client.get.side_effect = lambda path: (
+            self.pr if "/pulls/" in path else {"commit": {"sha": "f" * 40}}
         )
         with self.assertRaises(InputError):
             p.pre_enqueue(self.result, self.client)

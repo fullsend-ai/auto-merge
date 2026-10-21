@@ -13,6 +13,7 @@ import time
 import urllib.request
 
 import github_pr_evidence as g
+import shared_gate
 from result_bundle import write_bundle, write_failure
 from github_app_token_scope import verify_scope
 from policy_evaluation import (
@@ -48,13 +49,12 @@ def configuration():
             "automatic_expires_at",
             "maintenance_enabled",
             "allowed_document_paths",
-            "maximum_changed_lines",
             "maintenance_maximum_age_seconds",
         },
         "invalid_pilot_configuration",
     )
     require(
-        data["schema_version"] == "repository-merge-pilot/v1"
+        data["schema_version"] == "repository-merge-pilot/v2"
         and data["repository"] == REPO
         and type(data["automatic_enabled"]) is bool
         and type(data["maintenance_enabled"]) is bool,
@@ -67,8 +67,6 @@ def configuration():
     # Finite lab cohort: no globs, executable paths, or caller-selected policies.
     require(
         data["allowed_document_paths"] == [DOCUMENT]
-        and type(data["maximum_changed_lines"]) is int
-        and 1 <= data["maximum_changed_lines"] <= 20
         and type(data["maintenance_maximum_age_seconds"]) is int
         and 60 <= data["maintenance_maximum_age_seconds"] <= 3600,
         "invalid_pilot_configuration",
@@ -156,15 +154,13 @@ def tree(client, sha):
     }
 
 
-def scoped(files, maximum):
+def scoped(files):
     return (
         isinstance(files, list)
         and len(files) == 1
         and files[0].get("filename") == DOCUMENT
         and files[0].get("status") == "modified"
         and not files[0].get("previous_filename")
-        and type(files[0].get("changes")) is int
-        and 0 < files[0]["changes"] <= maximum
     )
 
 
@@ -421,6 +417,10 @@ def trusted_source(client, base_sha, phase, group_sha=None):
         ".github/workflows/gemara-auto-merge.yml",
         ".github/workflows/gemara-merge-queue.yml",
         ".github/workflows/gemara-queue-writer.yml",
+        ".github/workflows/gemara-shared-gate.yml",
+        "scripts/shared_gate_runtime.py",
+        "gemara-auto-merge/shared_gate.py",
+        "scripts/run_shared_review.py",
     ]
     for name in paths:
         path = ROOT.parent / name
@@ -592,8 +592,7 @@ def evaluate(number, expected_head, phase, client=None):
     scope_ok = (
         maintenance_scope(files)
         if maintenance
-        else scoped(files, config["maximum_changed_lines"])
-        and reviewed_tree.get(DOCUMENT, ())[:2] == ("blob", "100644")
+        else scoped(files) and reviewed_tree.get(DOCUMENT, ())[:2] == ("blob", "100644")
     )
     if phase == "queue":
         queued = tree(client, group_sha)
@@ -650,9 +649,9 @@ def evaluate(number, expected_head, phase, client=None):
         "reviewed_head": expected_head,
         "evaluated_sha": target,
         "base_sha": base_sha,
-        "candidate_request": report["shadow"]["evaluation"]["request_sha256"]
-        if report
-        else None,
+        "candidate_request": (
+            report["shadow"]["evaluation"]["request_sha256"] if report else None
+        ),
     }
     subject = {
         "repository": REPO,
@@ -671,6 +670,14 @@ def evaluate(number, expected_head, phase, client=None):
         for k, v in values.items()
     }
     result = assess(bundle(maintenance), "candidate", subject, observations, now)
+    shared = shared_gate.verify_assessment(
+        client, number, expected_head, base_sha, phase, target
+    )
+    combined_decision = (
+        "eligible"
+        if result["decision"] == "eligible" and shared["decision"] == "eligible"
+        else "hold"
+    )
     again = client.get(BASE + f"pulls/{number}")
     branch = client.get(BASE + "branches/main")
     require(
@@ -698,22 +705,27 @@ def evaluate(number, expected_head, phase, client=None):
         "evaluated_sha": target,
         "base_sha": base_sha,
         "configuration_sha256": digest(config),
-        "decision": result["decision"],
+        "decision": combined_decision,
         "maintenance_authorization": permission,
-        "production_readiness": report["readiness_decision"]
-        if report
-        else "not_assessed",
+        "production_readiness": (
+            report["readiness_decision"] if report else "not_assessed"
+        ),
         "producer_evidence": report.get("native_review_evidence") if report else None,
         "evaluation": result,
-        "supporting_evaluations": {
-            "readiness": report["qualification"]["result"],
-            "candidate": report["shadow"]["evaluation"],
-        }
-        if report and "qualification" in report
-        else {},
-        "authorized_action": "enqueue-only"
-        if phase == "enroll" and result["decision"] == "eligible"
-        else "none",
+        "shared_assessment": shared,
+        "supporting_evaluations": (
+            {
+                "readiness": report["qualification"]["result"],
+                "candidate": report["shadow"]["evaluation"],
+            }
+            if report and "qualification" in report
+            else {}
+        ),
+        "authorized_action": (
+            "enqueue-only"
+            if phase == "enroll" and combined_decision == "eligible"
+            else "none"
+        ),
     }
 
 
@@ -794,6 +806,15 @@ def pre_enqueue(result, client):
             and permission == result["maintenance_authorization"],
             "maintenance_authorization_changed",
         )
+    shared = shared_gate.verify_assessment(
+        client,
+        result["pull_request"],
+        result["reviewed_head"],
+        result["base_sha"],
+        "enroll",
+        result["reviewed_head"],
+    )
+    require(shared["decision"] == "eligible", "shared_policy_held_before_enqueue")
     if pending_queue_request(client, result["pull_request"], result["reviewed_head"]):
         return "native_auto_merge_already_requested"
     require(not client.errors and configuration() == config, "pilot_state_changed")
@@ -873,6 +894,7 @@ def main():
             {
                 "pilot": bundle(result["mode"] == "maintenance"),
                 "repository": g.load_bundle(),
+                "shared": shared_gate.settings(),
             },
             result["decision"],
             result["production_readiness"],
@@ -882,7 +904,7 @@ def main():
         compact = {
             k: v
             for k, v in result.items()
-            if k not in {"evaluation", "supporting_evaluations"}
+            if k not in {"evaluation", "supporting_evaluations", "shared_assessment"}
         }
         compact["assessments"] = [
             {k: r[k] for k in ["id", "state", "reason"]}
@@ -898,6 +920,13 @@ def main():
                     f"- {r['id']}: {r['state']} ({r['reason']})"
                     for r in compact["assessments"]
                 )
+                + "\n\nShared candidate: "
+                + result["shared_assessment"]["candidate"]["decision"]
+                + "; REVIEW-QUALITY: "
+                + result["shared_assessment"]["quality"]["state"]
+                + " ("
+                + result["shared_assessment"]["quality"]["reason"]
+                + ")."
                 + "\n\nDownload this job's `gemara-evaluation` artifact for native logs, normalized evidence, effective policy and a digest manifest. The bundle itself grants no merge authority.\n"
             )
         output = os.environ.get("GITHUB_OUTPUT")

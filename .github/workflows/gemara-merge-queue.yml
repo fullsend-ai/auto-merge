@@ -9,12 +9,27 @@ permissions:
   checks: read
   actions: read
 jobs:
+  shared:
+    if: github.event_name == 'merge_group' && github.repository == 'fullsend-ai/auto-merge'
+    uses: ./.github/workflows/gemara-shared-gate.yml
+    with:
+      source: ${{ github.event.merge_group.base_sha }}
+      phase: queue
+      group: ${{ github.event.merge_group.head_sha }}
+      group_ref: ${{ github.event.merge_group.head_ref }}
   gate:
     name: Gemara pilot queue gate
-    if: github.repository == 'fullsend-ai/auto-merge'
+    needs: shared
+    if: always() && github.repository == 'fullsend-ai/auto-merge'
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
+      - name: Refuse a missing or held shared queue assessment
+        if: github.event_name == 'merge_group'
+        env:
+          SHARED_RESULT: ${{ needs.shared.result }}
+          SHARED_ELIGIBLE: ${{ needs.shared.outputs.eligible }}
+        run: test "$SHARED_RESULT" = success && test "$SHARED_ELIGIBLE" = true
       - name: Defer final queue validation until the merge group exists
         if: github.event_name == 'pull_request'
         run: echo 'Pre-queue only. The required merge-group check performs final native authorization.'

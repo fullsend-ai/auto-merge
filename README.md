@@ -1,68 +1,91 @@
-# Auto-Merge Experiments Lab
+# Fullsend + Gemara auto-merge example
 
-This public repository is a **Fullsend + Gemara integration lab**. The active
-experiment uses native Gemara catalogs and policies to evaluate PR evidence,
-with a bounded documentation auto-merge pilot. The older custom auto-merge model
-agent is disabled. This is not a production auto-merge service or an approved
-organization-wide standard.
+This experimental repository asks a practical owner question: **when may an
+agent-approved PR enter my protected merge queue?** Fullsend reviews the change.
+Shared Gemara policies assess the evidence. A separate repository App requests
+queue enrollment; **GitHub performs the merge**.
 
-## Start here
+## The six requirements
 
-1. **[Current state and verified proof](docs/attempts/02-policy-evaluation/CURRENT-STATE.md)** — what runs, what was demonstrated, and what remains unknown.
-2. [Follow the native Review evidence](docs/attempts/02-policy-evaluation/SHADOW-OBSERVATION.md) — Fullsend approval can still produce a Gemara hold.
-3. [Bounded live pilot](docs/attempts/02-policy-evaluation/DOCUMENTATION-AUTO-MERGE-PILOT.md) — owner authorization, App writer and protected merge queue.
-4. [Implementation and local commands](gemara-auto-merge/README.md) — policy files, supported semantics and tests.
-5. [Documentation map](docs/README.md) — current guides, historical attempts and future proposals.
+1. **Owner scope:** the PR is open, ready, within the owner's unexpired delegation,
+   and changes only the allowed ordinary documentation file. Renames, executable
+   files and governance changes are excluded. Change size is not a safety signal.
+2. **Review clear:** authenticated Fullsend Review approved this head, supplied a
+   risk assessment at or below the owner limit, and left no unresolved findings.
+3. **Checks pass:** the named GitHub Actions checks passed on this exact head.
+4. **Evidence current:** the collector verified the Review producer, run, attempt,
+   artifact digest and current PR/target revisions.
+5. **Protections active:** the protected queue and required gate remain configured,
+   discussions are resolved and no active ruleset has a bypass actor.
+6. **Review quality:** at least 99% of the configured judge's valid scored approvals
+   passed, with sufficient and recent evidence.
 
-## Two separate hosted proofs
+All six must pass. Missing, ambiguous, stale or invalid data holds. The quality
+measure is an experimental **judge pass rate among scored approvals**, not a
+production accuracy guarantee or an independent verdict on this PR.
 
-- **Protected automatic merge:** [PR #41](https://github.com/fullsend-ai/auto-merge/pull/41)
-  demonstrated automatic Review, lab-App queue entry and a protected merge using
-  the earlier verified receipt path.
-- **Native evidence publication and consumption:** [PR #43](https://github.com/fullsend-ai/auto-merge/pull/43)
-  exercised a real hosted vendored Fullsend Review. Its native artifact was
-  independently verified by the automatic Gemara shadow workflow. The result
-  was **hold**, despite an approval: an open finding failed policy and eligible
-  change classification was unestablished.
+## Shared policy versus repository setup
 
-A successful merge through the newer native-artifact path has **not** yet been
-demonstrated. General production readiness remains **hold**. The current-state
-page links exact runs, revisions, artifacts and assessment results.
+The public [shared integration](https://github.com/ascerra/fullsend-gemara-integration)
+contains the Gemara catalogs, policies, Go evaluator, metadata-only MLflow
+collector and synthetic boundary tests. This repo pins its immutable revision
+and source checksum.
 
-## What runs
+[One consumer configuration](gemara-auto-merge/config/shared-gate.json) binds
+those shared requirements to this repository's identity, allowed paths, checks,
+review workflow, risk limit and owner grant. Its quality policy selects the
+scorer/source and requires 100 samples, a trailing year, a snapshot no older than
+15 minutes, and a latest score no older than seven days. The endpoint and reader
+credentials belong in the `gemara-policy-reader` GitHub environment, restricted
+to `main`; they are not tracked files.
 
-Fullsend Review → trusted native evidence publisher → authenticated collector →
-Gemara evaluation → separately authorized lab App writer → GitHub protected queue.
-The newest hosted proof reaches evaluation and holds; the earlier pilot proof
-reaches merge. The model has no merge credential. GitHub enforces the final merge.
+[Walk through the implementation](docs/SHARED-MERGE-GATE.md) for the collector,
+isolation and writer boundaries. These GitHub adapters and receipt checks were
+created for this experiment. Gemara supplies the policy document model, native
+assessment execution and evaluation logs; it does not collect forge evidence,
+authenticate our receipts, isolate code or merge PRs.
 
-The automatic cohort is limited to `docs/example-feature.md`, at most 20 changed
-lines, and expires **October 22, 2026 at 2 p.m. EDT**. Maintenance is disabled.
-Scope and expiry live in
-[owner-controlled settings](gemara-auto-merge/config/documentation-auto-merge-settings.json);
-these settings are separate from the Gemara policies. Editing policy, workflow or
-implementation files is not an eligible documentation-pilot change.
+## Execution and demonstrations
 
-The active Review uses a supported post-script override under the pinned upstream
-authentication wrapper, with the normal Fullsend runtime installation path.
-See [the post-script evidence path](docs/attempts/02-policy-evaluation/POST-SCRIPT-REVIEW-EVIDENCE.md)
-for local validation and the hosted proof still required. Queue entry uses a dedicated repository-scoped lab App; Fullsend-native
-queue-writer credential handoff remains separate work. No personal token is used
-by this pilot's Actions writer.
+```mermaid
+flowchart LR
+  F[Fullsend Review] --> C[Trusted candidate collector]
+  J[Read-only judge collector on main] --> Q[Recent aggregate]
+  C --> G[Isolated shared Gemara assessment]
+  Q --> G
+  G -->|all six pass| A[Existing repository App authorizer]
+  G -->|failed or unknown| H[Hold: no writer job]
+  A --> V[Required queue gate: fresh candidate and quality receipt]
+  V --> M[GitHub protected merge queue]
+```
 
-## Local verification
+Setup is deployed to `main`; demonstration PRs exercise the installed behavior.
+The automatic owner grant still expires **October 22, 2026 at 2 p.m. EDT** and
+[maintenance remains disabled](gemara-auto-merge/config/documentation-auto-merge-settings.json).
+The older custom auto-merge model agent remains disabled. This is a lab, not a
+production service or an organization-wide standard.
+
+The new six-requirement enforcement is undergoing hosted acceptance. A passing
+synthetic 99/100 case is not a live merge. The authentic population must satisfy
+the unchanged threshold before this policy can permit a real merge.
+
+- [Gate workflow runs](https://github.com/fullsend-ai/auto-merge/actions/workflows/gemara-auto-merge.yml)
+- [Earlier protected native-evidence baseline: PR #51](https://github.com/fullsend-ai/auto-merge/pull/51)
+- [Earlier advisory shared Review replay](docs/SHARED-REVIEW.md)
+- [Historical experiments and documentation](docs/README.md)
+
+GitLab can reuse the shared policy and evaluator with its own trusted binding and
+evidence adapter. Our separate GitLab example holds because risk assessment is missing. A failed GitLab pipeline alone does
+not prove enforced merge prevention; this step changes only the GitHub consumer.
+
+## Verification
 
 ```sh
 python3 scripts/validate_example.py
+python3 -m unittest discover -s gemara-auto-merge -p 'test*.py'
 ```
 
-See the [implementation runbook](gemara-auto-merge/README.md#run) for pinned
-Gemara toolchain setup and tests. Local replay uses synthetic inputs and grants
-no merge authority. Historical hosted records are not fresh merge authorizations.
-
-## History and safety
-
-[Attempt 1](docs/attempts/01-agent-led/README.md) preserves the earlier agent-led
-approach, its contracts and recordings. Historical diagrams and future design
-proposals do not describe the active Gemara path unless explicitly stated.
-Never commit credentials, environment files or raw sensitive workflow data.
+The hosted suite also runs the pinned combined evaluator inside the actual
+UID/filesystem/network jail: clean synthetic candidates hold at 94/100 and pass
+at 99/100. Artifacts contain bounded aggregates, timestamps, digests and native
+assessment logs, never raw traces, judge rationale, endpoints or credentials.

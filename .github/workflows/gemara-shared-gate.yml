@@ -1,0 +1,166 @@
+name: Shared merge requirements
+on:
+  workflow_call:
+    inputs:
+      pr:
+        type: string
+        default: ''
+      head:
+        type: string
+        default: ''
+      source:
+        type: string
+        required: true
+      phase:
+        type: string
+        required: true
+      group:
+        type: string
+        default: ''
+      group_ref:
+        type: string
+        default: ''
+    outputs:
+      eligible:
+        value: ${{ jobs.assess.outputs.eligible }}
+    secrets:
+      MLFLOW_READER_USERNAME:
+        required: false
+      MLFLOW_READER_PASSWORD:
+        required: false
+      MLFLOW_READER_ENDPOINT:
+        required: false
+permissions: {}
+jobs:
+  candidate:
+    name: Collect current candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source }}
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.9'
+          cache: false
+      - name: Prepare existing native evidence verifier without forge credentials
+        env:
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
+        run: |
+          python3 gemara-auto-merge/install_pinned_toolchain.py
+          python3 gemara-auto-merge/build_native_evaluator.py
+      - name: Collect bounded current-candidate evidence from the trusted base
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PILOT_SOURCE_SHA: ${{ inputs.source }}
+          PILOT_REF: ${{ github.ref }}
+          PILOT_EVENT_NAME: ${{ github.event_name }}
+          PILOT_GROUP_SHA: ${{ inputs.group }}
+          PILOT_GROUP_BASE: ${{ inputs.source }}
+          PILOT_GROUP_REF: ${{ inputs.group_ref }}
+          TARGET_PR: ${{ inputs.pr }}
+          TARGET_HEAD: ${{ inputs.head }}
+          PHASE: ${{ inputs.phase }}
+        run: |
+          python3 gemara-auto-merge/shared_gate.py --phase "$PHASE" --pr "${TARGET_PR:-0}" --head "$TARGET_HEAD" --output shared-input
+          cp scripts/shared_gate_runtime.py scripts/run_shared_review.py shared-input/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: shared-candidate-${{ github.run_attempt }}
+          path: shared-input/
+          retention-days: 7
+          if-no-files-found: error
+  quality:
+    name: Collect quality aggregate
+    if: inputs.phase == 'enroll' && github.ref == 'refs/heads/main'
+    environment: gemara-policy-reader
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source }}
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.9'
+          cache: false
+      - name: Prepare checksum-pinned collector before loading reader credentials
+        env:
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
+        run: python3 scripts/shared_gate_runtime.py prepare --config gemara-auto-merge/config/shared-gate.json --output shared-runtime
+      - name: Collect metadata using only the MLflow reader credential
+        env:
+          MLFLOW_READER_USERNAME: ${{ secrets.MLFLOW_READER_USERNAME }}
+          MLFLOW_READER_PASSWORD: ${{ secrets.MLFLOW_READER_PASSWORD }}
+          MLFLOW_READER_ENDPOINT: ${{ secrets.MLFLOW_READER_ENDPOINT }}
+          SOURCE_SHA: ${{ inputs.source }}
+        run: python3 scripts/shared_gate_runtime.py quality --config gemara-auto-merge/config/shared-gate.json --runtime shared-runtime --source "$SOURCE_SHA" --output shared-quality
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: shared-quality-${{ github.run_attempt }}
+          path: shared-quality/
+          retention-days: 1
+          if-no-files-found: error
+  assess:
+    name: Assess shared merge requirements
+    needs: [candidate, quality]
+    if: always() && needs.candidate.result == 'success' && (needs.quality.result == 'success' || inputs.phase == 'queue')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions: {}
+    outputs:
+      eligible: ${{ steps.assessment.outputs.eligible }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: shared-candidate-${{ github.run_attempt }}
+          path: shared-input
+      - if: inputs.phase == 'enroll'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: shared-quality-${{ github.run_attempt }}
+          path: shared-quality
+      - if: inputs.phase == 'queue'
+        run: |
+          mkdir shared-quality
+          cp shared-input/quality.json shared-quality/quality.json
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.9'
+          cache: false
+      - name: Assess all six requirements without collector or writer credentials
+        id: assessment
+        run: |
+          /usr/bin/sudo -n /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            /usr/bin/python3 shared-input/shared_gate_runtime.py assess --input "$PWD/shared-input" --quality "$PWD/shared-quality" --output "$PWD/shared-output"
+          /usr/bin/sudo -n /usr/bin/chown --no-dereference "$(/usr/bin/id -u):$(/usr/bin/id -g)" shared-output shared-output/receipt.json shared-output/assessment.json
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          result=json.loads(Path('shared-output/assessment.json').read_text())
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:
+              f.write('eligible='+str(result['decision']=='eligible').lower()+'\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('# Shared Gemara requirements\n\n')
+              for row in result['candidate']['assessments']:
+                  f.write('- '+row['id']+': '+row['state']+' ('+row['reason']+')\n')
+              f.write('- REVIEW-QUALITY: '+result['quality']['state']+' ('+result['quality']['reason']+')\n\nCombined decision: **'+result['decision']+'**. Assessment data only; the existing App and protected queue enforce merging.\n')
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: shared-gate-assessment-${{ github.run_attempt }}
+          path: shared-output/
+          retention-days: 7
+          if-no-files-found: error
