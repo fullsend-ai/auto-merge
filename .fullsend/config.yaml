@@ -6,6 +6,7 @@
 version: "1"
 runtime: claude
 roles:
+    - coder
     - review
 agents:
     - name: review
