@@ -495,5 +495,8 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except Exception:
-        raise SystemExit("Shared candidate collection held; no merge authorization.")
+    except Exception as error:
+        reason = str(error)
+        if not re.fullmatch(r"[a-z0-9_]{1,80}", reason):
+            reason = "candidate_collection_invalid"
+        raise SystemExit("Shared candidate collection held: " + reason + "; no merge authorization.")

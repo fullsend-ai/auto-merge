@@ -23,13 +23,6 @@ on:
     outputs:
       eligible:
         value: ${{ jobs.assess.outputs.eligible }}
-    secrets:
-      MLFLOW_READER_USERNAME:
-        required: false
-      MLFLOW_READER_PASSWORD:
-        required: false
-      MLFLOW_READER_ENDPOINT:
-        required: false
 permissions: {}
 jobs:
   candidate:
@@ -78,45 +71,10 @@ jobs:
           path: shared-input/
           retention-days: 7
           if-no-files-found: error
-  quality:
-    name: Collect quality aggregate
-    if: inputs.phase == 'enroll' && github.ref == 'refs/heads/main'
-    environment: gemara-policy-reader
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ inputs.source }}
-          persist-credentials: false
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
-        with:
-          go-version: '1.26.9'
-          cache: false
-      - name: Prepare checksum-pinned collector before loading reader credentials
-        env:
-          GH_TOKEN: ''
-          GITHUB_TOKEN: ''
-        run: python3 scripts/shared_gate_runtime.py prepare --config gemara-auto-merge/config/shared-gate.json --output shared-runtime
-      - name: Collect metadata using only the MLflow reader credential
-        env:
-          MLFLOW_READER_USERNAME: ${{ secrets.MLFLOW_READER_USERNAME }}
-          MLFLOW_READER_PASSWORD: ${{ secrets.MLFLOW_READER_PASSWORD }}
-          MLFLOW_READER_ENDPOINT: ${{ secrets.MLFLOW_READER_ENDPOINT }}
-          SOURCE_SHA: ${{ inputs.source }}
-        run: python3 scripts/shared_gate_runtime.py quality --config gemara-auto-merge/config/shared-gate.json --runtime shared-runtime --source "$SOURCE_SHA" --output shared-quality
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: shared-quality-${{ github.run_attempt }}
-          path: shared-quality/
-          retention-days: 1
-          if-no-files-found: error
   assess:
     name: Assess shared merge requirements
-    needs: [candidate, quality]
-    if: always() && needs.candidate.result == 'success' && (needs.quality.result == 'success' || inputs.phase == 'queue')
+    needs: candidate
+    if: needs.candidate.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions: {}

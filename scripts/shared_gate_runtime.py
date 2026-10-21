@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -265,5 +266,8 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except Exception:
-        raise SystemExit("Shared assessment held; setup or evidence invalid.")
+    except Exception as error:
+        reason = str(error)
+        if not re.fullmatch(r"[a-z0-9_]{1,80}", reason):
+            reason = "setup_or_evidence_invalid"
+        raise SystemExit("Shared assessment held: " + reason)

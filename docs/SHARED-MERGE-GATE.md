@@ -22,7 +22,8 @@ them itself and its assessment explicitly grants no mutation authority.
 ## Before enrollment
 
 `gemara-auto-merge.yml` resolves the current PR using forge-owned metadata.
-The reusable `gemara-shared-gate.yml` then runs three jobs:
+A top-level main-only quality job and the reusable `gemara-shared-gate.yml`
+separate collection from assessment in three jobs:
 
 1. **Candidate:** check out the trusted main source, authenticate current Review
    publication and collect bounded PR/check/protection evidence. Never check out
