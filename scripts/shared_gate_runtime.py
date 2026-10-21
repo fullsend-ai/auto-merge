@@ -85,6 +85,10 @@ def collect_quality(config, output, source, runtime):
     )
     out = Path(output)
     out.mkdir(mode=0o700)
+    audit = json.loads(os.environ["GEMARA_RULESET_AUDIT"])
+    require(
+        audit["schema_version"] == "github-ruleset-audit/v1", "ruleset_audit_missing"
+    )
     q = config["judge_policy"]
     binding = {
         k: q[k]
@@ -126,6 +130,7 @@ def collect_quality(config, output, source, runtime):
         "run_id": os.environ["GITHUB_RUN_ID"],
         "attempt": os.environ["GITHUB_RUN_ATTEMPT"],
         "config_sha256": digest(config),
+        "ruleset_audit": audit,
     }
     (out / "quality-context.json").write_text(json.dumps(context))
     print(
@@ -150,6 +155,7 @@ def assess(inputs, quality_dir, output):
                 "run_id": context["run_id"],
                 "attempt": context["attempt"],
                 "config_sha256": digest(config),
+                "ruleset_audit": context["ruleset_audit"],
             },
             "quality_context_mismatch",
         )

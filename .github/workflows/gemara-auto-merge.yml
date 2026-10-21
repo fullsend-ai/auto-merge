@@ -77,6 +77,7 @@ jobs:
           MLFLOW_READER_USERNAME: ${{ secrets.MLFLOW_READER_USERNAME }}
           MLFLOW_READER_PASSWORD: ${{ secrets.MLFLOW_READER_PASSWORD }}
           MLFLOW_READER_ENDPOINT: ${{ secrets.MLFLOW_READER_ENDPOINT }}
+          GEMARA_RULESET_AUDIT: ${{ vars.GEMARA_RULESET_AUDIT }}
           SOURCE_SHA: ${{ github.sha }}
         run: python3 scripts/shared_gate_runtime.py quality --config gemara-auto-merge/config/shared-gate.json --runtime shared-runtime --source "$SOURCE_SHA" --output shared-quality
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

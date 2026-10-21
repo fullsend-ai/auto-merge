@@ -57,6 +57,7 @@ class SharedReceiptTests(unittest.TestCase):
             attempt="1",
             config_sha256=digest(self.c),
             collected_at=fmt(now),
+            ruleset_audit={"synthetic": True},
         )
         subject = dict(
             identity=self.c["binding"]["identity"],
@@ -116,7 +117,9 @@ class SharedReceiptTests(unittest.TestCase):
     def verify(self):
         with mock.patch.dict(
             os.environ, {"GITHUB_RUN_ID": "100", "GITHUB_RUN_ATTEMPT": "1"}
-        ), mock.patch.object(s, "artifact", return_value=self.files):
+        ), mock.patch.object(s, "artifact", return_value=self.files), mock.patch.object(
+            s, "verify_ruleset_audit"
+        ):
             return s.verify_assessment(
                 self.client, 53, self.head, self.base, "enroll", self.head
             )
@@ -463,6 +466,8 @@ class CandidateAdapterTests(unittest.TestCase):
             pilot, "queue_rules", return_value=True
         ), mock.patch.object(
             s.g, "observe", return_value=self.report
+        ), mock.patch.object(
+            s, "quality_snapshot", return_value=({}, {"synthetic": True})
         ):
             out = Path(d) / "inputs"
             s.collect(53, self.head, "enroll", out, self.client)
@@ -527,6 +532,7 @@ class HostedCombinedAssessmentTests(unittest.TestCase):
             attempt="1",
             config_sha256=digest(config),
             collected_at=fmt(instant),
+            ruleset_audit={"synthetic": True},
         )
         quality = dict(
             schema_version="judge-observation/v1",
@@ -566,6 +572,7 @@ class HostedCombinedAssessmentTests(unittest.TestCase):
                         run_id="100",
                         attempt="1",
                         config_sha256=digest(config),
+                        ruleset_audit={"synthetic": True},
                     )
                 )
             )
@@ -627,6 +634,76 @@ class HostedCombinedAssessmentTests(unittest.TestCase):
                     capture_output=True,
                     timeout=10,
                 )
+
+
+class RulesetAuditTests(unittest.TestCase):
+    def setUp(self):
+        self.rule = dict(
+            id=1,
+            name="protected main",
+            target="branch",
+            enforcement="active",
+            conditions={"ref_name": {"include": ["refs/heads/main"], "exclude": []}},
+            rules=[{"type": "merge_queue"}],
+            updated_at="2026-10-21T10:00:00Z",
+        )
+        instant = datetime.now(timezone.utc)
+        self.audit = dict(
+            schema_version="github-ruleset-audit/v1",
+            repository=s.g.REPOSITORY,
+            repository_id=s.g.REPOSITORY_ID,
+            audited_at=(instant - timedelta(seconds=5)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            expires_at=s.settings()["binding"]["owner_grant_expires_at"],
+            rulesets=[
+                dict(
+                    id=1,
+                    bypass_disabled=True,
+                    public_state_sha256=digest(s.ruleset_public_state(self.rule)),
+                )
+            ],
+        )
+        self.client = mock.Mock()
+        self.client.errors = set()
+        self.client.pages.return_value = [{"id": 1}]
+        self.client.get.side_effect = lambda path: (
+            [{"id": 1}] if path.endswith("/rulesets") else self.rule
+        )
+
+    def test_hidden_bypass_actors_require_exact_owner_audited_version(self):
+        self.assertNotIn("bypass_actors", self.rule)
+        s.verify_ruleset_audit(self.client, self.audit)
+        self.rule["updated_at"] = "2026-10-21T10:00:01Z"
+        with self.assertRaisesRegex(InputError, "audit_drift"):
+            s.verify_ruleset_audit(self.client, self.audit)
+
+    def test_new_ruleset_or_changed_rules_cannot_inherit_owner_assertion(self):
+        self.client.pages.return_value = [{"id": 1}, {"id": 2}]
+        self.client.get.side_effect = lambda path: (
+            [{"id": 1}, {"id": 2}] if path.endswith("/rulesets") else self.rule
+        )
+        with self.assertRaises(InputError):
+            s.verify_ruleset_audit(self.client, self.audit)
+        self.client.get.side_effect = lambda path: (
+            [{"id": 1}] if path.endswith("/rulesets") else self.rule
+        )
+        self.client.pages.return_value = [{"id": 1}]
+        self.rule["rules"] = []
+        with self.assertRaises(InputError):
+            s.verify_ruleset_audit(self.client, self.audit)
+
+    def test_expired_or_wrong_owner_audit_and_explicit_bypass_hold(self):
+        original = self.audit["expires_at"]
+        self.audit["expires_at"] = "2000-01-01T00:00:00Z"
+        with self.assertRaises(InputError):
+            s.verify_ruleset_audit(self.client, self.audit)
+        self.audit["expires_at"] = original
+        self.audit["repository"] = "other/repo"
+        with self.assertRaises(InputError):
+            s.verify_ruleset_audit(self.client, self.audit)
+        self.audit["repository"] = s.g.REPOSITORY
+        self.rule["bypass_actors"] = [{"actor_type": "Integration", "actor_id": 7}]
+        with self.assertRaises(InputError):
+            s.verify_ruleset_audit(self.client, self.audit)
 
 
 if __name__ == "__main__":
