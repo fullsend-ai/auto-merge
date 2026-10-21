@@ -92,7 +92,7 @@ class SharedReceiptTests(unittest.TestCase):
             schema_version="judge-check/v1",
             authorization="none",
             mutation_permitted=False,
-            minimum_basis_points=9900,
+            minimum_basis_points=self.c["judge_policy"]["minimum_basis_points"],
             passed=99,
             total=100,
             state="passed",
@@ -130,11 +130,18 @@ class SharedReceiptTests(unittest.TestCase):
 
     def test_valid_receipt_and_below_threshold_hold(self):
         self.assertEqual(self.verify()["decision"], "eligible")
-        self.report["quality"].update(state="failed", decision="hold", passed=94)
-        self.quality["passed"] = 94
+        below = (self.c["judge_policy"]["minimum_basis_points"] + 99) // 100 - 1
+        self.report["quality"].update(state="failed", decision="hold", passed=below)
+        self.quality["passed"] = below
         self.report["decision"] = "hold"
         self.reseal()
         self.assertEqual(self.verify()["decision"], "hold")
+
+    def test_receipt_using_a_different_policy_threshold_is_rejected(self):
+        self.report["quality"]["minimum_basis_points"] -= 100
+        self.reseal()
+        with self.assertRaisesRegex(InputError, "shared_quality_report_invalid"):
+            self.verify()
 
     def test_current_run_identity_attempt_and_completed_job_required(self):
         for field, value in [
@@ -506,7 +513,7 @@ class CandidateAdapterTests(unittest.TestCase):
     os.environ.get("GITHUB_ACTIONS") == "true", "requires GitHub-hosted Linux isolation"
 )
 class HostedCombinedAssessmentTests(unittest.TestCase):
-    def test_pinned_core_in_jail_holds_at_94_and_passes_at_99(self):
+    def test_pinned_core_in_jail_enforces_configured_threshold_boundary(self):
         import subprocess
         import tempfile
         from pathlib import Path
@@ -576,7 +583,8 @@ class HostedCombinedAssessmentTests(unittest.TestCase):
                     )
                 )
             )
-            for passed, decision in [(94, "hold"), (99, "eligible")]:
+            minimum = (config["judge_policy"]["minimum_basis_points"] + 99) // 100
+            for passed, decision in [(minimum - 1, "hold"), (minimum, "eligible")]:
                 quality["passed"] = passed
                 (qdir / "quality.json").write_text(json.dumps(quality))
                 output = work / str(passed)

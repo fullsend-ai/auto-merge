@@ -87,17 +87,23 @@ one-second timestamp precision before publishing and checks for intervening drif
 ## Experimental limits and acceptance
 
 The judge cohort is experiment-wide scored approvals, not a repository-specific
-or current-agent-version accuracy measure. Its 99% threshold and 100-sample floor
-are owner-selected demonstration settings, not statistical qualification. No
-threshold is lowered to manufacture a live pass.
+or current-agent-version accuracy measure. The 100-sample floor and percentage
+threshold are owner-selected demonstration settings, not statistical qualification.
+The first live experiment used 99% and held at 238/254 (93.70%) in
+[PR #53](https://github.com/fullsend-ai/auto-merge/pull/53). The owner explicitly
+requested a separate 90% experiment. Its consumer configuration changes only
+`judge_policy.minimum_basis_points` from 9900 to 9000. This demonstrates policy
+configurability; it does not improve the underlying review agent or judge.
 
 Local tests cover wrong PR/head/base/run/attempt/configuration, stale/future
 receipts, failed controls hidden by passing decisions, artifact tampering and
 refusal before mutation. Hosted synthetic tests execute the pinned shared core
-inside the real jail at both 94/100 and 99/100. The earlier successful advisory
+inside the real jail immediately below and at the configured threshold. The earlier successful advisory
 replay and protected baseline merge are separate proofs.
 
-Live acceptance remains a fresh documentation PR whose five candidate controls
-pass while the authentic below-threshold quality result holds. Verify the writer
-is skipped and the PR has no queue entry or auto-merge request. A real positive
-merge requires the authentic population to meet the unchanged policy.
+The 99% negative acceptance case passed: all five candidate controls passed,
+the shared quality check held, the writer was skipped and PR #53 remained open
+without a queue entry or auto-merge request. The separate 90% positive case must
+use a fresh documentation PR, obtain current-head Review and CI, pass all six
+requirements, enter the protected queue, pass the final merge-group gate and
+actually merge. A passing assessment or queue request alone is not that proof.

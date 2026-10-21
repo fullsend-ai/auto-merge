@@ -17,7 +17,7 @@ queue enrollment; **GitHub performs the merge**.
    artifact digest and current PR/target revisions.
 5. **Protections active:** the protected queue and required gate remain configured,
    discussions are resolved and no active ruleset has a bypass actor.
-6. **Review quality:** at least 99% of the configured judge's valid scored approvals
+6. **Review quality:** at least 90% of the configured judge's valid scored approvals
    passed, with sufficient and recent evidence.
 
 All six must pass. Missing, ambiguous, stale or invalid data holds. The quality
@@ -67,9 +67,12 @@ The automatic owner grant still expires **October 22, 2026 at 2 p.m. EDT** and
 The older custom auto-merge model agent remains disabled. This is a lab, not a
 production service or an organization-wide standard.
 
-The new six-requirement enforcement is undergoing hosted acceptance. A passing
-synthetic 99/100 case is not a live merge. The authentic population must satisfy
-the unchanged threshold before this policy can permit a real merge.
+The [99% hold experiment (PR #53)](https://github.com/fullsend-ai/auto-merge/pull/53)
+passed all five candidate requirements but held on the authentic 238/254 judge
+result (93.70%). The owner then explicitly selected 90% for a separate positive
+experiment. Only `judge_policy.minimum_basis_points` changes from 9900 to 9000;
+the population, shared evaluator, other requirements and grant expiry remain
+unchanged. A live merge is proven only by its own queue and merge evidence.
 
 - [Gate workflow runs](https://github.com/fullsend-ai/auto-merge/actions/workflows/gemara-auto-merge.yml)
 - [Earlier protected native-evidence baseline: PR #51](https://github.com/fullsend-ai/auto-merge/pull/51)
@@ -88,6 +91,6 @@ python3 -m unittest discover -s gemara-auto-merge -p 'test*.py'
 ```
 
 The hosted suite also runs the pinned combined evaluator inside the actual
-UID/filesystem/network jail: clean synthetic candidates hold at 94/100 and pass
-at 99/100. Artifacts contain bounded aggregates, timestamps, digests and native
+UID/filesystem/network jail: clean synthetic candidates hold immediately below
+the configured threshold and pass at the threshold. Artifacts contain bounded aggregates, timestamps, digests and native
 assessment logs, never raw traces, judge rationale, endpoints or credentials.
