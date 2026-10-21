@@ -1,6 +1,7 @@
 # Owner decision: manual shared Review replay
 
-Status: owner-approved preparation and hosted testing; merge approval pending.
+Status: owner-approved preparation and hosted testing; conditional normal merge
+approval after latest CI and Fullsend reviews pass and findings are resolved.
 
 The repository owner requested the shared Gemara experiment and explicitly
 approved DCO commits, pushes, PR/MR tests and necessary tested fixes within
@@ -22,8 +23,11 @@ The owner required security checks first. Local and hosted CI secret scans,
 vulnerability checks, tests and schema checks are recorded in PR #52 and the
 companion shared-policy PR. Findings must be resolved on the latest commit.
 
+The owner subsequently answered "Approve conditional normal merges" for shared
+PR #8 and auto-merge PR #52 under those exact CI/review conditions.
+
 This record does not substitute for independent review, claim OS isolation,
-approve merging this PR, enable a required merge gate, extend an owner grant,
+unconditionally approve merging this PR, enable a required merge gate, extend an owner grant,
 change protections or authorize a new merge writer. Deployment requires the
 normal owner-approved PR merge. The existing protected-path human-review
 requirement remains in force until that approval is supplied.
