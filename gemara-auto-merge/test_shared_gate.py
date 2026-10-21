@@ -280,6 +280,85 @@ class SharedReceiptTests(unittest.TestCase):
                 pilot.pre_enqueue(result, self.client)
             mutate.assert_not_called()
 
+    def test_initial_evaluation_holds_when_legacy_checks_all_pass_but_quality_fails(
+        self,
+    ):
+        from test_authorize_auto_merge import rules
+
+        head, base = self.head, self.base
+        config = pilot.configuration()
+        config["automatic_expires_at"] = (
+            datetime.now(timezone.utc) + timedelta(days=1)
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        pr = dict(
+            state="open",
+            draft=False,
+            mergeable=True,
+            head={"sha": head, "repo": {"full_name": pilot.REPO}},
+            base={"ref": "main", "repo": {"full_name": pilot.REPO}},
+        )
+        client = mock.Mock()
+        client.errors = set()
+        client.get.side_effect = lambda path: (
+            pr
+            if path.endswith("/pulls/53")
+            else (
+                {"commit": {"sha": base}}
+                if path.endswith("/branches/main") and "/rules/" not in path
+                else rules()
+            )
+        )
+        rows = [
+            dict(
+                name=n,
+                head_sha=head,
+                app={"id": 15368},
+                status="completed",
+                conclusion="success",
+            )
+            for n in pilot.CHECKS
+        ]
+        client.pages.side_effect = lambda path, key=None: (
+            [{"filename": pilot.DOCUMENT, "status": "modified", "changes": 80}]
+            if path.endswith("/files")
+            else rows
+        )
+        report = dict(
+            stable_during_collection=True,
+            head_sha=head,
+            base_sha=base,
+            candidate_decision="eligible",
+            readiness_decision="hold",
+            shadow={"evaluation": {"request_sha256": "c" * 64}},
+        )
+        with mock.patch.dict(
+            os.environ, {"PILOT_MAINTENANCE": "false"}
+        ), mock.patch.object(
+            pilot, "configuration", return_value=config
+        ), mock.patch.object(
+            pilot, "maintenance_authorization", return_value=None
+        ), mock.patch.object(
+            pilot.g, "observe", return_value=report
+        ), mock.patch.object(
+            pilot, "trusted_source", return_value=True
+        ), mock.patch.object(
+            pilot, "tree", return_value={pilot.DOCUMENT: ("blob", "100644", "d" * 40)}
+        ), mock.patch.object(
+            pilot, "discussions_clear", return_value=True
+        ), mock.patch.object(
+            pilot.shared_gate, "verify_assessment", return_value={"decision": "hold"}
+        ):
+            result = pilot.evaluate(53, head, "enroll", client)
+        self.assertTrue(
+            all(r["state"] == "passed" for r in result["evaluation"]["assessments"])
+        )
+        self.assertEqual(result["decision"], "hold")
+        self.assertEqual(result["authorized_action"], "none")
+        with mock.patch.object(pilot.subprocess, "run") as writer:
+            with self.assertRaises(InputError):
+                pilot.enqueue(result)
+            writer.assert_not_called()
+
     def test_missing_receipt_never_reaches_merge_command(self):
         result = dict(
             decision="eligible",
@@ -303,8 +382,6 @@ class SharedReceiptTests(unittest.TestCase):
             with self.assertRaises(InputError):
                 pilot.enqueue(result)
             command.assert_not_called()
-
-
 
 
 class CandidateAdapterTests(unittest.TestCase):
