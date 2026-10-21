@@ -65,13 +65,13 @@ jobs:
           GEMARA_DEFAULT_REF: refs/heads/${{ github.event.repository.default_branch }}
         run: |
           status=0
-          sudo -n env -i PATH="$PATH" GITHUB_ACTIONS=true GITHUB_REF="$GITHUB_REF" GEMARA_DEFAULT_REF="$GEMARA_DEFAULT_REF" \
-            python3 replay-input/run.py --input replay-input --pin replay-input/tool.json --output replay-report --chroot || status=$?
+          /usr/bin/sudo -n /usr/bin/env -i PATH="/usr/sbin:/usr/bin:/sbin:/bin" GITHUB_ACTIONS=true GITHUB_REF="$GITHUB_REF" GEMARA_DEFAULT_REF="$GEMARA_DEFAULT_REF" \
+            /usr/bin/python3 replay-input/run.py --input replay-input --pin replay-input/tool.json --output replay-report --chroot --go /opt/hostedtoolcache/go/1.26.9/x64/bin/go || status=$?
           if [ -d replay-report ]; then
-            sudo -n chown --no-dereference "$(id -u):$(id -g)" replay-report
+            /usr/bin/sudo -n /usr/bin/chown --no-dereference "$(/usr/bin/id -u):$(/usr/bin/id -g)" replay-report
             for file in projection.json assessment.json; do
               if [ -f "replay-report/$file" ]; then
-                sudo -n chown --no-dereference "$(id -u):$(id -g)" "replay-report/$file"
+                /usr/bin/sudo -n /usr/bin/chown --no-dereference "$(/usr/bin/id -u):$(/usr/bin/id -g)" "replay-report/$file"
               fi
             done
           fi

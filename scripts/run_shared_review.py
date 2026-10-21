@@ -19,10 +19,11 @@ import tempfile
 PROBE_SOURCE = r"""package main
 import("net";"os")
 func main(){
+ if len(os.Args)!=2 {os.Exit(9)}
+ if _,e:=os.Stat(os.Args[1]);!os.IsNotExist(e){os.Exit(13)}
  if os.Getuid()!=65534 {os.Exit(10)}
  for _,k:=range []string{"CI_JOB_TOKEN","REVIEW_TOKEN","GH_TOKEN","GITHUB_TOKEN","ACTIONS_RUNTIME_TOKEN"} {if os.Getenv(k)!="" {os.Exit(11)}}
  if _,e:=os.Stat("/proc");!os.IsNotExist(e){os.Exit(12)}
- if _,e:=os.Stat("/outside-marker");!os.IsNotExist(e){os.Exit(13)}
  interfaces,e:=net.Interfaces();if e!=nil{os.Exit(14)}
  for _,i:=range interfaces {if i.Flags&net.FlagLoopback==0 || i.Flags&net.FlagUp!=0 {os.Exit(15)}}
 }
@@ -54,12 +55,26 @@ def run(args, *, env, cwd, output, accepted=(0,)):
     return child.returncode
 
 
+def jail_prefix(root):
+    return [
+        "/usr/bin/unshare",
+        "--net",
+        "/usr/sbin/chroot",
+        "--userspec=65534:65534",
+        "--groups=65534",
+        str(root),
+    ]
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True)
     parser.add_argument("--pin", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--chroot", action="store_true")
+    parser.add_argument(
+        "--go", help="Absolute path to the trusted Go bootstrap compiler"
+    )
     args = parser.parse_args()
     if os.environ.get("GITHUB_ACTIONS") == "true":
         ref = os.environ.get("GITHUB_REF", "")
@@ -70,6 +85,7 @@ def main():
             and ref not in {default, "refs/heads/main"},
             "default_branch_replay_forbidden",
         )
+        require(args.chroot, "github_replay_requires_jail")
     source = Path(args.input).resolve()
     context = bounded(source / "context.json")
     require(
@@ -96,17 +112,20 @@ def main():
         and pin["go_version"] == "1.26.9",
         "invalid_source_pin",
     )
-    go = shutil.which("go")
+    go = args.go or shutil.which("go")
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        require(
+            args.go == "/opt/hostedtoolcache/go/1.26.9/x64/bin/go",
+            "trusted_go_path_required",
+        )
     require(go is not None, "bootstrap_go_unavailable")
     if args.chroot:
         require(
             os.geteuid() == 0 and os.environ.get("GITHUB_ACTIONS") == "true",
             "github_chroot_requires_root_runner",
         )
-        chroot = shutil.which("chroot")
-        require(chroot is not None, "chroot_unavailable")
-        unshare = shutil.which("unshare")
-        require(unshare is not None, "network_namespace_unavailable")
+        require(Path("/usr/sbin/chroot").is_file(), "chroot_unavailable")
+        require(Path("/usr/bin/unshare").is_file(), "network_namespace_unavailable")
     output = Path(args.output)
     require(not output.exists(), "output_already_exists")
     output.mkdir(mode=0o700, parents=True)
@@ -169,14 +188,7 @@ def main():
         runtime_env = {"PATH": "/usr/bin:/bin"}
         if args.chroot:
             # No host mounts or /proc. Drop UID/GID before running shared code.
-            jail = [
-                unshare,
-                "--net",
-                chroot,
-                "--userspec=65534:65534",
-                "--groups=65534",
-                str(root),
-            ]
+            jail = jail_prefix(root)
             probe = work / "probe.go"
             probe.write_text(PROBE_SOURCE)
             run(
@@ -186,7 +198,14 @@ def main():
                 output=work / "probe-build.log",
             )
             (root / "probe").chmod(0o555)
-            run(jail + ["/probe"], env=runtime_env, cwd=work, output=work / "probe.log")
+            marker = work / "outside-marker"
+            marker.write_text("SYNTHETIC_OUTSIDE_JAIL")
+            run(
+                jail + ["/probe", str(marker)],
+                env=runtime_env,
+                cwd=work,
+                output=work / "probe.log",
+            )
             print(
                 "Different-UID chroot and network namespace probe passed; no host /proc or inherited tokens."
             )

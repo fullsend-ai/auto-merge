@@ -146,7 +146,14 @@ class ReplayCollectionTests(unittest.TestCase):
 
 
 class SharedLauncherTests(unittest.TestCase):
-    def launch(self, change=None, exit_code=0, bad_checksum=False, jail=False):
+    def launch(
+        self,
+        change=None,
+        exit_code=0,
+        bad_checksum=False,
+        jail=True,
+        probe_failure=False,
+    ):
         launcher = load_script("run_shared_review")
         pin = ROOT / ".fullsend/shared-review-tool.json"
         expected = json.loads(pin.read_text())
@@ -164,7 +171,10 @@ class SharedLauncherTests(unittest.TestCase):
             for name in ["result.json", "ledger.json"]:
                 (inputs / name).write_text("{}")
 
+            calls = []
+
             def command(args, **kwargs):
+                calls.append(args)
                 env = kwargs["env"]
                 self.assertNotIn("GH_TOKEN", env)
                 self.assertNotIn("CI_JOB_TOKEN", env)
@@ -183,13 +193,21 @@ class SharedLauncherTests(unittest.TestCase):
                 elif args[1] == "build":
                     Path(args[args.index("-o") + 1]).write_bytes(b"synthetic probe")
                     value = {}
-                elif args[-1] == "/probe":
-                    self.assertEqual(args[0:2], ["/trusted/unshare", "--net"])
-                    self.assertIn("--userspec=65534:65534", args)
+                elif "/probe" in args:
+                    self.assertEqual(
+                        args[:-2], launcher.jail_prefix(Path(args[-1]).parent / "root")
+                    )
+                    self.assertTrue(Path(args[-1]).is_file())
+                    if probe_failure:
+                        raise ValueError("probe_failed")
                     value = {}
                 elif "project-review" in args:
                     if jail:
-                        self.assertEqual(args[0:2], ["/trusted/unshare", "--net"])
+                        self.assertEqual(args[:6], launcher.jail_prefix(Path(args[5])))
+                        self.assertEqual(args[6], "/gemara-owner")
+                        self.assertTrue(
+                            any("/probe" in previous for previous in calls[:-1])
+                        )
                     value = dict(
                         schema_version="review-projection/v1",
                         head_sha=context["head_sha"],
@@ -200,7 +218,11 @@ class SharedLauncherTests(unittest.TestCase):
                         change("projection", value)
                 elif "check-review" in args:
                     if jail:
-                        self.assertEqual(args[0:2], ["/trusted/unshare", "--net"])
+                        self.assertEqual(args[:6], launcher.jail_prefix(Path(args[5])))
+                        self.assertEqual(args[6], "/gemara-owner")
+                        self.assertTrue(
+                            any("/probe" in previous for previous in calls[:-1])
+                        )
                     value = dict(
                         schema_version="review-check/v1",
                         head_sha=context["head_sha"],
@@ -237,7 +259,8 @@ class SharedLauncherTests(unittest.TestCase):
                         "--output",
                         str(root / "report"),
                     ]
-                    + (["--chroot"] if jail else []),
+                    + (["--chroot"] if jail else [])
+                    + ["--go", "/opt/hostedtoolcache/go/1.26.9/x64/bin/go"],
                 ),
                 mock.patch.object(
                     launcher.os, "geteuid", return_value=0 if jail else 102149
@@ -255,6 +278,14 @@ class SharedLauncherTests(unittest.TestCase):
         self.assertEqual(self.launch(), 0)
         with self.assertRaisesRegex(ValueError, "shared_source_checksum_mismatch"):
             self.launch(bad_checksum=True)
+
+    def test_github_without_jail_refused_before_build(self):
+        with self.assertRaisesRegex(ValueError, "github_replay_requires_jail"):
+            self.launch(jail=False)
+
+    def test_probe_failure_stops_shared_execution(self):
+        with self.assertRaisesRegex(ValueError, "probe_failed"):
+            self.launch(probe_failure=True)
 
     def test_chroot_launcher_builds_probe_and_runs_both_steps_in_network_jail(self):
         self.assertEqual(self.launch(jail=True), 0)
@@ -368,17 +399,20 @@ class SharedLauncherTests(unittest.TestCase):
                 timeout=90,
             )
             self.assertEqual(built.returncode, 0, "probe compilation failed")
-            command = [
-                paths["sudo"],
-                "-n",
-                paths["unshare"],
-                "--net",
-                paths["chroot"],
-                "--userspec=65534:65534",
-                "--groups=65534",
-                str(root),
-                "/probe",
-            ]
+            marker = str(work / "outside-marker")
+            unjailed = subprocess.run(
+                [str(root / "probe"), marker],
+                env={"PATH": "/usr/bin:/bin"},
+                cwd=work,
+                capture_output=True,
+                timeout=30,
+            )
+            self.assertEqual(
+                unjailed.returncode, 13, "host marker negative control failed"
+            )
+            command = (
+                [paths["sudo"], "-n"] + launcher.jail_prefix(root) + ["/probe", marker]
+            )
             isolated = subprocess.run(
                 command,
                 env={"PATH": "/usr/bin:/bin"},
