@@ -204,6 +204,15 @@ class SharedLauncherTests(unittest.TestCase):
                 return 0
 
             with (
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        "GITHUB_ACTIONS": "true",
+                        "GITHUB_REF": "refs/heads/test-shared-replay",
+                        "GEMARA_DEFAULT_REF": "refs/heads/main",
+                    },
+                    clear=True,
+                ),
                 mock.patch(
                     "sys.argv",
                     [
