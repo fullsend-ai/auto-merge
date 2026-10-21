@@ -21,8 +21,16 @@ merge-group commit before GitHub merges it.
 
 ## Verification
 
-Run `python3 scripts/validate_example.py` and confirm both pull-request CI jobs
-complete successfully. Failed validation returns a nonzero status.
+Run the validator from the repository root, because it reads
+`docs/example-feature.md` relative to the current directory:
+
+```bash
+python3 scripts/validate_example.py
+```
+
+Exit code `0` means validation succeeded. Any other exit code means validation
+failed, and the validator lists the problems on standard error. Also confirm
+both pull-request CI jobs complete successfully.
 A baseline run must review the current head and retain its findings and risk.
 Successful CI is not a substitute for a completed Fullsend Review.
 Shared integration wiring is tested only after the installed Review path works.
