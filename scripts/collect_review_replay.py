@@ -8,7 +8,6 @@ downloaded code. This GitHub replay is advisory; current-candidate collection is
 import argparse
 import base64
 import hashlib
-import io
 import json
 import os
 from pathlib import Path
@@ -17,7 +16,6 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-import zipfile
 
 
 def require(condition, reason):

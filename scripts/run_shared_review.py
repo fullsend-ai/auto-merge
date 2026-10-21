@@ -48,6 +48,15 @@ def main():
     parser.add_argument("--output", required=True)
     parser.add_argument("--chroot", action="store_true")
     args = parser.parse_args()
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        ref = os.environ.get("GITHUB_REF", "")
+        default = os.environ.get("GEMARA_DEFAULT_REF", "")
+        require(
+            default.startswith("refs/heads/")
+            and ref.startswith("refs/heads/")
+            and ref not in {default, "refs/heads/main"},
+            "default_branch_replay_forbidden",
+        )
     source = Path(args.input).resolve()
     context = bounded(source / "context.json")
     require(

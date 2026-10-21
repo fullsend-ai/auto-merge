@@ -14,6 +14,15 @@ jobs:
       contents: read
       actions: read
     steps:
+      - name: Reject default-branch replay execution
+        env:
+          REPLAY_REF: ${{ github.ref }}
+          DEFAULT_REF: refs/heads/${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$REPLAY_REF" = "$DEFAULT_REF" ]; then
+            echo 'Replay requires a non-default branch; shared code will not run.'
+            exit 1
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
@@ -34,6 +43,7 @@ jobs:
   assess:
     name: Assess Review with shared Gemara
     needs: collect
+    if: github.ref != format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions: {}
@@ -50,6 +60,7 @@ jobs:
         env:
           GH_TOKEN: ''
           GITHUB_TOKEN: ''
+          GEMARA_DEFAULT_REF: refs/heads/${{ github.event.repository.default_branch }}
         run: python3 replay-input/run.py --input replay-input --pin replay-input/tool.json --output replay-report
       - name: Retain native assessment, including holds
         if: always()

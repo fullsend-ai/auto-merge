@@ -101,6 +101,9 @@ class ReplayCollectionTests(unittest.TestCase):
             ("conclusion", "failure", "untrusted_review_run"),
             ("event", "pull_request", "untrusted_review_run"),
             ("run_attempt", 2, "wrong_review_run"),
+            ("repository", {"id": 1}, "wrong_review_run"),
+            ("status", "in_progress", "untrusted_review_run"),
+            ("path", ".github/workflows/other.yaml", "untrusted_review_run"),
             ("head_sha", "b" * 40, "wrong_review_run_head"),
             ("referenced_workflows", [], "wrong_review_harness"),
         ]:
@@ -120,7 +123,16 @@ class ReplayCollectionTests(unittest.TestCase):
         for field, bad, reason in [
             ("expired", True, "replay_source_expired"),
             ("name", "wrong", "wrong_review_artifact"),
-            ("workflow_run", {"id": 1, "head_sha": "b" * 40}, "wrong_review_artifact"),
+            (
+                "workflow_run",
+                {"id": 1, "head_sha": self.binding["head_sha"]},
+                "wrong_review_artifact",
+            ),
+            (
+                "workflow_run",
+                {"id": self.binding["source"]["run_id"], "head_sha": "b" * 40},
+                "wrong_review_artifact",
+            ),
             ("size_in_bytes", 0, "artifact_too_large"),
             ("size_in_bytes", 300000, "artifact_too_large"),
         ]:
@@ -249,6 +261,38 @@ class SharedLauncherTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid_assessment_reason"):
             self.launch(change=malicious_reason)
         self.assertEqual(self.launch(change=hold, exit_code=2), 2)
+
+    def test_default_branch_or_tag_replay_refused_before_execution(self):
+        launcher = load_script("run_shared_review")
+        for ref in ["refs/heads/main", "refs/heads/trunk", "refs/tags/test", ""]:
+            with (
+                self.subTest(ref=ref),
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        "GITHUB_ACTIONS": "true",
+                        "GITHUB_REF": ref,
+                        "GEMARA_DEFAULT_REF": "refs/heads/trunk",
+                    },
+                    clear=True,
+                ),
+                mock.patch(
+                    "sys.argv",
+                    [
+                        "runner",
+                        "--input",
+                        "unused",
+                        "--pin",
+                        "unused",
+                        "--output",
+                        "unused",
+                    ],
+                ),
+                mock.patch.object(launcher, "run") as execute,
+                self.assertRaisesRegex(ValueError, "default_branch_replay_forbidden"),
+            ):
+                launcher.main()
+            execute.assert_not_called()
 
     def test_privileged_publisher_unchanged(self):
         raw = (ROOT / ".fullsend/scripts/publish-review-evidence.py").read_bytes()

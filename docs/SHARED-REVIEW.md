@@ -48,3 +48,19 @@ source pins from the protected default branch and authenticate current evidence.
 Owner approval to prepare this milestone does not self-approve its deployment.
 Merge through normal owner review before any required check or writer consumes
 these changes. No branch-protection bypass is part of this plan.
+
+## GitHub runtime trust and cache boundary
+
+`permissions: {}` removes repository-token permissions; it is not a sandbox.
+The runner still has network, sudo and ephemeral Actions runtime credentials.
+Trusted shared code can influence later artifact-upload steps and job files.
+This advisory replay therefore refuses the default branch, including `main`,
+and tags. Dispatch it only on a non-default test branch. Default-branch cache
+writes could otherwise affect a more privileged Fullsend job that restores a
+predictable cache key. The collector fails before shared execution on the
+default branch; the assessor independently refuses that ref.
+
+No repository write token or Fullsend/merge secret is supplied. This does not
+claim absence of all platform credentials or operating-system isolation. A
+future live gate needs a separate design for trusted main execution; this
+branch-scoped retained replay is not that gate.
