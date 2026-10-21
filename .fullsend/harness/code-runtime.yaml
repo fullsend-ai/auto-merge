@@ -1,0 +1,7 @@
+# Standard Code with explicit profiles required by the pinned runtime.
+base: https://raw.githubusercontent.com/fullsend-ai/agents/b9bcea4d8214ccf7ebd63373604851d00d5cf0ea/harness/code.yaml#sha256=d210f5e1f384c04450266354cc299b3e9f5a3d6871abcae20dd1d5ec1dd9fbc8
+openshell:
+  profiles:
+    - https://raw.githubusercontent.com/fullsend-ai/fullsend/1528aac1b8361ef7f5cad1ba55f304402761580c/internal/scaffold/fullsend-repo/profiles/fullsend-vertex-ai.yaml#sha256=984d0c6dc5f69094f89fa723f21682eb3a90ba3590e0f72f2c21f5b0e270cf76
+    - https://raw.githubusercontent.com/fullsend-ai/fullsend/1528aac1b8361ef7f5cad1ba55f304402761580c/internal/scaffold/fullsend-repo/profiles/fullsend-gitleaks.yaml#sha256=8c8b209a13fb639ca5ba3904e31166097c14414f6c088856eeb2631e63130653
+    - https://raw.githubusercontent.com/fullsend-ai/fullsend/1528aac1b8361ef7f5cad1ba55f304402761580c/internal/scaffold/fullsend-repo/profiles/fullsend-package-registries.yaml#sha256=b0215fa0954c6c6f073f633283c38403439c0d1de8bdd58ac088f7084353aa3b

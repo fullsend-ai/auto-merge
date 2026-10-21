@@ -9,6 +9,8 @@ roles:
     - coder
     - review
 agents:
+    - name: code
+      source: harness/code-runtime.yaml
     - name: review
       source: harness/review-gemara.yaml
       runtime: claude
