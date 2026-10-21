@@ -761,6 +761,13 @@ class PilotTests(unittest.TestCase):
             "evaluated_sha": "a" * 40,
             "production_readiness": "hold",
             "evaluation": {"assessments": []},
+            "shared_assessment": {
+                "candidate": {"decision": "eligible"},
+                "quality": {
+                    "state": "failed",
+                    "reason": "judge_approval_rate_below_threshold",
+                },
+            },
         }
         args = ["pilot", "--phase", "enroll", "--pr", "32", "--head", "a" * 40]
         with (
