@@ -14,7 +14,9 @@ def main():
     sys.path.insert(0, str(root / "gemara-auto-merge"))
     from native_review_artifacts import BASE, download
     from policy_evaluation import load, require
-    from review_evidence_retention import MAX_ARCHIVE, MEMBER, extract_record
+    from review_evidence_retention import (
+        MAX_ARCHIVE, MEMBER, extract_record, select_attempt_artifact,
+    )
 
     require(
         os.environ["GITHUB_REPOSITORY"] == "fullsend-ai/auto-merge",
@@ -80,8 +82,19 @@ def main():
             output.write("present=false\n")
         print("No routed Review artifact in this event; no evidence published.")
         return
-    require(len(rows) == 1 and not rows[0]["expired"], "retention_artifact_ambiguous")
-    metadata = rows[0]
+    child = subprocess.run(
+        ["gh", "api", BASE + f"actions/runs/{run_id}/attempts/{attempt}/jobs?per_page=100"],
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=True,
+    )
+    require(len(child.stdout) <= 1024 * 1024, "retention_metadata_oversized")
+    metadata = select_attempt_artifact(rows, json.loads(child.stdout)["jobs"])
+    require(
+        metadata.get("workflow_run", {}).get("id") == int(run_id),
+        "retention_wrong_run",
+    )
     require(
         type(metadata["size_in_bytes"]) is int
         and 0 < metadata["size_in_bytes"] <= MAX_ARCHIVE,

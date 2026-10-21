@@ -60,7 +60,7 @@
     },
     {
       "path": ".fullsend/scripts/retain-review-evidence.py",
-      "blob_sha1": "7bb7155fe3d1c1b625cd0f2bd3d9213e8673ffc9"
+      "blob_sha1": "ba6a01ffe104fb50fce6fae9cfb994278158fee0"
     },
     {
       "path": ".fullsend/providers/gemara-github-ro.yaml",
@@ -68,7 +68,7 @@
     },
     {
       "path": "gemara-auto-merge/review_evidence_retention.py",
-      "blob_sha1": "8ac4b288bae85f051ec9b3884f8a27e203d4d6ed"
+      "blob_sha1": "a4bee5a53e3b9b65282595e278622a7e32e27aad"
     },
     {
       "path": "gemara-auto-merge/native_review_artifacts.py",
