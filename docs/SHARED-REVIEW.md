@@ -26,3 +26,25 @@ and the eventual migration of the existing queue writer remain separate work.
 This report grants no merge authority. Existing protected queue behavior is
 unchanged. The governance change itself needs the normal owner-approved route
 before deployment; do not use the documentation pilot or a bypass to install it.
+
+## Replay lifetime and deployment
+
+This workflow is manual (`workflow_dispatch`) and advisory. It replays one
+owner-selected artifact retained for 14 days; after expiry it exits with
+`replay_source_expired`. It does not run on every candidate or supply a required
+merge check. Input artifact names are stable across partial job reruns.
+
+The GitHub run and artifact metadata must match the reviewed PR head and pinned
+Fullsend harness. For `pull_request_target`, GitHub's API `run.head_sha` is the
+PR head, not the base configuration SHA. The publisher pin and retained record
+bind the selected configuration; this replay does not claim independent signed
+attestation of execution. Do not use it for current-candidate merge authority.
+
+GitLab retains its own consumer collector and runner setup; this repository's
+replay collector supports GitHub only. Shared policy evaluation remains in the
+public integration repository. Live enforcement must load scripts, binding and
+source pins from the protected default branch and authenticate current evidence.
+
+Owner approval to prepare this milestone does not self-approve its deployment.
+Merge through normal owner review before any required check or writer consumes
+these changes. No branch-protection bypass is part of this plan.

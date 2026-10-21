@@ -210,3 +210,6 @@ active shim delegates to that upstream wrapper. `native_review_artifacts.py` rea
 a bounded, digest-checked native Review JSON artifact from authenticated Actions
 execution; it does not read arbitrary artifacts or workflow logs. Native record
 absence fails closed once the vendored host lock is present.
+
+The `gemara-shared-review.yml` workflow manually replays a retained Review with
+the pinned shared checker in a separate zero-permission job; it grants no merge authority.

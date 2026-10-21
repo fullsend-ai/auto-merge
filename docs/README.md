@@ -53,3 +53,5 @@ production governance. They do not establish shipped features, accepted readines
 or an approved organizational auto-merge standard. Gemara, Fullsend and GitHub
 have separate responsibilities; a successful evaluation does not grant merge
 credentials or replace GitHub's protections.
+
+- [Shared Review assessment](SHARED-REVIEW.md): manual retained replay and trust boundary.
