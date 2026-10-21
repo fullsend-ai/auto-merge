@@ -124,7 +124,7 @@ def job_succeeded(client, run, name):
 
 
 def ruleset_public_state(rule):
-    return {
+    value = {
         key: rule[key]
         for key in [
             "id",
@@ -136,6 +136,12 @@ def ruleset_public_state(rule):
             "updated_at",
         ]
     }
+    updated = datetime.fromisoformat(value["updated_at"].replace("Z", "+00:00"))
+    require(updated.tzinfo is not None, "ruleset_timestamp_timezone_missing")
+    value["updated_at"] = updated.astimezone(timezone.utc).isoformat(
+        timespec="microseconds"
+    )
+    return value
 
 
 def verify_ruleset_audit(client, audit):

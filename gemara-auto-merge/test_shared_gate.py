@@ -676,6 +676,13 @@ class RulesetAuditTests(unittest.TestCase):
         with self.assertRaisesRegex(InputError, "audit_drift"):
             s.verify_ruleset_audit(self.client, self.audit)
 
+    def test_timezone_format_does_not_change_version_but_actual_instant_does(self):
+        self.rule["updated_at"] = "2026-10-21T06:00:00-04:00"
+        s.verify_ruleset_audit(self.client, self.audit)
+        self.rule["updated_at"] = "2026-10-21T06:00:00.001-04:00"
+        with self.assertRaises(InputError):
+            s.verify_ruleset_audit(self.client, self.audit)
+
     def test_new_ruleset_or_changed_rules_cannot_inherit_owner_assertion(self):
         self.client.pages.return_value = [{"id": 1}, {"id": 2}]
         self.client.get.side_effect = lambda path: (
