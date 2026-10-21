@@ -37,7 +37,9 @@ review workflow, risk limit and owner grant. Its quality policy selects the
 scorer/source and requires 100 samples, a trailing year, a snapshot no older than
 15 minutes, and a latest score no older than seven days. The endpoint and reader
 credentials belong in the `gemara-policy-reader` GitHub environment, restricted
-to `main`; they are not tracked files.
+to `main`; they are not tracked files. The same protected environment carries an
+owner-audited ruleset version because read-only tokens cannot see bypass actors;
+CI holds on any drift from that audited state.
 
 [Walk through the implementation](docs/SHARED-MERGE-GATE.md) for the collector,
 isolation and writer boundaries. These GitHub adapters and receipt checks were

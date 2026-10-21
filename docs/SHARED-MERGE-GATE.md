@@ -22,7 +22,8 @@ them itself and its assessment explicitly grants no mutation authority.
 ## Before enrollment
 
 `gemara-auto-merge.yml` resolves the current PR using forge-owned metadata.
-The reusable `gemara-shared-gate.yml` then runs three jobs:
+A top-level main-only quality job and the reusable `gemara-shared-gate.yml`
+separate collection from assessment in three jobs:
 
 1. **Candidate:** check out the trusted main source, authenticate current Review
    publication and collect bounded PR/check/protection evidence. Never check out
@@ -62,6 +63,26 @@ The required gate explicitly fails if shared assessment is missing, skipped or
 held. Even a manually queued PR cannot pass that gate with a quality hold. The
 writer and queue verifier consume only bounded assessment data authenticated
 through GitHub; the JSON receipt is not a standalone signed attestation.
+
+## Read-only visibility of bypass actors
+
+GitHub returns bypass actors only to callers with write access to the ruleset.
+The Actions collector retains read-only permissions. After every setup deployment
+and exact protection restoration, the repository owner audits the actual actor
+lists locally, then publishes an audit in the admin-controlled, main-only reader
+environment variable `GEMARA_RULESET_AUDIT`. The owner token never enters Actions. Publish or refresh it locally with an
+authenticated admin CLI: `python3 scripts/publish_ruleset_audit.py`.
+
+That audit expires with the existing owner grant. Its digest covers every live
+ruleset's identity, conditions, rules, enforcement and provider update timestamp.
+The quality publication carries the owner audit through its authenticated main
+job. Candidate collection and the authorizer compare all current server states
+with it, including immediately before enrollment and at the final queue gate.
+A hidden actor list alone cannot establish absence of bypass. Missing audits,
+new rulesets, changed versions/settings, expired grants or explicit actors hold.
+This is an owner assertion plus live drift checking, not a direct read-only query
+of GitHub's hidden data. The local audit publisher waits beyond the provider's
+one-second timestamp precision before publishing and checks for intervening drift.
 
 ## Experimental limits and acceptance
 

@@ -123,10 +123,74 @@ def job_succeeded(client, run, name):
     )
 
 
-def quality_snapshot(client, source):
-    runs = client.pages(
-        BASE + "actions/workflows/gemara-auto-merge.yml/runs?branch=main",
-        "workflow_runs",
+def ruleset_public_state(rule):
+    value = {
+        key: rule[key]
+        for key in [
+            "id",
+            "name",
+            "target",
+            "enforcement",
+            "conditions",
+            "rules",
+            "updated_at",
+        ]
+    }
+    updated = datetime.fromisoformat(value["updated_at"].replace("Z", "+00:00"))
+    require(updated.tzinfo is not None, "ruleset_timestamp_timezone_missing")
+    value["updated_at"] = updated.astimezone(timezone.utc).isoformat(
+        timespec="microseconds"
+    )
+    return value
+
+
+def verify_ruleset_audit(client, audit):
+    require(
+        audit["schema_version"] == "github-ruleset-audit/v1"
+        and audit["repository"] == g.REPOSITORY
+        and audit["repository_id"] == g.REPOSITORY_ID,
+        "shared_ruleset_audit_identity",
+    )
+    instant = datetime.now(timezone.utc)
+    require(
+        utc(audit["audited_at"])
+        <= instant
+        < utc(audit["expires_at"])
+        <= utc(settings()["binding"]["owner_grant_expires_at"]),
+        "shared_ruleset_audit_expired",
+    )
+    rows = client.pages(BASE + "rulesets")
+    require(
+        isinstance(rows, list) and rows and len({r["id"] for r in rows}) == len(rows),
+        "shared_rulesets_missing",
+    )
+    expected = {r["id"]: r for r in audit["rulesets"]}
+    require(
+        len(expected) == len(audit["rulesets"])
+        and set(expected) == {r["id"] for r in rows},
+        "shared_ruleset_set_changed",
+    )
+    for row in rows:
+        current = client.get(BASE + f"rulesets/{row['id']}")
+        claimed = expected[row["id"]]
+        require(
+            claimed["bypass_disabled"] is True
+            and digest(ruleset_public_state(current)) == claimed["public_state_sha256"],
+            "shared_ruleset_audit_drift",
+        )
+        if current["enforcement"] == "active" and "bypass_actors" in current:
+            require(current["bypass_actors"] == [], "shared_ruleset_bypass_active")
+    require(not client.errors, "shared_ruleset_audit_api_error")
+
+
+def quality_snapshot(client, source, run_id=None):
+    runs = (
+        [client.get(BASE + f"actions/runs/{run_id}")]
+        if run_id
+        else client.pages(
+            BASE + "actions/workflows/gemara-auto-merge.yml/runs?branch=main",
+            "workflow_runs",
+        )
     )
     for run in sorted(runs or [], key=lambda r: r["id"], reverse=True)[:10]:
         if main_run(run, source) and job_succeeded(
@@ -146,10 +210,12 @@ def quality_snapshot(client, source):
                     "run_id": str(run["id"]),
                     "attempt": str(run["run_attempt"]),
                     "config_sha256": digest(settings()),
+                    "ruleset_audit": ctx.get("ruleset_audit"),
                 },
                 "shared_quality_context_mismatch",
             )
-            return data["quality.json"]
+            verify_ruleset_audit(client, ctx["ruleset_audit"])
+            return data["quality.json"], ctx["ruleset_audit"]
     require(False, "shared_quality_snapshot_missing")
 
 
@@ -229,18 +295,10 @@ def collect(number, head, phase, output, client=None):
                     }
                 )
     rules = client.get(BASE + "rules/branches/main")
-    rulesets = client.get(BASE + "rulesets")
-    require(isinstance(rulesets, list), "shared_rulesets_missing")
-    bypass = False
-    for row in rulesets:
-        rule = client.get(BASE + f"rulesets/{row['id']}")
-        require(
-            isinstance(rule, dict) and isinstance(rule.get("bypass_actors"), list),
-            "shared_ruleset_unavailable",
-        )
-        bypass = bypass or bool(
-            rule["enforcement"] == "active" and rule["bypass_actors"]
-        )
+    quality, ruleset_audit = quality_snapshot(
+        client, source, os.environ["GITHUB_RUN_ID"] if phase == "enroll" else None
+    )
+    bypass = False  # Established by the owner audit AND unchanged live server state.
     review_valid = (
         proof.get("reason") == "contract_verified" and values.get("AM-REVIEW") is True
     )
@@ -310,6 +368,7 @@ def collect(number, head, phase, output, client=None):
         "attempt": os.environ["GITHUB_RUN_ATTEMPT"],
         "config_sha256": digest(c),
         "collected_at": e["collected_at"],
+        "ruleset_audit": ruleset_audit,
     }
     for name, data in [
         ("candidate.json", e),
@@ -318,7 +377,7 @@ def collect(number, head, phase, output, client=None):
     ]:
         (out / name).write_text(json.dumps(data))
     if phase == "queue":
-        (out / "quality.json").write_text(json.dumps(quality_snapshot(client, source)))
+        (out / "quality.json").write_text(json.dumps(quality))
 
 
 def verify_assessment(client, number, head, base, phase, target=None):
@@ -375,9 +434,11 @@ def verify_assessment(client, number, head, base, phase, target=None):
             attempt=attempt,
             config_sha256=digest(c),
             collected_at=ctx.get("collected_at"),
+            ruleset_audit=ctx.get("ruleset_audit"),
         ),
         "shared_receipt_subject_mismatch",
     )
+    verify_ruleset_audit(client, ctx["ruleset_audit"])
     instant = datetime.now(timezone.utc)
     age = (instant - utc(ctx["collected_at"])).total_seconds()
     require(
@@ -495,5 +556,10 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except Exception:
-        raise SystemExit("Shared candidate collection held; no merge authorization.")
+    except Exception as error:
+        reason = str(error)
+        if not re.fullmatch(r"[a-z0-9_]{1,80}", reason):
+            reason = "candidate_collection_invalid"
+        raise SystemExit(
+            "Shared candidate collection held: " + reason + "; no merge authorization."
+        )

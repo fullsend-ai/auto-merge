@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -84,6 +85,10 @@ def collect_quality(config, output, source, runtime):
     )
     out = Path(output)
     out.mkdir(mode=0o700)
+    audit = json.loads(os.environ["GEMARA_RULESET_AUDIT"])
+    require(
+        audit["schema_version"] == "github-ruleset-audit/v1", "ruleset_audit_missing"
+    )
     q = config["judge_policy"]
     binding = {
         k: q[k]
@@ -125,6 +130,7 @@ def collect_quality(config, output, source, runtime):
         "run_id": os.environ["GITHUB_RUN_ID"],
         "attempt": os.environ["GITHUB_RUN_ATTEMPT"],
         "config_sha256": digest(config),
+        "ruleset_audit": audit,
     }
     (out / "quality-context.json").write_text(json.dumps(context))
     print(
@@ -149,6 +155,7 @@ def assess(inputs, quality_dir, output):
                 "run_id": context["run_id"],
                 "attempt": context["attempt"],
                 "config_sha256": digest(config),
+                "ruleset_audit": context["ruleset_audit"],
             },
             "quality_context_mismatch",
         )
@@ -265,5 +272,8 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except Exception:
-        raise SystemExit("Shared assessment held; setup or evidence invalid.")
+    except Exception as error:
+        reason = str(error)
+        if not re.fullmatch(r"[a-z0-9_]{1,80}", reason):
+            reason = "setup_or_evidence_invalid"
+        raise SystemExit("Shared assessment held: " + reason)
