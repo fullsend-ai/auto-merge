@@ -51,16 +51,29 @@ these changes. No branch-protection bypass is part of this plan.
 
 ## GitHub runtime trust and cache boundary
 
-`permissions: {}` removes repository-token permissions; it is not a sandbox.
-The runner still has network, sudo and ephemeral Actions runtime credentials.
-Trusted shared code can influence later artifact-upload steps and job files.
-This advisory replay therefore refuses the default branch, including `main`,
-and tags. Dispatch it only on a non-default test branch. Default-branch cache
-writes could otherwise affect a more privileged Fullsend job that restores a
-predictable cache key. The collector fails before shared execution on the
-default branch; the assessor independently refuses that ref.
+`permissions: {}` removes repository-token permissions; it does not sandbox an
+entire job. GitHub still supplies ephemeral runtime credentials and the runner
+has sudo, network and command files used by later steps.
 
-No repository write token or Fullsend/merge secret is supplied. This does not
-claim absence of all platform credentials or operating-system isolation. A
-future live gate needs a separate design for trusted main execution; this
-branch-scoped retained replay is not that gate.
+The trusted launcher builds the checksum-pinned shared binary without forge
+credentials. The workflow then runs that executable as UID/GID 65534 inside a
+chroot containing only read-only input files and the static binary, with no
+host `/proc`, sudo, or runner temporary directory. A fresh network namespace
+has only a down loopback interface. The same jail prefix applies to both
+projection and assessment. The launcher probes UID, environment, host-file
+absence and network isolation before shared execution. Unsupported isolation
+fails closed. The collector and native build remain trusted host code; this is
+not a claim that the whole job is sandboxed.
+
+A GitHub-only integration test compiles the same small probe and executes the
+actual sudo/unshare/chroot boundary on the hosted runner. Local runs skip that
+one platform test; mocks separately verify launcher command construction. The
+manual shared replay itself still needs normal owner-approved deployment before
+its complete hosted path can be tested.
+
+Default-branch and tag execution remain refused as defense in depth. Dispatch
+only on a non-default test branch. An absent or empty default-branch name is
+also rejected. Default-branch cache writes could otherwise affect a privileged
+Fullsend job that restores a predictable cache key. The assessment has no merge
+authority; a future live gate needs its own current-evidence and protected
+execution design.

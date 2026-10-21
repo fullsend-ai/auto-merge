@@ -19,6 +19,8 @@ jobs:
           REPLAY_REF: ${{ github.ref }}
           DEFAULT_REF: refs/heads/${{ github.event.repository.default_branch }}
         run: |
+          case "$DEFAULT_REF" in refs/heads/?*) ;; *) echo 'Missing default branch'; exit 1 ;; esac
+          case "$REPLAY_REF" in refs/heads/?*) ;; *) echo 'Branch ref required'; exit 1 ;; esac
           if [ "$REPLAY_REF" = "$DEFAULT_REF" ]; then
             echo 'Replay requires a non-default branch; shared code will not run.'
             exit 1
@@ -61,7 +63,19 @@ jobs:
           GH_TOKEN: ''
           GITHUB_TOKEN: ''
           GEMARA_DEFAULT_REF: refs/heads/${{ github.event.repository.default_branch }}
-        run: python3 replay-input/run.py --input replay-input --pin replay-input/tool.json --output replay-report
+        run: |
+          status=0
+          sudo -n env -i PATH="$PATH" GITHUB_ACTIONS=true GITHUB_REF="$GITHUB_REF" GEMARA_DEFAULT_REF="$GEMARA_DEFAULT_REF" \
+            python3 replay-input/run.py --input replay-input --pin replay-input/tool.json --output replay-report --chroot || status=$?
+          if [ -d replay-report ]; then
+            sudo -n chown --no-dereference "$(id -u):$(id -g)" replay-report
+            for file in projection.json assessment.json; do
+              if [ -f "replay-report/$file" ]; then
+                sudo -n chown --no-dereference "$(id -u):$(id -g)" "replay-report/$file"
+              fi
+            done
+          fi
+          exit "$status"
       - name: Retain native assessment, including holds
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

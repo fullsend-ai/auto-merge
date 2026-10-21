@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Build a checksum-pinned data-only checker; run without write credentials.
 
-GitHub calls this in a separate permissions:{} job with no inherited secrets.
-GitLab additionally requires an unprotected MR ref and a different-UID chroot.
+GitHub calls this on a non-default branch in a separate permissions:{} job.
+The shared executable runs with a different UID in a chroot and network namespace.
 """
 
 import argparse
@@ -14,6 +14,19 @@ import shutil
 import subprocess
 import sys
 import tempfile
+
+
+PROBE_SOURCE = r"""package main
+import("net";"os")
+func main(){
+ if os.Getuid()!=65534 {os.Exit(10)}
+ for _,k:=range []string{"CI_JOB_TOKEN","REVIEW_TOKEN","GH_TOKEN","GITHUB_TOKEN","ACTIONS_RUNTIME_TOKEN"} {if os.Getenv(k)!="" {os.Exit(11)}}
+ if _,e:=os.Stat("/proc");!os.IsNotExist(e){os.Exit(12)}
+ if _,e:=os.Stat("/outside-marker");!os.IsNotExist(e){os.Exit(13)}
+ interfaces,e:=net.Interfaces();if e!=nil{os.Exit(14)}
+ for _,i:=range interfaces {if i.Flags&net.FlagLoopback==0 || i.Flags&net.FlagUp!=0 {os.Exit(15)}}
+}
+"""
 
 
 def require(value, reason):
@@ -52,8 +65,8 @@ def main():
         ref = os.environ.get("GITHUB_REF", "")
         default = os.environ.get("GEMARA_DEFAULT_REF", "")
         require(
-            default.startswith("refs/heads/")
-            and ref.startswith("refs/heads/")
+            re.fullmatch(r"refs/heads/[^\s]+", default)
+            and re.fullmatch(r"refs/heads/[^\s]+", ref)
             and ref not in {default, "refs/heads/main"},
             "default_branch_replay_forbidden",
         )
@@ -87,11 +100,13 @@ def main():
     require(go is not None, "bootstrap_go_unavailable")
     if args.chroot:
         require(
-            os.geteuid() == 0 and os.environ.get("CI_COMMIT_REF_PROTECTED") == "false",
-            "gitlab_chroot_requires_root_unprotected_job",
+            os.geteuid() == 0 and os.environ.get("GITHUB_ACTIONS") == "true",
+            "github_chroot_requires_root_runner",
         )
         chroot = shutil.which("chroot")
         require(chroot is not None, "chroot_unavailable")
+        unshare = shutil.which("unshare")
+        require(unshare is not None, "network_namespace_unavailable")
     output = Path(args.output)
     require(not output.exists(), "output_already_exists")
     output.mkdir(mode=0o700, parents=True)
@@ -154,11 +169,16 @@ def main():
         runtime_env = {"PATH": "/usr/bin:/bin"}
         if args.chroot:
             # No host mounts or /proc. Drop UID/GID before running shared code.
-            jail = [chroot, "--userspec=65534:65534", "--groups=65534", str(root)]
+            jail = [
+                unshare,
+                "--net",
+                chroot,
+                "--userspec=65534:65534",
+                "--groups=65534",
+                str(root),
+            ]
             probe = work / "probe.go"
-            probe.write_text(
-                'package main\nimport("os")\nfunc main(){if os.Getuid()!=65534{os.Exit(10)};for _,k:=range []string{"CI_JOB_TOKEN","REVIEW_TOKEN","GH_TOKEN","GITHUB_TOKEN"}{if os.Getenv(k)!=""{os.Exit(11)}};if _,e:=os.Stat("/proc");!os.IsNotExist(e){os.Exit(12)}}\n'
-            )
+            probe.write_text(PROBE_SOURCE)
             run(
                 [go, "build", "-trimpath", "-o", str(root / "probe"), str(probe)],
                 env=env,
@@ -168,7 +188,7 @@ def main():
             (root / "probe").chmod(0o555)
             run(jail + ["/probe"], env=runtime_env, cwd=work, output=work / "probe.log")
             print(
-                "Different-UID chroot probe passed; no host /proc or inherited tokens."
+                "Different-UID chroot and network namespace probe passed; no host /proc or inherited tokens."
             )
             prefix = jail + ["/gemara-owner"]
             file_prefix = ""

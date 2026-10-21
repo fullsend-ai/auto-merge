@@ -6,6 +6,8 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import shutil
+import subprocess
 import unittest
 from unittest import mock
 
@@ -144,7 +146,7 @@ class ReplayCollectionTests(unittest.TestCase):
 
 
 class SharedLauncherTests(unittest.TestCase):
-    def launch(self, change=None, exit_code=0, bad_checksum=False):
+    def launch(self, change=None, exit_code=0, bad_checksum=False, jail=False):
         launcher = load_script("run_shared_review")
         pin = ROOT / ".fullsend/shared-review-tool.json"
         expected = json.loads(pin.read_text())
@@ -178,7 +180,16 @@ class SharedLauncherTests(unittest.TestCase):
                     binary.parent.mkdir(parents=True)
                     binary.write_bytes(b"synthetic")
                     value = {}
-                elif args[1] == "project-review":
+                elif args[1] == "build":
+                    Path(args[args.index("-o") + 1]).write_bytes(b"synthetic probe")
+                    value = {}
+                elif args[-1] == "/probe":
+                    self.assertEqual(args[0:2], ["/trusted/unshare", "--net"])
+                    self.assertIn("--userspec=65534:65534", args)
+                    value = {}
+                elif "project-review" in args:
+                    if jail:
+                        self.assertEqual(args[0:2], ["/trusted/unshare", "--net"])
                     value = dict(
                         schema_version="review-projection/v1",
                         head_sha=context["head_sha"],
@@ -187,7 +198,9 @@ class SharedLauncherTests(unittest.TestCase):
                     )
                     if change:
                         change("projection", value)
-                elif args[1] == "check-review":
+                elif "check-review" in args:
+                    if jail:
+                        self.assertEqual(args[0:2], ["/trusted/unshare", "--net"])
                     value = dict(
                         schema_version="review-check/v1",
                         head_sha=context["head_sha"],
@@ -223,9 +236,17 @@ class SharedLauncherTests(unittest.TestCase):
                         str(pin),
                         "--output",
                         str(root / "report"),
-                    ],
+                    ]
+                    + (["--chroot"] if jail else []),
                 ),
-                mock.patch.object(launcher.shutil, "which", return_value="/trusted/go"),
+                mock.patch.object(
+                    launcher.os, "geteuid", return_value=0 if jail else 102149
+                ),
+                mock.patch.object(
+                    launcher.shutil,
+                    "which",
+                    side_effect=lambda name: "/trusted/" + name,
+                ),
                 mock.patch.object(launcher, "run", side_effect=command),
             ):
                 return launcher.main()
@@ -234,6 +255,9 @@ class SharedLauncherTests(unittest.TestCase):
         self.assertEqual(self.launch(), 0)
         with self.assertRaisesRegex(ValueError, "shared_source_checksum_mismatch"):
             self.launch(bad_checksum=True)
+
+    def test_chroot_launcher_builds_probe_and_runs_both_steps_in_network_jail(self):
+        self.assertEqual(self.launch(jail=True), 0)
 
     def test_privilege_or_wrong_revision_rejected_in_projection_and_assessment(self):
         for phase in ["projection", "assessment"]:
@@ -273,7 +297,14 @@ class SharedLauncherTests(unittest.TestCase):
 
     def test_default_branch_or_tag_replay_refused_before_execution(self):
         launcher = load_script("run_shared_review")
-        for ref in ["refs/heads/main", "refs/heads/trunk", "refs/tags/test", ""]:
+        for ref, default in [
+            ("refs/heads/main", "refs/heads/trunk"),
+            ("refs/heads/trunk", "refs/heads/trunk"),
+            ("refs/tags/test", "refs/heads/trunk"),
+            ("", "refs/heads/trunk"),
+            ("refs/heads/test", "refs/heads/"),
+            ("refs/heads/test", ""),
+        ]:
             with (
                 self.subTest(ref=ref),
                 mock.patch.dict(
@@ -281,7 +312,7 @@ class SharedLauncherTests(unittest.TestCase):
                     {
                         "GITHUB_ACTIONS": "true",
                         "GITHUB_REF": ref,
-                        "GEMARA_DEFAULT_REF": "refs/heads/trunk",
+                        "GEMARA_DEFAULT_REF": default,
                     },
                     clear=True,
                 ),
@@ -302,6 +333,60 @@ class SharedLauncherTests(unittest.TestCase):
             ):
                 launcher.main()
             execute.assert_not_called()
+
+    @unittest.skipUnless(
+        os.environ.get("GITHUB_ACTIONS") == "true",
+        "requires the GitHub-hosted Linux runner",
+    )
+    def test_hosted_different_uid_filesystem_and_network_isolation(self):
+        launcher = load_script("run_shared_review")
+        paths = {
+            name: shutil.which(name) for name in ["go", "sudo", "unshare", "chroot"]
+        }
+        self.assertTrue(all(paths.values()), "required runner tools missing")
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            root = work / "root"
+            root.mkdir(mode=0o755)
+            (work / "outside-marker").write_text("SYNTHETIC_OUTSIDE_JAIL")
+            source = work / "probe.go"
+            source.write_text(launcher.PROBE_SOURCE)
+            env = {
+                "PATH": os.environ["PATH"],
+                "HOME": str(work),
+                "GOCACHE": str(work / "cache"),
+                "GOPATH": str(work / "gopath"),
+                "GOTOOLCHAIN": "local",
+                "GOTELEMETRY": "off",
+                "CGO_ENABLED": "0",
+            }
+            built = subprocess.run(
+                [paths["go"], "build", "-o", str(root / "probe"), str(source)],
+                env=env,
+                cwd=work,
+                capture_output=True,
+                timeout=90,
+            )
+            self.assertEqual(built.returncode, 0, "probe compilation failed")
+            command = [
+                paths["sudo"],
+                "-n",
+                paths["unshare"],
+                "--net",
+                paths["chroot"],
+                "--userspec=65534:65534",
+                "--groups=65534",
+                str(root),
+                "/probe",
+            ]
+            isolated = subprocess.run(
+                command,
+                env={"PATH": "/usr/bin:/bin"},
+                cwd=work,
+                capture_output=True,
+                timeout=30,
+            )
+            self.assertEqual(isolated.returncode, 0, "hosted isolation probe failed")
 
     def test_privileged_publisher_unchanged(self):
         raw = (ROOT / ".fullsend/scripts/publish-review-evidence.py").read_bytes()
