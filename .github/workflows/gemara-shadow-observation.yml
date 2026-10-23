@@ -20,6 +20,7 @@ permissions:
   contents: read
   pull-requests: read
   checks: read
+  statuses: read
   actions: read
 
 jobs:
@@ -51,6 +52,11 @@ jobs:
           GH_TOKEN: ''
           GITHUB_TOKEN: ''
         run: python3 gemara-auto-merge/build_native_evaluator.py
+      - name: Assess selected upstream control without merge authority
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr || github.event.workflow_run.pull_requests[0].number }}
+        run: python3 gemara-auto-merge/configured_policy.py --pr "$PR_NUMBER"
       - name: Observe public metadata and write a normalized summary
         env:
           GH_TOKEN: ${{ github.token }}
@@ -62,7 +68,9 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: gemara-evaluation-${{ github.job }}-${{ github.run_attempt }}
-          path: gemara-auto-merge/out/bundle-*/
+          path: |
+            gemara-auto-merge/out/bundle-*/
+            gemara-auto-merge/out/configured-*/
           if-no-files-found: ignore
           retention-days: 14
           include-hidden-files: false

@@ -121,3 +121,45 @@ def evaluate(client, head, base, instant, phase="enroll"):
     result["decision"] = "eligible" if eligible and cfg["mode"] == "enforce" else "hold"
     result["reason"] = "shadow_no_write" if cfg["mode"] == "shadow" else "evaluated"
     return result
+
+
+def main():
+    """Observe a selected control without requiring or granting merge authority."""
+    import argparse
+    from datetime import datetime, timezone
+    import github_pr_evidence as forge
+    from policy_evaluation import new_output
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--pr", type=int, required=True)
+    args = parser.parse_args()
+    require(0 < args.pr < 1000000, "upstream_pr_invalid")
+    client = forge.Client()
+    endpoint = f"repos/fullsend-ai/auto-merge/pulls/{args.pr}"
+    pr = client.get(endpoint)
+    require(pr and pr.get("base", {}).get("ref") == "main"
+            and pr.get("base", {}).get("repo", {}).get("full_name") == "fullsend-ai/auto-merge", "upstream_subject_invalid")
+    head, base = pr["head"]["sha"], pr["base"]["sha"]
+    instant = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    result = evaluate(client, head, base, instant)
+    current = client.get(endpoint)
+    require(current and current["head"]["sha"] == head and current["base"]["sha"] == base and not client.errors, "upstream_subject_changed")
+    result.update(pr=args.pr, head_sha=head, base_sha=base, collected_at=instant)
+    out = new_output("configured")
+    (out / "configured-policy.json").write_text(json.dumps(result, indent=2) + "\n")
+    if "evaluation" in result:
+        (out / "upstream-evaluation-log.json").write_text(json.dumps(result["evaluation"]["evaluation_log"], indent=2) + "\n")
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with open(summary, "a") as stream:
+            stream.write("\n\n# Selected upstream control\n\n")
+            stream.write(f"PR #{args.pr} · `{head}` · mode **{result['configuration']['mode']}**\n\n")
+            for row in result["assessments"]:
+                stream.write(f"- {row['requirement']}: **{row['state']}** ({row['reason']})\n")
+            stream.write("\nRead-only observation. This result grants no merge authority; the existing owner grant and protected writer remain separate.\n")
+    print(json.dumps({"pr": args.pr, "mode": result["configuration"]["mode"], "assessments": result["assessments"], "mutation_permitted": False}))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

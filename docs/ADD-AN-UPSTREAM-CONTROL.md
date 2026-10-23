@@ -28,7 +28,11 @@ when the existing required checks are green.
 4. Run `.fullsend/bin/fullsend auto-merge config --config-dir .fullsend` to
    inspect effective settings. `mode: off` overrides an inherited enable;
    `controls: []` clears inherited optional requirements.
-5. Run the existing PR flow. The Gemara pilot summary lists OSPS-QA-03.01;
+5. Run the existing **Gemara shadow observation** workflow with a PR number.
+   Its selected-control step writes a job summary and native log without needing
+   an active merge grant. It returns success when the observation was valid, even
+   when the control reports failed or the configured mode holds writes.
+   Then run the existing PR flow. The Gemara pilot summary lists OSPS-QA-03.01;
    the `gemara-evaluation` artifact includes `upstream-evaluation-log.json`,
    the effective policy and normalized evidence. Shadow evaluates and holds
    write requests; it never asks the App to enroll a PR.

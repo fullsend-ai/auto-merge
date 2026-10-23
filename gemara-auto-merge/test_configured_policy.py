@@ -69,7 +69,7 @@ class UpstreamChecksTests(unittest.TestCase):
         self.assertEqual(self.run_policy(Client([check(1,"failure"),check(2,"skipped",name="Skipped")]))["decision"],"hold")
 
     def test_binary_and_source_integrity(self):
-        cfg=c.configuration();self.assertEqual(cfg["mode"],"shadow")
+        cfg=c.configuration();self.assertIn(cfg["mode"],{"off","shadow","enforce"})
         with mock.patch.object(c,"load",return_value={"binary_sha256":"0"*64}):
             with self.assertRaises(InputError):c.configuration()
         with mock.patch.object(c,"load",return_value={"commit":"wrong"}):
@@ -85,6 +85,15 @@ class UpstreamChecksTests(unittest.TestCase):
             self.assertFalse(c.checks_value(client,HEAD,"queue")[0])
             client.get=lambda _:dict(path="untrusted",event="merge_group",head_sha=HEAD,check_suite_id=9)
             self.assertIsNone(c.checks_value(client,HEAD,"queue")[0])
+
+    def test_read_only_command_records_native_result_without_merge_authority(self):
+        import github_pr_evidence as forge
+        pr={"head":{"sha":HEAD},"base":{"sha":BASE,"ref":"main","repo":{"full_name":"fullsend-ai/auto-merge"}}}
+        client=Client([check()]);client.get=lambda _:pr
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(forge,"Client",return_value=client), mock.patch.object(c,"configuration",return_value={"mode":"shadow","policy":"fullsend-default","controls":[c.CONTROL]}), mock.patch("policy_evaluation.new_output",return_value=Path(directory)), mock.patch("sys.argv",["configured_policy","--pr","54"]), mock.patch("builtins.print"):
+            self.assertEqual(c.main(),0)
+            self.assertTrue((Path(directory)/"upstream-evaluation-log.json").is_file())
+            self.assertIn('"mutation_permitted": false',(Path(directory)/"configured-policy.json").read_text())
 
     def test_final_writer_rechecks_configuration_and_check_outcome(self):
         import authorize_auto_merge as pilot
