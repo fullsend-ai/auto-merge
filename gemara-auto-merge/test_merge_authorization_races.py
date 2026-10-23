@@ -18,6 +18,7 @@ class AuthorizationRaceTests(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
         self.config = p.configuration()
+        self.config["automatic_enabled"] = True
         self.config["automatic_pull_requests"]=[999001]
         self.config["automatic_expires_at"] = (datetime.now(timezone.utc)+timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
         grant=mock.patch.object(p,"configuration",return_value=self.config);grant.start();self.addCleanup(grant.stop)

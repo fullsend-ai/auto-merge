@@ -1,13 +1,13 @@
 {
   "schema_version": "repository-merge-pilot/v2",
   "repository": "fullsend-ai/auto-merge",
-  "automatic_enabled": true,
+  "automatic_enabled": false,
   "maintenance_enabled": false,
   "allowed_document_paths": [
     "docs/example-feature.md"
   ],
   "maintenance_maximum_age_seconds": 3600,
-  "automatic_expires_at": "2026-10-23T14:11:27Z",
+  "automatic_expires_at": "2026-10-23T13:05:53Z",
   "automatic_pull_requests": [
     58
   ]
