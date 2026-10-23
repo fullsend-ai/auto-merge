@@ -19,6 +19,11 @@ An owner-authorized documentation trial evaluates policy before queue entry.
 The required queue check validates the reviewed document again on the cumulative
 merge-group commit before GitHub merges it.
 
+The shared judge policy evaluates recent scored review approvals independently
+of this PR's own review. The owner selects its minimum pass rate in the trusted
+consumer configuration. Every requirement must pass again before queue entry
+and on the merge group; GitHub performs the final protected merge.
+
 ## Verification
 
 Run the validator from the repository root, because it reads
