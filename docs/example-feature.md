@@ -34,3 +34,6 @@ both pull-request CI jobs complete successfully.
 A baseline run must review the current head and retain its findings and risk.
 Successful CI is not a substitute for a completed Fullsend Review.
 Shared integration wiring is tested only after the installed Review path works.
+A successful example-contract check confirms the required headings and ready
+status. This document check alone does not establish that a pull request is
+eligible for automatic merging.
