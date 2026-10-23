@@ -19,6 +19,10 @@ An owner-authorized documentation trial evaluates policy before queue entry.
 The required queue check validates the reviewed document again on the cumulative
 merge-group commit before GitHub merges it.
 
+Recent judge feedback about earlier review approvals is a separate requirement.
+Passing this PR's own checks does not override a missing, stale or below-threshold
+review-quality assessment.
+
 ## Verification
 
 Run the validator from the repository root, because it reads
