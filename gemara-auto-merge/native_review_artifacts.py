@@ -205,15 +205,19 @@ def verify_record(client, current_tree, pr, run, artifact, raw, verify_context, 
         ),
         "native_producer_identity_mismatch",
     )
+    # The vendored executable and reusable dispatcher have independent pins.
+    workflow_commit = build.get("workflow_commit") if post_script else build["source_commit"]
     references = run.get("referenced_workflows")
     require(
-        isinstance(references, list)
+        isinstance(workflow_commit, str)
+        and re.fullmatch(r"[a-f0-9]{40}", workflow_commit)
+        and isinstance(references, list)
         and len(references) == 1
-        and references[0].get("sha") == build["source_commit"]
+        and references[0].get("sha") == workflow_commit
         and references[0].get("path")
         == (
             "fullsend-ai/fullsend/.github/workflows/reusable-dispatch.yml@"
-            + build["source_commit"]
+            + workflow_commit
         ),
         "native_workflow_reference_unverified",
     )

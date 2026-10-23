@@ -7,6 +7,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 SOURCE_COMMIT = "1c0e9b1bef834f5d936119dad8d83b9aa044a598"
+WORKFLOW_COMMIT = "1528aac1b8361ef7f5cad1ba55f304402761580c"
 
 
 def configure(repo=REPO):
@@ -22,6 +23,7 @@ def configure(repo=REPO):
     producer = {
         "schema_version": "review-post-script-producer/v1",
         "source_commit": SOURCE_COMMIT,
+        "workflow_commit": WORKFLOW_COMMIT,
         "publisher_sha256": hashlib.sha256(publisher.read_bytes()).hexdigest(),
     }
     (repo / ".fullsend/review-evidence-producer.json").write_text(
