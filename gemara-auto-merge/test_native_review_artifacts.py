@@ -188,6 +188,7 @@ class PostScriptArtifactTests(unittest.TestCase):
         self.build = {
             "schema_version": "review-post-script-producer/v1",
             "source_commit": self.record["producer"]["fullsend_commit"],
+            "workflow_commit": self.record["producer"]["fullsend_commit"],
             "publisher_sha256": self.record["producer"]["publisher_sha256"],
         }
 
@@ -217,6 +218,22 @@ class PostScriptArtifactTests(unittest.TestCase):
         ]:
             with self.subTest(change=change), self.assertRaises(InputError):
                 self.verify(dict(self.build, **change))
+
+    def test_independent_binary_and_dispatcher_pins_are_both_required(self):
+        dispatcher = "9" * 40
+        self.build["workflow_commit"] = dispatcher
+        self.base.run["referenced_workflows"] = [{
+            "sha": dispatcher,
+            "path": "fullsend-ai/fullsend/.github/workflows/reusable-dispatch.yml@" + dispatcher,
+        }]
+        self.assertEqual(self.verify(self.build)["reason"], "contract_verified")
+        for change in [{"workflow_commit": "8" * 40}, {"workflow_commit": None}, {"workflow_commit": "main"}, {"source_commit": dispatcher}]:
+            with self.subTest(change=change), self.assertRaises(InputError):
+                self.verify(dict(self.build, **change))
+        for refs in [[], self.base.run["referenced_workflows"] * 2, [{"sha": dispatcher, "path": "other/repo/.github/workflows/reusable-dispatch.yml@" + dispatcher}]]:
+            self.base.run["referenced_workflows"] = refs
+            with self.assertRaises(InputError):
+                self.verify(self.build)
 
     def test_active_host_lock_matches_all_sources_and_rejects_reintroduced_binary(self):
         from pathlib import Path
