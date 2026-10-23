@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 import copy
 import json
 import os
@@ -17,7 +18,12 @@ class AuthorizationRaceTests(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
         self.config = p.configuration()
+        self.config["automatic_expires_at"] = (datetime.now(timezone.utc)+timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        grant=mock.patch.object(p,"configuration",return_value=self.config);grant.start();self.addCleanup(grant.stop)
+        selected={"decision":"eligible","configuration_sha256":"a"*64}
+        gate=mock.patch.object(p.configured_policy,"evaluate",return_value=selected);gate.start();self.addCleanup(gate.stop)
         self.result = {
+            "configured_policy": selected,
             "decision": "eligible",
             "stage": "enroll",
             "pull_request": 999001,

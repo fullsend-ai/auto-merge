@@ -7,6 +7,7 @@ permissions:
   contents: read
   pull-requests: read
   checks: read
+  statuses: read
   actions: read
 jobs:
   shared:

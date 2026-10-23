@@ -94,6 +94,7 @@ jobs:
       contents: read
       pull-requests: read
       checks: read
+      statuses: read
       actions: read
     with:
       pr: ${{ needs.resolve.outputs.pr }}
@@ -111,6 +112,7 @@ jobs:
       contents: read
       pull-requests: read
       checks: read
+      statuses: read
       actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -161,6 +163,7 @@ jobs:
       pull-requests: read
       actions: read
       checks: read
+      statuses: read
     uses: ./.github/workflows/gemara-queue-writer.yml
     secrets:
       GEMARA_PILOT_APP_PRIVATE_KEY: ${{ secrets.GEMARA_PILOT_APP_PRIVATE_KEY }}
@@ -175,6 +178,7 @@ jobs:
       pull-requests: read
       actions: read
       checks: read
+      statuses: read
     uses: ./.github/workflows/gemara-queue-writer.yml
     secrets:
       GEMARA_PILOT_APP_PRIVATE_KEY: ${{ secrets.GEMARA_PILOT_APP_PRIVATE_KEY }}

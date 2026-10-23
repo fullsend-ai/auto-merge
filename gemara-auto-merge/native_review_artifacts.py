@@ -158,7 +158,7 @@ def host_sources(client, current_tree, configuration):
     if lock["schema_version"] == "review-post-script-host/v1":
         require(
             all(
-                path not in current and path not in original
+                (path not in current and path not in original) or (path in expected and current.get(path) == original.get(path) == expected[path])
                 for path in [".fullsend/bin/fullsend", "bin/fullsend"]
             ),
             "unexpected_vendored_binary",

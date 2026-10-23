@@ -6,14 +6,16 @@ import json
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-SOURCE_COMMIT = "1528aac1b8361ef7f5cad1ba55f304402761580c"
+SOURCE_COMMIT = "1c0e9b1bef834f5d936119dad8d83b9aa044a598"
 
 
 def configure(repo=REPO):
-    if any(
-        (repo / name).exists() for name in [".fullsend/bin/fullsend", "bin/fullsend"]
-    ):
+    binary = repo / ".fullsend/bin/fullsend"
+    if (repo / "bin/fullsend").exists():
         raise ValueError("unexpected_vendored_binary")
+    build = json.loads((repo / ".fullsend/local-build.json").read_text())
+    if binary.is_symlink() or hashlib.sha256(binary.read_bytes()).hexdigest() != build["binary_sha256"]:
+        raise ValueError("vendored_binary_changed")
     publisher = repo / ".fullsend/scripts/publish-review-evidence.py"
     if publisher.is_symlink():
         raise ValueError("symlink_host_source")
@@ -32,6 +34,9 @@ def configure(repo=REPO):
         for name in [
             ".github/workflows/fullsend.yaml",
             ".fullsend/config.yaml",
+            ".fullsend/bin/fullsend",
+            ".fullsend/local-build.json",
+            "gemara-auto-merge/local-fullsend.patch",
             ".fullsend/harness/review-gemara.yaml",
             ".fullsend/skills/github/SKILL.md",
             ".fullsend/scripts/post-review-gemara.py",
@@ -75,7 +80,7 @@ def configure(repo=REPO):
     print(
         "Pinned post-script publisher and",
         len(entries),
-        "host files; no custom binary.",
+        "host files, including the checksum-pinned local Fullsend binary.",
     )
 
 

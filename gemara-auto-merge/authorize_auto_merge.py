@@ -413,6 +413,9 @@ def trusted_source(client, base_sha, phase, group_sha=None):
         return False
     remote = tree(client, source)
     paths = ["gemara-auto-merge/" + p for p in source_digests()]
+    paths += [p for p in configured_policy.CONFIGURATION_PATHS if (ROOT.parent / p).is_file()]
+    if ".fullsend/config.base.yaml" in remote and not (ROOT.parent / ".fullsend/config.base.yaml").is_file():
+        return False
     paths += [
         ".github/workflows/gemara-auto-merge.yml",
         ".github/workflows/gemara-merge-queue.yml",
@@ -428,7 +431,7 @@ def trusted_source(client, base_sha, phase, group_sha=None):
             return False
         raw = path.read_bytes()
         oid = hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest()
-        if remote.get(name) != ("blob", "100644", oid):
+        if remote.get(name) != ("blob", "100755" if name == ".fullsend/bin/fullsend" else "100644", oid):
             return False
     return True
 
@@ -549,6 +552,9 @@ def current_pr(pr, head):
         and (pr.get("base") or {}).get("ref") == "main"
         and ((pr.get("base") or {}).get("repo") or {}).get("full_name") == REPO
     )
+
+
+import configured_policy
 
 
 def evaluate(number, expected_head, phase, client=None):
@@ -673,9 +679,10 @@ def evaluate(number, expected_head, phase, client=None):
     shared = shared_gate.verify_assessment(
         client, number, expected_head, base_sha, phase, target
     )
+    configured = configured_policy.evaluate(client, target, base_sha, now, phase)
     combined_decision = (
         "eligible"
-        if result["decision"] == "eligible" and shared["decision"] == "eligible"
+        if result["decision"] == "eligible" and shared["decision"] == "eligible" and configured["decision"] == "eligible"
         else "hold"
     )
     again = client.get(BASE + f"pulls/{number}")
@@ -713,6 +720,7 @@ def evaluate(number, expected_head, phase, client=None):
         "producer_evidence": report.get("native_review_evidence") if report else None,
         "evaluation": result,
         "shared_assessment": shared,
+        "configured_policy": configured,
         "supporting_evaluations": (
             {
                 "readiness": report["qualification"]["result"],
@@ -776,6 +784,8 @@ def pending_queue_request(client, number, head):
 def pre_enqueue(result, client):
     """Recheck mutable authorization after token verification and report writing."""
     config = configuration()
+    fresh = configured_policy.evaluate(client, result["reviewed_head"], result["base_sha"], datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    require(fresh["decision"] == "eligible" and fresh["configuration_sha256"] == result["configured_policy"]["configuration_sha256"], "configured_policy_held_before_enqueue")
     require(
         digest(config) == result["configuration_sha256"], "pilot_configuration_changed"
     )
@@ -890,11 +900,13 @@ def main():
                 "base_sha": result["base_sha"],
                 "evaluated_sha": result["evaluated_sha"],
             },
-            dict(result.get("supporting_evaluations", {}), pilot=result["evaluation"]),
+            dict(result.get("supporting_evaluations", {}), pilot=result["evaluation"], **({"upstream": result["configured_policy"]["evaluation"]} if "evaluation" in result["configured_policy"] else {})),
             {
                 "pilot": bundle(result["mode"] == "maintenance"),
                 "repository": g.load_bundle(),
                 "shared": shared_gate.settings(),
+                "configured": result["configured_policy"]["configuration"],
+                "upstream": configured_policy.upstream_bundle(),
             },
             result["decision"],
             result["production_readiness"],
@@ -927,6 +939,7 @@ def main():
                 + " ("
                 + result["shared_assessment"]["quality"]["reason"]
                 + ")."
+                + "\n\nConfigured auto_merge: " + result["configured_policy"]["configuration"]["mode"] + "; upstream controls: " + ", ".join(r["requirement"] + ": " + r["state"] for r in result["configured_policy"]["assessments"])
                 + "\n\nDownload this job's `gemara-evaluation` artifact for native logs, normalized evidence, effective policy and a digest manifest. The bundle itself grants no merge authority.\n"
             )
         output = os.environ.get("GITHUB_OUTPUT")

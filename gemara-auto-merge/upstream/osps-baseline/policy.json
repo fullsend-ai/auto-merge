@@ -1,0 +1,69 @@
+{
+  "title": "Selected OpenSSF check policy",
+  "metadata": {
+    "id": "fullsend-upstream-checks",
+    "type": "Policy",
+    "gemara-version": "1.5.0",
+    "version": "0.1.0",
+    "description": "Owner-enabled bounded repository lab pilot; not production qualification",
+    "author": {
+      "id": "autonomy-lab",
+      "name": "Auto-Merge research lab",
+      "type": "Software Assisted"
+    },
+    "draft": true,
+    "mapping-references": [
+      {
+        "id": "osps-baseline-quality",
+        "title": "OpenSSF OSPS quality control",
+        "version": "2026.08.28"
+      }
+    ]
+  },
+  "contacts": {
+    "responsible": [
+      {
+        "name": "Repository maintainers"
+      }
+    ],
+    "accountable": [
+      {
+        "name": "Policy owners"
+      }
+    ]
+  },
+  "scope": {
+    "in": {
+      "technologies": [
+        "github"
+      ],
+      "groups": [
+        "fullsend-ai/auto-merge"
+      ]
+    }
+  },
+  "imports": {
+    "catalogs": [
+      {
+        "reference-id": "osps-baseline-quality"
+      }
+    ]
+  },
+  "adherence": {
+    "assessment-plans": [
+      {
+        "id": "osps-qa-03-plan",
+        "requirement-id": "OSPS-QA-03.01",
+        "frequency": "every evaluation",
+        "evaluation-methods": [
+          {
+            "id": "all-checks-passed",
+            "type": "Intent",
+            "mode": "Automated",
+            "required": true
+          }
+        ]
+      }
+    ]
+  }
+}

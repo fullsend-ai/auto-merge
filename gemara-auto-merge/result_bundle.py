@@ -15,10 +15,10 @@ def write_bundle(
     require(stage in {"shadow", "enroll", "queue", "contract-replay"}, "invalid_stage")
     require(decision in {"eligible", "hold", "would_allow"}, "invalid_decision")
     require(readiness in {"eligible", "hold", "not_assessed"}, "invalid_readiness")
-    require(evaluations and len(evaluations) <= 3, "missing_evaluation")
+    require(evaluations and len(evaluations) <= 4, "missing_evaluation")
     logs, rows, evidence, observations = {}, [], {}, {}
     for name, result in evaluations.items():
-        require(name in {"readiness", "candidate", "pilot"}, "invalid_evaluation")
+        require(name in {"readiness", "candidate", "pilot", "upstream"}, "invalid_evaluation")
         require(result["engine"] == "gemara", "wrong_engine")
         assessments = result["assessments"]
         require(bool(assessments), "missing_assessments")
@@ -66,7 +66,7 @@ def write_bundle(
             }
             require(
                 all(
-                    isinstance(v, str) and re.fullmatch(r"[A-Za-z0-9_-]{1,100}", v)
+                    isinstance(v, str) and re.fullmatch(r"[A-Za-z0-9_.-]{1,100}", v)
                     for v in selected.values()
                 ),
                 "invalid_assessment",

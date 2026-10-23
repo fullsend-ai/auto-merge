@@ -264,8 +264,13 @@ class SharedReceiptTests(unittest.TestCase):
 
     def test_writer_rechecks_shared_hold_before_any_mutation(self):
         config = pilot.configuration()
+        config["automatic_expires_at"]=(datetime.now(timezone.utc)+timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        grant=mock.patch.object(pilot,"configuration",return_value=config);grant.start();self.addCleanup(grant.stop)
+        selected={"decision":"eligible","configuration_sha256":"a"*64}
+        gate=mock.patch.object(pilot.configured_policy,"evaluate",return_value=selected);gate.start();self.addCleanup(gate.stop)
         result = dict(
             mode="automatic",
+            configured_policy=selected,
             configuration_sha256=digest(config),
             pull_request=53,
             reviewed_head=self.head,
@@ -646,6 +651,8 @@ class HostedCombinedAssessmentTests(unittest.TestCase):
 
 class RulesetAuditTests(unittest.TestCase):
     def setUp(self):
+        cfg=s.settings();cfg["binding"]["owner_grant_expires_at"]=(datetime.now(timezone.utc)+timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        grant=mock.patch.object(s,"settings",return_value=cfg);grant.start();self.addCleanup(grant.stop)
         self.rule = dict(
             id=1,
             name="protected main",

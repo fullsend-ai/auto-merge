@@ -255,7 +255,7 @@ class PostScriptArtifactTests(unittest.TestCase):
         )
         altered = {
             "tree": list(tree["tree"])
-            + [{"path": ".fullsend/bin/fullsend", "sha": "f" * 40, "type": "blob"}]
+            + [{"path": "bin/fullsend", "sha": "f" * 40, "type": "blob"}]
         }
         with self.assertRaisesRegex(InputError, "unexpected_vendored_binary"):
             n.host_sources(client, altered, "b" * 40)

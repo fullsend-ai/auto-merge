@@ -81,6 +81,8 @@ def source_digests():
         ROOT / name
         for name in [
             "policy_evaluation.py",
+            "configured_policy.py",
+            "local-fullsend.patch",
             "github_pr_evidence.py",
             "authorize_auto_merge.py",
             "github_app_token_scope.py",
@@ -96,6 +98,7 @@ def source_digests():
             "toolchain-lock.json",
         ]
     ]
+    paths += sorted((ROOT / "upstream/osps-baseline").glob("*"))
     for directory in ("catalogs", "policies", "config"):
         paths += sorted((ROOT / directory).glob("*.json"))
     paths += [
@@ -184,8 +187,8 @@ def validate_subject(value):
 def assess(bundle, purpose, who, observations, as_of):
     validate_subject(who)
     require(
-        purpose in {"readiness", "candidate"}
-        and (("head_sha" in who) == (purpose == "candidate")),
+        purpose in {"readiness", "candidate", "maturity-2"}
+        and (("head_sha" in who) == (purpose in {"candidate", "maturity-2"})),
         "wrong_subject_kind",
     )
     utc(as_of)

@@ -1,0 +1,2 @@
+# Diff context in the retained upstream source patch is data, not source indentation.
+gemara-auto-merge/local-fullsend.patch -whitespace

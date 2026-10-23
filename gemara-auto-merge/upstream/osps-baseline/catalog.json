@@ -1,0 +1,53 @@
+{
+  "title": "OpenSSF OSPS quality control",
+  "metadata": {
+    "id": "osps-baseline-quality",
+    "type": "ControlCatalog",
+    "gemara-version": "1.5.0",
+    "version": "2026.08.28",
+    "description": "Selected upstream OSPS control; compatible SDK transport wrapper",
+    "author": {
+      "id": "osps-baseline",
+      "name": "OpenSSF OSPS Baseline",
+      "type": "Human"
+    },
+    "applicability-groups": [
+      {
+        "id": "maturity-2",
+        "title": "maturity-2",
+        "description": "Upstream applicability"
+      },
+      {
+        "id": "maturity-3",
+        "title": "maturity-3",
+        "description": "Upstream applicability"
+      }
+    ]
+  },
+  "groups": [
+    {
+      "id": "QA",
+      "title": "Quality",
+      "description": "Quality focuses on the processes and\npractices used to ensure the quality and\nreliability of the project's source code and\nsoftware assets. These controls help ensure\nthat the project's source code is well\nmaintained, secure, and reliable, reducing the\nrisk of defects or vulnerabilities in the\nsoftware.\n"
+    }
+  ],
+  "controls": [
+    {
+      "id": "OSPS-QA-03",
+      "title": "Address Pass/Fail Checks Before Accepting Changes\n",
+      "objective": "Ensure that the project's approvers do not become accustomed to tolerating\nfailing status checks, even if arbitrary, because it increases the risk of\noverlooking security vulnerabilities or defects identified by automated\nchecks.\n",
+      "group": "QA",
+      "assessment-requirements": [
+        {
+          "id": "OSPS-QA-03.01",
+          "text": "When a commit is made to the primary branch, any automated status\nchecks for commits MUST pass or be manually bypassed.\n",
+          "applicability": [
+            "maturity-2",
+            "maturity-3"
+          ],
+          "recommendation": "Configure the project's version control system to require that all\nautomated status checks pass or require manual acknowledgement before a\ncommit can be merged into the primary branch. It is recommended that\nany optional status checks are NOT configured as a pass or fail\nrequirement that approvers may be tempted to bypass.\n"
+        }
+      ]
+    }
+  ]
+}

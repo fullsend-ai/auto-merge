@@ -1,3 +1,11 @@
+## Current experiment: select an upstream control in Fullsend config
+
+See [the user flow](../docs/ADD-AN-UPSTREAM-CONTROL.md). This local experimental
+Fullsend build supports `auto_merge` in config.yaml and repos.yaml, including
+`controls: [OSPS-QA-03.01]`. The standard vendored binary location is restored
+for this explicit experiment, with a public source patch and checksum lock.
+Earlier sections below describe historical experiments and may predate this build.
+
 # Gemara auto-merge
 
 **New consumer gate:** [shared requirements and enforcement](../docs/SHARED-MERGE-GATE.md).

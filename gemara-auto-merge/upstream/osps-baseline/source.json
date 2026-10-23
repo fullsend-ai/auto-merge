@@ -1,0 +1,10 @@
+{
+  "repository": "ossf/security-baseline",
+  "release": "v2026.08.28",
+  "commit": "a26a7963f6fd098c1e82829322ec9e1196a4f294",
+  "path": "baseline/OSPS-QA.yaml",
+  "sha256": "45cb66e92cb50711f2f3d9ef45c2fc39b815bca09b7a8b468adc300309f21940",
+  "selected_requirement": "OSPS-QA-03.01",
+  "projection_sha256": "7c7ab061220f05d94ab222dd5e409bf106e872c49898eefd14ab939fbabf0096",
+  "policy_sha256": "7472b4833d46a5705b5598fc169c2449665d15939c62878033db26771c6dd971"
+}

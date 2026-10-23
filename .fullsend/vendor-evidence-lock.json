@@ -1,6 +1,6 @@
 {
   "schema_version": "review-post-script-host/v1",
-  "source_commit": "1528aac1b8361ef7f5cad1ba55f304402761580c",
+  "source_commit": "1c0e9b1bef834f5d936119dad8d83b9aa044a598",
   "host_files": [
     {
       "path": ".github/workflows/reusable-code.yml",
@@ -36,7 +36,19 @@
     },
     {
       "path": ".fullsend/config.yaml",
-      "blob_sha1": "30b08067727b609e24dc8543e48ffc686942ea0a"
+      "blob_sha1": "7290da31fedf367626f8264fae4d4d371d08c1bd"
+    },
+    {
+      "path": ".fullsend/bin/fullsend",
+      "blob_sha1": "524ff1fa043c1f5cacf952c57a67ef6bc2b1b86b"
+    },
+    {
+      "path": ".fullsend/local-build.json",
+      "blob_sha1": "d6c256211a29f3157e05c60928d72048a8757867"
+    },
+    {
+      "path": "gemara-auto-merge/local-fullsend.patch",
+      "blob_sha1": "78a91ee3c9ec858b650e0c43d57cf5e2bfc3bcc4"
     },
     {
       "path": ".fullsend/harness/review-gemara.yaml",
@@ -72,11 +84,11 @@
     },
     {
       "path": "gemara-auto-merge/native_review_artifacts.py",
-      "blob_sha1": "e64b9b41f92f4c4bb4bb12f6f731fb62cb3ee755"
+      "blob_sha1": "2719ea02a42c507380f1805218bb5973aa49a22e"
     },
     {
       "path": ".fullsend/review-evidence-producer.json",
-      "blob_sha1": "4155b588235619292fcd30b526f9fe5ec69d10f6"
+      "blob_sha1": "edec59bb3a463cd9b8036ac90ecd646bc5086838"
     },
     {
       "path": "gemara-auto-merge/fullsend_review_evidence.py",
@@ -88,7 +100,7 @@
     },
     {
       "path": "gemara-auto-merge/policy_evaluation.py",
-      "blob_sha1": "9503fe26067ca2cab4b5b4eea44b0f8111326ce7"
+      "blob_sha1": "a93ccc0a072fb7b68e34ac48c2754a7891bd45b0"
     },
     {
       "path": "gemara-auto-merge/validate_gemara_artifacts.py",

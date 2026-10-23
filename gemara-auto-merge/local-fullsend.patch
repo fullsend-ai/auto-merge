@@ -1,0 +1,626 @@
+diff --git a/docs/.vitepress/config.ts b/docs/.vitepress/config.ts
+index 4bd064a9..0ee47db5 100644
+--- a/docs/.vitepress/config.ts
++++ b/docs/.vitepress/config.ts
+@@ -230,6 +230,7 @@ export default defineConfig({
+           items: [
+             { text: "Overview", link: "/cli/" },
+             { text: "fullsend agent", link: "/cli/agent" },
++            { text: "fullsend auto-merge (experimental)", link: "/cli/auto-merge" },
+             { text: "fullsend github", link: "/cli/github" },
+             { text: "fullsend inference", link: "/cli/inference" },
+             { text: "fullsend mint", link: "/cli/mint" },
+diff --git a/docs/cli/README.md b/docs/cli/README.md
+index 53bf30db..37e4e6fd 100644
+--- a/docs/cli/README.md
++++ b/docs/cli/README.md
+@@ -14,6 +14,7 @@ Download the latest binary from [GitHub Releases](https://github.com/fullsend-ai
+ 
+ | Command group | Description |
+ |--------------|-------------|
++| [`fullsend auto-merge`](auto-merge.md) | Inspect experimental auto-merge policy configuration |
+ | [`fullsend agent`](agent.md) | Generate a custom agent and manage agent registrations — new, add, list, set, update, remove |
+ | [`fullsend github`](github.md) | Configure GitHub repos — setup and single-value config updates |
+ | [`fullsend inference`](inference.md) | Manage inference credentials — GCP Workload Identity Federation for Agent Platform, OpenAI WIF enrolment for GPT on pi or codex, and `gateway status` to check an inference gateway block and its authentication |
+diff --git a/docs/cli/auto-merge.md b/docs/cli/auto-merge.md
+new file mode 100644
+index 00000000..aa079057
+--- /dev/null
++++ b/docs/cli/auto-merge.md
+@@ -0,0 +1,7 @@
++# fullsend auto-merge (experimental)
++
++`fullsend auto-merge config [--config-dir .fullsend]` prints validated effective
++settings as JSON. It reads the overlay, base and defaults through the normal
++configuration loader. It makes no forge calls and never requests a merge.
++
++See [configuration reference](../reference/config-reference.md#experimental-auto-merge-configuration).
+diff --git a/docs/guides/getting-started/repo-management.md b/docs/guides/getting-started/repo-management.md
+index 26d418da..9dfcaf3a 100644
+--- a/docs/guides/getting-started/repo-management.md
++++ b/docs/guides/getting-started/repo-management.md
+@@ -1061,3 +1061,25 @@ commands.
+ - [Operations](operations.md) — Day-2 per-repo administration and standalone commands
+ - [CLI Reference: fullsend repos](../../cli/repos.md) — Full flag and subcommand reference
+ - [Mint administration](../infrastructure/mint-administration.md) — Token mint deployment and management
++
++### Experimental auto-merge settings
++
++The local auto-merge experiment uses the same typed block at
++`defaults.config.auto_merge`, a forge's `config.auto_merge`, or a repository's
++`config.auto_merge`. For example:
++
++```yaml
++version: 1
++github:
++  repos:
++    - name: example/project
++      config:
++        auto_merge:
++          mode: shadow
++          policy: fullsend-default
++          controls: [OSPS-QA-03.01]
++```
++
++The selected integration must separately be installed. See the
++[experimental configuration reference](../../reference/config-reference.md#experimental-auto-merge-configuration)
++for modes, supported controls, inheritance and safety semantics.
+diff --git a/docs/reference/config-reference.md b/docs/reference/config-reference.md
+index 0bf1e5fd..4cfbd7bd 100644
+--- a/docs/reference/config-reference.md
++++ b/docs/reference/config-reference.md
+@@ -555,3 +555,35 @@ code defaults. For complete merge rules, see
+   agents via config and harness
+ - [`fullsend agent`](../cli/agent.md) — CLI commands for managing registered
+   agents
++
++## Experimental auto-merge configuration
++
++The local experimental build accepts this block in `.fullsend/config.yaml`
++and in any managed `config:` block in `repos.yaml`:
++
++```yaml
++auto_merge:
++  mode: shadow
++  policy: fullsend-default
++  controls:
++    - OSPS-QA-03.01
++```
++
++`mode` is `off` (default), `shadow` (evaluate without allowing a merge request),
++or `enforce`. `policy` currently accepts only `fullsend-default` (default).
++`controls` selects optional upstream requirements; this experiment supports only
++`OSPS-QA-03.01`. Omitted fields inherit individually; `mode: off` overrides an
++inherited enable, and `controls: []` clears inherited optional controls.
++Unknown modes, policies, controls and nested keys are rejected.
++
++Use `fullsend auto-merge config --config-dir .fullsend` to print effective JSON.
++A kill switch forces the resolved mode to off. Changing a preset cannot
++implicitly enable enforced merging or remove an existing control through
++managed convergence; declare a relaxation explicitly in the managed overlay.
++
++These settings do not install a writer, grant permissions or renew an owner
++grant. The auto-merge lab supplies the GitHub evidence adapter and existing
++protected-queue writer. They consume trusted target-branch configuration using
++the vendored binary. Other repositories need that integration before these
++settings have operational effect. This is an experimental schema, not a
++released Fullsend auto-merge feature.
+diff --git a/internal/cli/auto_merge.go b/internal/cli/auto_merge.go
+new file mode 100644
+index 00000000..9495b9f7
+--- /dev/null
++++ b/internal/cli/auto_merge.go
+@@ -0,0 +1,35 @@
++package cli
++
++import (
++	"encoding/json"
++	"fmt"
++	"github.com/fullsend-ai/fullsend/internal/config"
++	"github.com/spf13/cobra"
++)
++
++func newAutoMergeCmd() *cobra.Command {
++	var dir string
++	cmd := &cobra.Command{Use: "auto-merge", Short: "Inspect auto-merge policy configuration (experimental)"}
++	show := &cobra.Command{Use: "config", Short: "Print validated effective auto-merge settings as JSON", Args: cobra.NoArgs,
++		RunE: func(cmd *cobra.Command, args []string) error {
++			reader, err := config.LoadConfig(dir, config.LoadOpts{})
++			if err != nil {
++				return err
++			}
++			repo, ok := reader.(config.PerRepoConfigReader)
++			if !ok {
++				return fmt.Errorf("per-repository configuration required")
++			}
++			a := repo.ConfigAutoMerge()
++			if err := config.ValidateAutoMerge(a); err != nil {
++				return err
++			}
++			if repo.IsKillSwitchActive() {
++				a.Mode = "off"
++			}
++			return json.NewEncoder(cmd.OutOrStdout()).Encode(a)
++		}}
++	show.Flags().StringVar(&dir, "config-dir", ".fullsend", "Directory containing trusted config.yaml and optional config.base.yaml")
++	cmd.AddCommand(show)
++	return cmd
++}
+diff --git a/internal/cli/auto_merge_test.go b/internal/cli/auto_merge_test.go
+new file mode 100644
+index 00000000..90cda1d3
+--- /dev/null
++++ b/internal/cli/auto_merge_test.go
+@@ -0,0 +1,50 @@
++package cli
++
++import (
++	"bytes"
++	"context"
++	"github.com/fullsend-ai/fullsend/internal/ui"
++	"github.com/stretchr/testify/require"
++	"os"
++	"path/filepath"
++	"testing"
++)
++
++func TestAutoMergeConfigCommand(t *testing.T) {
++	for _, tc := range []struct {
++		yaml, want string
++		fail       bool
++	}{
++		{"auto_merge: {mode: shadow, controls: [OSPS-QA-03.01]}", `"mode":"shadow"`, false},
++		{"kill_switch: true\nauto_merge: {mode: enforce}", `"mode":"off"`, false},
++		{"auto_merge: {mode: typo}", "auto_merge.mode", true},
++	} {
++		dir := t.TempDir()
++		require.NoError(t, os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(tc.yaml), 0600))
++		cmd := newAutoMergeCmd()
++		var b bytes.Buffer
++		cmd.SetOut(&b)
++		cmd.SetErr(&b)
++		cmd.SetArgs([]string{"config", "--config-dir", dir})
++		err := cmd.Execute()
++		if tc.fail {
++			require.ErrorContains(t, err, tc.want)
++		} else {
++			require.NoError(t, err)
++			require.Contains(t, b.String(), tc.want)
++		}
++	}
++	cmd := newAutoMergeCmd()
++	cmd.SetArgs([]string{"config", "--config-dir", filepath.Join(t.TempDir(), "absent")})
++	require.Error(t, cmd.Execute())
++}
++
++func TestRunAgentAutoMergeInvalidFailsBeforeSandbox(t *testing.T) {
++	usePreScriptStub(t)
++	dir := newSkipHarnessDir(t, "")
++	require.NoError(t, os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("agents:\n  - harness/code.yaml\nauto_merge: {mode: typo}\n"), 0600))
++	var b bytes.Buffer
++	err := runAgent(context.Background(), "code", dir, "", t.TempDir(), "", nil, false, "", "", "", resolveFlags{maxDepth: 10, maxResources: 50}, statusOpts{}, ui.New(&b), false, runOverrideFlags{})
++	require.ErrorContains(t, err, "auto_merge.mode")
++	require.NotContains(t, b.String(), "creating sandbox")
++}
+diff --git a/internal/cli/root.go b/internal/cli/root.go
+index da4dc8a0..4cacb9a1 100644
+--- a/internal/cli/root.go
++++ b/internal/cli/root.go
+@@ -77,6 +77,7 @@ func newRootCmd() *cobra.Command {
+ 			telemetry.InstallOTELRedactingLogger()
+ 		},
+ 	}
++	cmd.AddCommand(newAutoMergeCmd())
+ 	cmd.AddCommand(newAgentCmd())
+ 	cmd.AddCommand(newAdminCmd())
+ 	cmd.AddCommand(newGitHubCmd())
+diff --git a/internal/cli/run.go b/internal/cli/run.go
+index cf5ea7b8..589d6d32 100644
+--- a/internal/cli/run.go
++++ b/internal/cli/run.go
+@@ -990,6 +990,11 @@ func runAgent(ctx context.Context, agentName, fullsendDir, outputBase, targetRep
+ 	// Resolve per-repo model aliases from config (#6882). The alias map
+ 	// is passed to RunParams so each runtime can merge it into its own
+ 	// alias table; the echo here shows the mapping for visibility.
++	if runCfg.perRepo != nil {
++		if err := config.ValidateAutoMerge(runCfg.perRepo.ConfigAutoMerge()); err != nil {
++			return fmt.Errorf("%s: %w", runCfg.source, err)
++		}
++	}
+ 	var configModelAliases map[string]string
+ 	if runCfg.perRepo != nil {
+ 		configModelAliases = runCfg.perRepo.ConfigModelAliases()
+diff --git a/internal/config/auto_merge.go b/internal/config/auto_merge.go
+new file mode 100644
+index 00000000..7c71dacc
+--- /dev/null
++++ b/internal/config/auto_merge.go
+@@ -0,0 +1,122 @@
++package config
++
++import (
++	"fmt"
++	"gopkg.in/yaml.v3"
++	"slices"
++)
++
++// AutoMergeConfig selects the owner policy consumed by an auto-merge integration.
++// It does not grant forge permissions or create a merge writer. Nil controls
++// inherit; an explicit empty list clears optional controls.
++type AutoMergeConfig struct {
++	Mode     string    `yaml:"mode,omitempty" json:"mode"`
++	Policy   string    `yaml:"policy,omitempty" json:"policy"`
++	Controls *[]string `yaml:"controls,omitempty" json:"controls,omitempty"`
++}
++
++// UnmarshalYAML rejects misspelled security settings even on the runtime load path.
++func (a *AutoMergeConfig) UnmarshalYAML(n *yaml.Node) error {
++	if n.Kind != yaml.MappingNode {
++		return fmt.Errorf("auto_merge must be a mapping")
++	}
++	for i := 0; i < len(n.Content); i += 2 {
++		if !slices.Contains([]string{"mode", "policy", "controls"}, n.Content[i].Value) {
++			return fmt.Errorf("unknown auto_merge field %q", n.Content[i].Value)
++		}
++	}
++	type plain AutoMergeConfig
++	var p plain
++	if err := n.Decode(&p); err != nil {
++		return err
++	}
++	*a = AutoMergeConfig(p)
++	return ValidateAutoMerge(*a)
++}
++
++// ValidateAutoMerge checks both sparse configuration layers and effective values.
++func ValidateAutoMerge(a AutoMergeConfig) error {
++	if !slices.Contains([]string{"", "off", "shadow", "enforce"}, a.Mode) {
++		return fmt.Errorf("auto_merge.mode must be off, shadow or enforce")
++	}
++	if a.Policy != "" && a.Policy != "fullsend-default" {
++		return fmt.Errorf("unsupported auto_merge.policy %q", a.Policy)
++	}
++	if a.Controls != nil {
++		seen := map[string]bool{}
++		for _, id := range *a.Controls {
++			if id != "OSPS-QA-03.01" {
++				return fmt.Errorf("unsupported auto_merge control %q", id)
++			}
++			if seen[id] {
++				return fmt.Errorf("duplicate auto_merge control %q", id)
++			}
++			seen[id] = true
++		}
++	}
++	return nil
++}
++
++func cloneAutoMerge(a *AutoMergeConfig) *AutoMergeConfig {
++	if a == nil {
++		return nil
++	}
++	out := *a
++	if a.Controls != nil {
++		v := append([]string{}, (*a.Controls)...)
++		out.Controls = &v
++	}
++	return &out
++}
++
++func mergeAutoMerge(parent, child *AutoMergeConfig) *AutoMergeConfig {
++	if parent == nil {
++		return cloneAutoMerge(child)
++	}
++	out := cloneAutoMerge(parent)
++	if child == nil {
++		return out
++	}
++	if child.Mode != "" {
++		out.Mode = child.Mode
++	}
++	if child.Policy != "" {
++		out.Policy = child.Policy
++	}
++	if child.Controls != nil {
++		out.Controls = cloneAutoMerge(child).Controls
++	}
++	return out
++}
++
++// ConfigAutoMerge resolves the block field by field through the parent chain.
++func (c *perRepoConfig) ConfigAutoMerge() AutoMergeConfig {
++	inherited := (&perRepoDefaults{}).ConfigAutoMerge()
++	if c.parent != nil {
++		inherited = c.parent.ConfigAutoMerge()
++	}
++	return *mergeAutoMerge(&inherited, c.AutoMerge)
++}
++
++// SetAutoMerge updates only this layer, retaining explicit empty control lists.
++func (c *perRepoConfig) SetAutoMerge(a AutoMergeConfig) { c.AutoMerge = cloneAutoMerge(&a) }
++
++func autoMergeRelaxations(current, candidate AutoMergeConfig, local *perRepoConfig) []SafetyRelaxation {
++	var declared *AutoMergeConfig
++	if local != nil {
++		declared = local.AutoMerge
++	}
++	var out []SafetyRelaxation
++	if candidate.Mode == "enforce" && current.Mode != "enforce" && (declared == nil || declared.Mode != "enforce") {
++		out = append(out, SafetyRelaxation{Key: "auto_merge.mode", Current: current.Mode, Candidate: candidate.Mode})
++	}
++	if current.Controls != nil {
++		for _, id := range *current.Controls {
++			removed := candidate.Controls == nil || !slices.Contains(*candidate.Controls, id)
++			if removed && (declared == nil || declared.Controls == nil) {
++				out = append(out, SafetyRelaxation{Key: "auto_merge.controls", Current: id, Candidate: "removed"})
++			}
++		}
++	}
++	return out
++}
+diff --git a/internal/config/auto_merge_test.go b/internal/config/auto_merge_test.go
+new file mode 100644
+index 00000000..9c1a33ea
+--- /dev/null
++++ b/internal/config/auto_merge_test.go
+@@ -0,0 +1,82 @@
++package config
++
++import (
++	"github.com/stretchr/testify/require"
++	"gopkg.in/yaml.v3"
++	"testing"
++)
++
++func TestAutoMergeLayers(t *testing.T) {
++	base := []byte("auto_merge:\n  mode: enforce\n  policy: fullsend-default\n  controls: [OSPS-QA-03.01]\n")
++	c, err := ParsePerRepoConfigWriterLayered([]byte("auto_merge:\n  mode: off\n"), base)
++	require.NoError(t, err)
++	require.Equal(t, "off", c.ConfigAutoMerge().Mode)
++	require.Equal(t, []string{"OSPS-QA-03.01"}, *c.ConfigAutoMerge().Controls)
++	c, err = ParsePerRepoConfigWriterLayered([]byte("auto_merge:\n  controls: []\n"), base)
++	require.NoError(t, err)
++	require.Empty(t, *c.ConfigAutoMerge().Controls)
++	raw, err := c.Marshal()
++	require.NoError(t, err)
++	require.Contains(t, string(raw), "controls: []")
++	round, err := ParsePerRepoConfigWriterLayered(raw, base)
++	require.NoError(t, err)
++	require.Empty(t, *round.ConfigAutoMerge().Controls)
++	effective, err := EffectiveYAML(c)
++	require.NoError(t, err)
++	require.Contains(t, string(effective), "auto_merge:")
++}
++
++func TestAutoMergeValidation(t *testing.T) {
++	for _, block := range []string{"true", "{mode: yes}", "{mode: unsafe}", "{policy: arbitrary}", "{controls: [unknown]}", "{controls: [OSPS-QA-03.01, OSPS-QA-03.01]}", "{mod: enforce}", "{mode: off, mode: enforce}"} {
++		t.Run(block, func(t *testing.T) {
++			_, err := ParsePerRepoConfigWriter([]byte("auto_merge: " + block))
++			require.Error(t, err)
++		})
++	}
++	for _, a := range []AutoMergeConfig{{Mode: "bad"}, {Policy: "bad"}, {Controls: ptrControls("bad")}, {Controls: ptrControls("OSPS-QA-03.01", "OSPS-QA-03.01")}} {
++		c := NewEmptyPerRepoOverlay()
++		c.SetAutoMerge(a)
++		require.Error(t, c.Validate())
++	}
++	c := NewEmptyPerRepoOverlay()
++	require.Equal(t, "off", c.ConfigAutoMerge().Mode)
++	c.SetAutoMerge(AutoMergeConfig{Mode: "shadow"})
++	require.NoError(t, c.Validate())
++}
++
++func ptrControls(ids ...string) *[]string { return &ids }
++
++func TestAutoMergeManagedMergeAndClone(t *testing.T) {
++	var parent, child ManagedConfig
++	require.NoError(t, yaml.Unmarshal([]byte("auto_merge: {mode: shadow, controls: [OSPS-QA-03.01]}"), &parent))
++	require.NoError(t, yaml.Unmarshal([]byte("auto_merge: {mode: off}"), &child))
++	merged := MergeManaged(parent.Writer(), child.Writer())
++	a := merged.ConfigAutoMerge()
++	require.Equal(t, "off", a.Mode)
++	require.Equal(t, []string{"OSPS-QA-03.01"}, *a.Controls)
++	(*a.Controls)[0] = "changed"
++	require.Equal(t, "OSPS-QA-03.01", (*merged.ConfigAutoMerge().Controls)[0])
++	clone := parent.Clone()
++	require.Equal(t, "shadow", clone.Writer().ConfigAutoMerge().Mode)
++	(*clone.cfg.AutoMerge.Controls)[0] = "changed"
++	require.Equal(t, "OSPS-QA-03.01", (*parent.cfg.AutoMerge.Controls)[0])
++	require.Error(t, yaml.Unmarshal([]byte("auto_merge: {mdoe: shadow}"), &child))
++	require.NoError(t, yaml.Unmarshal([]byte("auto_merge: {controls: []}"), &child))
++	require.Empty(t, *MergeManaged(parent.Writer(), child.Writer()).ConfigAutoMerge().Controls)
++}
++
++func TestAutoMergeManagedSafety(t *testing.T) {
++	current := []byte("auto_merge: {mode: off, controls: [OSPS-QA-03.01]}")
++	preset := []byte("auto_merge: {mode: enforce, controls: []}")
++	rs, err := CheckManagedSafetyGateFromLayerPairs(current, nil, NewEmptyPerRepoOverlay(), preset)
++	require.NoError(t, err)
++	require.Equal(t, []string{"auto_merge.mode", "auto_merge.controls"}, SafetyRelaxationKeys(rs))
++	explicit, err := ParsePerRepoConfigWriter(preset)
++	require.NoError(t, err)
++	rs, err = CheckManagedSafetyGateFromLayerPairs(current, nil, explicit, preset)
++	require.NoError(t, err)
++	require.Empty(t, rs)
++	noChange := AutoMergeConfig{Mode: "off", Controls: ptrControls("OSPS-QA-03.01")}
++	require.Empty(t, autoMergeRelaxations(noChange, noChange, nil))
++	require.NotEmpty(t, autoMergeRelaxations(noChange, AutoMergeConfig{Mode: "off"}, nil))
++}
+diff --git a/internal/config/config.go b/internal/config/config.go
+index 0eae4ed9..ff19aeca 100644
+--- a/internal/config/config.go
++++ b/internal/config/config.go
+@@ -680,6 +680,7 @@ func validateNotificationValue(field, val string, allowed []string, description
+ // when the local value is unset. The terminal parent is perRepoDefaults,
+ // which returns compiled-in code defaults.
+ type perRepoConfig struct {
++	AutoMerge *AutoMergeConfig `yaml:"auto_merge,omitempty"`
+ 	// omitempty so unset version is not marshaled. This allows the
+ 	// fallback chain to inherit version from the parent layer.
+ 	Version string `yaml:"version,omitempty"`
+@@ -819,6 +820,7 @@ func (c *perRepoConfig) Marshal() ([]byte, error) {
+ // as an empty YAML sequence (e.g. `roles: []`,
+ // `allowed_remote_resources: []`).
+ type perRepoConfigMarshal struct {
++	AutoMerge              *AutoMergeConfig          `yaml:"auto_merge,omitempty"`
+ 	Version                string                    `yaml:"version,omitempty"`
+ 	Forge                  string                    `yaml:"forge,omitempty"`
+ 	Tracker                string                    `yaml:"tracker,omitempty"`
+@@ -844,6 +846,7 @@ type perRepoConfigMarshal struct {
+ // `authorization: []`).
+ func (c *perRepoConfig) MarshalYAML() (interface{}, error) {
+ 	h := perRepoConfigMarshal{
++		AutoMerge:           c.AutoMerge,
+ 		Version:             c.Version,
+ 		Forge:               c.Forge,
+ 		Tracker:             c.Tracker,
+@@ -900,6 +903,11 @@ func (c *perRepoConfig) Validate() error {
+ // resolved yet at every point a managed block is validated — see
+ // ValidateManagedLayer and ValidateMergedManaged.
+ func (c *perRepoConfig) validateLocalFields() error {
++	if c.AutoMerge != nil {
++		if err := ValidateAutoMerge(*c.AutoMerge); err != nil {
++			return err
++		}
++	}
+ 	// Version: empty means "inherit from parent"; non-empty must be "1".
+ 	if c.Version != "" && c.Version != "1" {
+ 		return fmt.Errorf("unsupported version %q: must be \"1\"", c.Version)
+diff --git a/internal/config/defaults.go b/internal/config/defaults.go
+index d9996e4a..e59f7dc0 100644
+--- a/internal/config/defaults.go
++++ b/internal/config/defaults.go
+@@ -30,6 +30,10 @@ type perRepoDefaults struct{}
+ var _ PerRepoConfigReader = (*perRepoDefaults)(nil)
+ 
+ // ConfigVersion returns the default schema version.
++func (d *perRepoDefaults) ConfigAutoMerge() AutoMergeConfig {
++	return AutoMergeConfig{Mode: "off", Policy: "fullsend-default"}
++}
++
+ func (d *perRepoDefaults) ConfigVersion() string { return "1" }
+ 
+ // ConfigRuntime returns the default runtime.
+diff --git a/internal/config/effective.go b/internal/config/effective.go
+index 550ccbd9..fec353e0 100644
+--- a/internal/config/effective.go
++++ b/internal/config/effective.go
+@@ -17,6 +17,7 @@ func EffectiveYAML(r PerRepoConfigReader) ([]byte, error) {
+ 		return nil, fmt.Errorf("configuration is required")
+ 	}
+ 	out := map[string]any{
++		"auto_merge":   r.ConfigAutoMerge(),
+ 		"kill_switch":  r.IsKillSwitchActive(),
+ 		"keep_history": r.ConfigKeepHistory(),
+ 		"roles":        r.ConfigRoles(),
+diff --git a/internal/config/interfaces.go b/internal/config/interfaces.go
+index 56feece3..8c2a7523 100644
+--- a/internal/config/interfaces.go
++++ b/internal/config/interfaces.go
+@@ -60,6 +60,7 @@ type ConfigReader interface {
+ // fields. Methods are prefixed with "Config" to avoid conflicts with
+ // the struct field names (Roles and Runtime).
+ type PerRepoConfigReader interface {
++	ConfigAutoMerge() AutoMergeConfig
+ 	ConfigReader
+ 	ConfigRoles() []string
+ 	ConfigRuntime() string
+@@ -102,6 +103,7 @@ type ConfigWriter interface {
+ // PerRepoConfigWriter extends PerRepoConfigReader and ConfigWriter with
+ // per-repo-specific mutation methods.
+ type PerRepoConfigWriter interface {
++	SetAutoMerge(AutoMergeConfig)
+ 	PerRepoConfigReader
+ 	ConfigWriter
+ 	SetRoles([]string)
+diff --git a/internal/config/managed.go b/internal/config/managed.go
+index 8e323f91..41cd888a 100644
+--- a/internal/config/managed.go
++++ b/internal/config/managed.go
+@@ -358,12 +358,13 @@ func clonePerRepo(src *perRepoConfig) *perRepoConfig {
+ 		return nil
+ 	}
+ 	out := &perRepoConfig{
+-		Version: src.Version,
+-		Forge:   src.Forge,
+-		Tracker: src.Tracker,
+-		Runtime: src.Runtime,
+-		MintURL: src.MintURL,
+-		parent:  &perRepoDefaults{},
++		AutoMerge: cloneAutoMerge(src.AutoMerge),
++		Version:   src.Version,
++		Forge:     src.Forge,
++		Tracker:   src.Tracker,
++		Runtime:   src.Runtime,
++		MintURL:   src.MintURL,
++		parent:    &perRepoDefaults{},
+ 	}
+ 	if src.KillSwitch != nil {
+ 		v := *src.KillSwitch
+@@ -420,6 +421,9 @@ func clonePerRepo(src *perRepoConfig) *perRepoConfig {
+ }
+ 
+ func applyManagedLayer(out, child *perRepoConfig) {
++	if child.AutoMerge != nil {
++		out.AutoMerge = mergeAutoMerge(out.AutoMerge, child.AutoMerge)
++	}
+ 	if child.Version != "" {
+ 		out.Version = child.Version
+ 	}
+diff --git a/internal/config/managed_safety.go b/internal/config/managed_safety.go
+index fe7e6656..f36bce21 100644
+--- a/internal/config/managed_safety.go
++++ b/internal/config/managed_safety.go
+@@ -112,6 +112,8 @@ func CheckManagedSafetyGate(current PerRepoConfigReader, candidate PerRepoConfig
+ 		}
+ 	}
+ 
++	out = append(out, autoMergeRelaxations(current.ConfigAutoMerge(), candidate.ConfigAutoMerge(), local)...)
++
+ 	currentRoles := current.ConfigRoles()
+ 	candidateRoles := candidate.ConfigRoles()
+ 	if setWidened(currentRoles, candidateRoles) {
+diff --git a/internal/repos/auto_merge_config_test.go b/internal/repos/auto_merge_config_test.go
+new file mode 100644
+index 00000000..2a2c0dad
+--- /dev/null
++++ b/internal/repos/auto_merge_config_test.go
+@@ -0,0 +1,38 @@
++package repos
++
++import (
++	"github.com/stretchr/testify/require"
++	"gopkg.in/yaml.v3"
++	"testing"
++)
++
++func TestManifestAutoMergeInheritance(t *testing.T) {
++	var m Manifest
++	require.NoError(t, yaml.Unmarshal([]byte(`version: 1
++defaults:
++  config:
++    auto_merge:
++      mode: shadow
++      policy: fullsend-default
++      controls: [OSPS-QA-03.01]
++github:
++  repos:
++    - name: example/api
++      config:
++        auto_merge:
++          mode: off
++    - name: example/docs
++`), &m))
++	first, ok := m.ResolveConfig("example", "api")
++	require.True(t, ok)
++	a := first.Managed.ConfigAutoMerge()
++	require.Equal(t, "off", a.Mode)
++	require.Equal(t, "fullsend-default", a.Policy)
++	require.Equal(t, []string{"OSPS-QA-03.01"}, *a.Controls)
++	other, ok := m.ResolveConfig("example", "docs")
++	require.True(t, ok)
++	require.Equal(t, "shadow", other.Managed.ConfigAutoMerge().Mode)
++	raw, err := m.Marshal()
++	require.NoError(t, err)
++	require.Contains(t, string(raw), "auto_merge:")
++}

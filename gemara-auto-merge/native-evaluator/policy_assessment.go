@@ -22,6 +22,7 @@ type binding struct {
 
 // Method names are executable capabilities, not commands or interpreted policy prose.
 var methods = map[string]string{
+	"OSPS-QA-03":    "all-checks-passed",
 	"LP-AUTH":       "lab-owner-grant",
 	"LP-SCOPE":      "lab-exact-tree",
 	"LP-SOURCE":     "lab-trusted-source",
@@ -73,7 +74,7 @@ func reference(p gemara.Policy, id, version string) bool {
 	return count == 1
 }
 func resolve(r Request) ([]binding, error) {
-	if r.Purpose != "readiness" && r.Purpose != "candidate" {
+	if r.Purpose != "readiness" && r.Purpose != "candidate" && r.Purpose != "maturity-2" {
 		return nil, invalid("invalid_purpose")
 	}
 	if len(r.Policies) < 1 || len(r.Policies) > 8 || len(r.Catalogs) < 1 || len(r.Catalogs) > 8 {
@@ -101,7 +102,7 @@ func resolve(r Request) ([]binding, error) {
 				if a.State.String() != "Active" && a.State.String() != "Invalid" {
 					return nil, invalid("unsupported_lifecycle")
 				}
-				if _, exists := requirements[a.Id]; exists || a.Id != c.Id+"-1" {
+				if _, exists := requirements[a.Id]; exists || (a.Id != c.Id+"-1" && !(c.Id == "OSPS-QA-03" && a.Id == "OSPS-QA-03.01")) {
 					return nil, invalid("ambiguous_requirement")
 				}
 				requirements[a.Id] = binding{Catalog: id, Control: c, Requirement: a}

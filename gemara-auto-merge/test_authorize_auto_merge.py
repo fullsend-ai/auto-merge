@@ -72,10 +72,13 @@ class PilotTests(unittest.TestCase):
         )
         patcher.start()
         self.addCleanup(patcher.stop)
+        configured = mock.patch.object(p.configured_policy, "evaluate", return_value={"decision":"eligible", "configuration_sha256":"a"*64,"configuration":{"mode":"enforce"},"assessments":[]})
+        configured.start(); self.addCleanup(configured.stop)
 
     def test_trusted_sources_bind_renamed_workflows_and_all_policy_inputs(self):
         source, group = "a" * 40, "b" * 40
         paths = ["gemara-auto-merge/" + name for name in p.source_digests()]
+        paths += [n for n in p.configured_policy.CONFIGURATION_PATHS if (p.ROOT.parent / n).is_file()]
         paths += [
             ".github/workflows/gemara-auto-merge.yml",
             ".github/workflows/gemara-merge-queue.yml",
@@ -91,7 +94,7 @@ class PilotTests(unittest.TestCase):
             oid = hashlib.sha1(
                 b"blob " + str(len(raw)).encode() + b"\0" + raw
             ).hexdigest()
-            remote[name] = ("blob", "100644", oid)
+            remote[name] = ("blob", "100755" if name == ".fullsend/bin/fullsend" else "100644", oid)
         for phase, event, workflow, head in (
             ("enroll", "workflow_run", "gemara-auto-merge.yml", source),
             ("queue", "merge_group", "gemara-merge-queue.yml", group),
@@ -755,6 +758,7 @@ class PilotTests(unittest.TestCase):
 
     def test_read_only_policy_hold_is_success_but_execution_and_errors_fail(self):
         result = {
+            "configured_policy":{"configuration":{"mode":"enforce"},"assessments":[]},
             "decision": "hold",
             "base_sha": "b" * 40,
             "mode": "automatic",

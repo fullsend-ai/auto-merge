@@ -1,0 +1,16 @@
+{
+  "schema_version": "local-fullsend-build/v1",
+  "upstream_commit": "1c0e9b1bef834f5d936119dad8d83b9aa044a598",
+  "source_patch": "gemara-auto-merge/local-fullsend.patch",
+  "patch_sha256": "993f57927f931655d7bea561a6b707daf42092b253671c013dad9db0f7943f3e",
+  "binary_sha256": "981d51157b226dae6b649cc5b88bd1b787f2beb8c7e664f556cbecceb51a0f9a",
+  "go_version": "go1.26.6",
+  "goos": "linux",
+  "goarch": "amd64",
+  "cgo_enabled": "0",
+  "build_flags": [
+    "-trimpath",
+    "-buildvcs=false",
+    "-ldflags=-s -w -X github.com/fullsend-ai/fullsend/internal/buildinfo.version=dev-gemara-config"
+  ]
+}

@@ -28,3 +28,10 @@ create_issues:
 inference:
     project: it-gcp-konflux-dev-fullsend
     wif_provider: projects/855403973659/locations/global/workloadIdentityPools/fullsend-ai-auto-merge/providers/gh-fullsend-ai-auto-merge
+
+# Experimental local Fullsend build; owner grants and protected queue still apply.
+auto_merge:
+    mode: shadow
+    policy: fullsend-default
+    controls:
+        - OSPS-QA-03.01
