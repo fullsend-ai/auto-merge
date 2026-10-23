@@ -264,6 +264,7 @@ class SharedReceiptTests(unittest.TestCase):
 
     def test_writer_rechecks_shared_hold_before_any_mutation(self):
         config = pilot.configuration()
+        config["automatic_pull_requests"]=[53]
         config["automatic_expires_at"]=(datetime.now(timezone.utc)+timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
         grant=mock.patch.object(pilot,"configuration",return_value=config);grant.start();self.addCleanup(grant.stop)
         selected={"decision":"eligible","configuration_sha256":"a"*64}
@@ -302,6 +303,7 @@ class SharedReceiptTests(unittest.TestCase):
 
         head, base = self.head, self.base
         config = pilot.configuration()
+        config["automatic_pull_requests"]=[53]
         config["automatic_expires_at"] = (
             datetime.now(timezone.utc) + timedelta(days=1)
         ).strftime("%Y-%m-%dT%H:%M:%SZ")

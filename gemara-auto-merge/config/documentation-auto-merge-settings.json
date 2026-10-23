@@ -7,5 +7,8 @@
     "docs/example-feature.md"
   ],
   "maintenance_maximum_age_seconds": 3600,
-  "automatic_expires_at": "2026-10-22T18:00:00Z"
+  "automatic_expires_at": "2026-10-23T14:11:27Z",
+  "automatic_pull_requests": [
+    58
+  ]
 }

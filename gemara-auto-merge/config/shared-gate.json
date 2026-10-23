@@ -46,7 +46,7 @@
     "maximum_risk": 1,
     "maximum_evidence_age_seconds": 900,
     "owner_grant_enabled": true,
-    "owner_grant_expires_at": "2026-10-22T18:00:00Z"
+    "owner_grant_expires_at": "2026-10-23T14:11:27Z"
   },
   "judge_policy": {
     "schema_version": "judge-policy/v1",

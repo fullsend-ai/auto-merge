@@ -910,3 +910,27 @@ class PilotTests(unittest.TestCase):
             "refs/heads/gh-readonly-queue/main/pr-30-" + "a" * 40 + "/extra",
         ]:
             self.assertIsNone(p.GROUP_REF.fullmatch(text))
+
+
+class BoundedTrialScopeTests(unittest.TestCase):
+    def test_scope_limits_to_one_named_pr(self):
+        self.assertTrue(p.automatic_candidate_allowed({"automatic_pull_requests":[58]},58))
+        self.assertFalse(p.automatic_candidate_allowed({"automatic_pull_requests":[58]},54))
+        self.assertFalse(p.automatic_candidate_allowed({"automatic_pull_requests":[]},58))
+        self.assertTrue(p.automatic_candidate_allowed({},58))
+
+    def test_invalid_scope_rejected(self):
+        original=p.configuration()
+        for ids in [[1,2],[True],["58"],[-1],None]:
+            with mock.patch.object(p,"load",return_value=dict(original,automatic_pull_requests=ids)):
+                with self.assertRaises(InputError):p.configuration()
+
+    def test_another_pr_cannot_reach_writer_even_with_passed_configured_policy(self):
+        cfg=dict(p.configuration(),automatic_enabled=True,automatic_pull_requests=[58])
+        configured={"decision":"eligible","configuration_sha256":"c"*64}
+        result={"configuration_sha256":digest(cfg),"mode":"automatic","reviewed_head":"a"*40,"base_sha":"b"*40,"pull_request":54,"configured_policy":configured}
+        client=mock.Mock()
+        with mock.patch.object(p,"configuration",return_value=cfg),mock.patch.object(p.configured_policy,"evaluate",return_value=configured):
+            with self.assertRaisesRegex(InputError,"pilot_candidate_outside_grant"):
+                p.pre_enqueue(result,client)
+        client.get.assert_not_called()

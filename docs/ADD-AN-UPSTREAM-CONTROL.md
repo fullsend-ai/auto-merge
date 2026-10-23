@@ -77,3 +77,11 @@ or protection bypass is part of the policy implementation.
 Those PRs were observed read-only using the prepared local implementation. They
 are not a claim that this setup is deployed or that either PR was newly merged.
 The old automatic owner grant expires on 2026-10-22 at 18:00 UTC and is retained.
+
+## Bounded live trial
+
+The lab can additionally bind its temporary automatic grant to a single PR
+through `automatic_pull_requests: [NUMBER]` in the pilot settings. An explicit
+empty list authorizes none; a singleton authorizes only that PR. This lab guard
+is separate from selecting an upstream control and does not add merge authority
+to Gemara. The writer rechecks it before requesting queue enrollment.

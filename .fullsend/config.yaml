@@ -31,7 +31,7 @@ inference:
 
 # Experimental local Fullsend build; owner grants and protected queue still apply.
 auto_merge:
-    mode: shadow
+    mode: enforce
     policy: fullsend-default
     controls:
         - OSPS-QA-03.01

@@ -41,7 +41,7 @@ GROUP_REF = re.compile(
 def configuration():
     data = load(ROOT / "config/documentation-auto-merge-settings.json")
     require(
-        set(data)
+        set(data) - {"automatic_pull_requests"}
         == {
             "schema_version",
             "repository",
@@ -64,6 +64,14 @@ def configuration():
         isinstance(data["automatic_expires_at"], str), "invalid_pilot_configuration"
     )
     utc(data["automatic_expires_at"])
+    if "automatic_pull_requests" in data:
+        ids = data["automatic_pull_requests"]
+        require(
+            isinstance(ids, list)
+            and len(ids) <= 1
+            and all(type(n) is int and 0 < n < 1000000 for n in ids),
+            "invalid_pilot_candidate_scope",
+        )
     # Finite lab cohort: no globs, executable paths, or caller-selected policies.
     require(
         data["allowed_document_paths"] == [DOCUMENT]
@@ -72,6 +80,11 @@ def configuration():
         "invalid_pilot_configuration",
     )
     return data
+
+
+def automatic_candidate_allowed(config, number):
+    """An explicit trial scope cannot authorize another open PR."""
+    return "automatic_pull_requests" not in config or number in config["automatic_pull_requests"]
 
 
 def bundle(maintenance=False):
@@ -588,6 +601,7 @@ def evaluate(number, expected_head, phase, client=None):
         config["automatic_enabled"]
         and datetime.now(timezone.utc) < utc(config["automatic_expires_at"])
         and current_pr(pr, expected_head)
+        and automatic_candidate_allowed(config, number)
     )
     report = None if maintenance else g.observe(number, client)
     current_head = pr["head"]["sha"]
@@ -791,9 +805,11 @@ def pre_enqueue(result, client):
     )
     require(result["mode"] in {"automatic", "maintenance"}, "unsupported_pilot_mode")
     if result["mode"] == "automatic":
+        require(automatic_candidate_allowed(config, result["pull_request"]), "pilot_candidate_outside_grant")
         require(
             config["automatic_enabled"]
-            and datetime.now(timezone.utc) < utc(config["automatic_expires_at"]),
+            and datetime.now(timezone.utc) < utc(config["automatic_expires_at"])
+            and automatic_candidate_allowed(config, result["pull_request"]),
             "pilot_authorization_expired_or_disabled",
         )
     pr = client.get(BASE + f"pulls/{result['pull_request']}")
